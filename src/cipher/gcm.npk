@@ -1,0 +1,368 @@
+use "stdlib/core.npk".*;
+use "src/cipher/aes.npk".*;
+
+func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    pass (w >> sh) & 255i64;
+};
+
+func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << sh);
+    w = (w & mask) | ((byte_val & 255i64) << sh);
+    buf64[wi] = w;
+    pass 0i32;
+};
+use "src/cipher/aes.npk".*;
+
+func:read_be64 = int64(int64->:buf, int64:offset) {
+    int64:v = raw buf_get_u8(buf, offset + 0i64) << 56i64;
+    v |= raw buf_get_u8(buf, offset + 1i64) << 48i64;
+    v |= raw buf_get_u8(buf, offset + 2i64) << 40i64;
+    v |= raw buf_get_u8(buf, offset + 3i64) << 32i64;
+    v |= raw buf_get_u8(buf, offset + 4i64) << 24i64;
+    v |= raw buf_get_u8(buf, offset + 5i64) << 16i64;
+    v |= raw buf_get_u8(buf, offset + 6i64) << 8i64;
+    v |= raw buf_get_u8(buf, offset + 7i64);
+    pass v;
+};
+
+func:write_be64 = int32(int64->:buf, int64:offset, int64:val) {
+    drop raw buf_put_u8(buf, offset + 0i64, (val >> 56i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 1i64, (val >> 48i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 2i64, (val >> 40i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 3i64, (val >> 32i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 4i64, (val >> 24i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 5i64, (val >> 16i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 6i64, (val >> 8i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 7i64, val & 255i64);
+    pass 0i32;
+};
+
+func:gf128_mul = int32(int64:x_ptr, int64:y_ptr, int64:z_ptr) {
+    int64->:X = cast_unchecked<int64->>(x_ptr);
+    int64->:Y = cast_unchecked<int64->>(y_ptr);
+    int64->:Z = cast_unchecked<int64->>(z_ptr);
+    
+    int64:x0 = raw read_be64(X, 0i64);
+    int64:x1 = raw read_be64(X, 8i64);
+    int64:y0 = raw read_be64(Y, 0i64);
+    int64:y1 = raw read_be64(Y, 8i64);
+    
+    int64:z0 = 0i64;
+    int64:z1 = 0i64;
+    int64:v0 = x0;
+    int64:v1 = x1;
+    
+    int64:i = 0i64;
+    int64:bit = 0i64;
+    int64:mask = 0i64;
+    int64:v_lsb = 0i64;
+    
+    // Constant time multiplication
+    while (i < 128i64) {
+        if (i < 64i64) {
+            bit = (y0 >> (63i64 - i)) & 1i64;
+        } else {
+            bit = (y1 >> (63i64 - (i - 64i64))) & 1i64;
+        }
+        
+        // mask is all 1s if bit is 1, else all 0s
+        mask = 0i64 - bit;
+        z0 ^= v0 & mask;
+        z1 ^= v1 & mask;
+        
+        v_lsb = v1 & 1i64;
+        // Shift V right by 1
+        // Emulate arithmetic shifts / logical shifts safely
+        // But since we just want a logical shift right by 1:
+        v1 = (v1 >> 1i64) & 0x7FFFFFFFFFFFFFFFi64;
+        v1 |= (v0 & 1i64) << 63i64;
+        v0 = (v0 >> 1i64) & 0x7FFFFFFFFFFFFFFFi64;
+        
+        // mask2 is all 1s if v_lsb is 1, else all 0s
+        mask = 0i64 - v_lsb;
+        v0 ^= (0xE100000000000000i64 & mask);
+        
+        i += 1i64;
+    }
+    
+    drop raw write_be64(Z, 0i64, z0);
+    drop raw write_be64(Z, 8i64, z1);
+    
+    pass 0i32;
+};
+
+func:ghash_update = int32(int64:state_ptr, int64:h_ptr, int64:data_ptr, int64:data_len) {
+    int64->:S = cast_unchecked<int64->>(state_ptr);
+    int64->:D = cast_unchecked<int64->>(data_ptr);
+    
+    int64:i = 0i64;
+    int64:j = 0i64;
+    while (i < data_len) {
+        j = 0i64;
+        while (j < 16i64) {
+            if ((i + j) < data_len) {
+                drop raw buf_put_u8(S, j, raw buf_get_u8(S, j) ^ raw buf_get_u8(D, i + j));
+            }
+            j += 1i64;
+        }
+        drop raw gf128_mul(state_ptr, h_ptr, state_ptr);
+        i += 16i64;
+    }
+    pass 0i32;
+};
+
+func:inc32 = int32(int64:cb_ptr) {
+    int64->:cb = cast_unchecked<int64->>(cb_ptr);
+    int64:v = (raw buf_get_u8(cb, 12i64) << 24i64) |
+              (raw buf_get_u8(cb, 13i64) << 16i64) |
+              (raw buf_get_u8(cb, 14i64) << 8i64) |
+              raw buf_get_u8(cb, 15i64);
+    v = (v + 1i64) & 0xFFFFFFFFi64;
+    drop raw buf_put_u8(cb, 12i64, (v >> 24i64) & 255i64);
+    drop raw buf_put_u8(cb, 13i64, (v >> 16i64) & 255i64);
+    drop raw buf_put_u8(cb, 14i64, (v >> 8i64) & 255i64);
+    drop raw buf_put_u8(cb, 15i64, v & 255i64);
+    pass 0i32;
+};
+
+pub func:gcm_encrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:iv_len,
+                             int64:pt_ptr, int64:pt_len, int64:aad_ptr, int64:aad_len,
+                             int64:ct_ptr, int64:tag_ptr) {
+                             
+    int64:exp_key = cast_unchecked<int64>(alloc(240i64));
+    drop raw aes_key_expand(key_ptr, key_len, exp_key);
+    
+    int64:h_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64:zero_block = cast_unchecked<int64>(alloc(16i64));
+    int64:i = 0i64;
+    int64->:Z = cast_unchecked<int64->>(zero_block);
+    while (i < 16i64) { drop raw buf_put_u8(Z, i, 0i64); i += 1i64; }
+    
+    drop raw aes_encrypt_block(exp_key, key_len, zero_block, h_ptr);
+    
+    int64:j0_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64->:J0 = cast_unchecked<int64->>(j0_ptr);
+    int64->:IV = cast_unchecked<int64->>(iv_ptr);
+    
+    if (iv_len == 12i64) {
+        i = 0i64;
+        while (i < 12i64) { drop raw buf_put_u8(J0, i, raw buf_get_u8(IV, i)); i += 1i64; }
+        drop raw buf_put_u8(J0, 12i64, 0i64);
+        drop raw buf_put_u8(J0, 13i64, 0i64);
+        drop raw buf_put_u8(J0, 14i64, 0i64);
+        drop raw buf_put_u8(J0, 15i64, 1i64);
+    } else {
+        i = 0i64;
+        while (i < 16i64) { drop raw buf_put_u8(J0, i, 0i64); i += 1i64; }
+        drop raw ghash_update(j0_ptr, h_ptr, iv_ptr, iv_len);
+        
+        int64:len_blk = cast_unchecked<int64>(alloc(16i64));
+        int64->:L = cast_unchecked<int64->>(len_blk);
+        i = 0i64;
+        while (i < 16i64) { drop raw buf_put_u8(L, i, 0i64); i += 1i64; }
+        drop raw write_be64(L, 8i64, iv_len * 8i64);
+        drop raw ghash_update(j0_ptr, h_ptr, len_blk, 16i64);
+        free(cast_unchecked<int8->>(len_blk));
+    }
+    
+    int64:cb_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64->:CB = cast_unchecked<int64->>(cb_ptr);
+    i = 0i64;
+    while (i < 16i64) { drop raw buf_put_u8(CB, i, raw buf_get_u8(J0, i)); i += 1i64; }
+    drop raw inc32(cb_ptr);
+    
+    int64:enc_cb = cast_unchecked<int64>(alloc(16i64));
+    int64->:ECB = cast_unchecked<int64->>(enc_cb);
+    int64->:PT = cast_unchecked<int64->>(pt_ptr);
+    int64->:CT = cast_unchecked<int64->>(ct_ptr);
+    
+    i = 0i64;
+    int64:j = 0i64;
+    while (i < pt_len) {
+        drop raw aes_encrypt_block(exp_key, key_len, cb_ptr, enc_cb);
+        j = 0i64;
+        while (j < 16i64) {
+            if ((i + j) < pt_len) {
+                drop raw buf_put_u8(CT, i + j, raw buf_get_u8(PT, i + j) ^ raw buf_get_u8(ECB, j));
+            }
+            j += 1i64;
+        }
+        drop raw inc32(cb_ptr);
+        i += 16i64;
+    }
+    
+    int64:x_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64->:X_state = cast_unchecked<int64->>(x_ptr);
+    i = 0i64;
+    while (i < 16i64) { drop raw buf_put_u8(X_state, i, 0i64); i += 1i64; }
+    
+    if (aad_len > 0i64) {
+        drop raw ghash_update(x_ptr, h_ptr, aad_ptr, aad_len);
+    }
+    if (pt_len > 0i64) {
+        drop raw ghash_update(x_ptr, h_ptr, ct_ptr, pt_len);
+    }
+    
+    int64:len_blk2 = cast_unchecked<int64>(alloc(16i64));
+    int64->:L2 = cast_unchecked<int64->>(len_blk2);
+    drop raw write_be64(L2, 0i64, aad_len * 8i64);
+    drop raw write_be64(L2, 8i64, pt_len * 8i64);
+    
+    drop raw ghash_update(x_ptr, h_ptr, len_blk2, 16i64);
+    
+    int64:enc_j0 = cast_unchecked<int64>(alloc(16i64));
+    drop raw aes_encrypt_block(exp_key, key_len, j0_ptr, enc_j0);
+    
+    int64->:EJ0 = cast_unchecked<int64->>(enc_j0);
+    int64->:TAG = cast_unchecked<int64->>(tag_ptr);
+    i = 0i64;
+    while (i < 16i64) {
+        drop raw buf_put_u8(TAG, i, raw buf_get_u8(X_state, i) ^ raw buf_get_u8(EJ0, i));
+        i += 1i64;
+    }
+    
+    free(cast_unchecked<int8->>(exp_key));
+    free(cast_unchecked<int8->>(h_ptr));
+    free(cast_unchecked<int8->>(zero_block));
+    free(cast_unchecked<int8->>(j0_ptr));
+    free(cast_unchecked<int8->>(cb_ptr));
+    free(cast_unchecked<int8->>(enc_cb));
+    free(cast_unchecked<int8->>(x_ptr));
+    free(cast_unchecked<int8->>(len_blk2));
+    free(cast_unchecked<int8->>(enc_j0));
+    
+    pass 0i32;
+};
+
+pub func:gcm_decrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:iv_len,
+                             int64:ct_ptr, int64:ct_len, int64:aad_ptr, int64:aad_len,
+                             int64:tag_ptr, int64:pt_ptr) {
+                             
+    int64:exp_key = cast_unchecked<int64>(alloc(240i64));
+    drop raw aes_key_expand(key_ptr, key_len, exp_key);
+    
+    int64:h_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64:zero_block = cast_unchecked<int64>(alloc(16i64));
+    int64:i = 0i64;
+    int64->:Z = cast_unchecked<int64->>(zero_block);
+    while (i < 16i64) { drop raw buf_put_u8(Z, i, 0i64); i += 1i64; }
+    
+    drop raw aes_encrypt_block(exp_key, key_len, zero_block, h_ptr);
+    
+    int64:j0_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64->:J0 = cast_unchecked<int64->>(j0_ptr);
+    int64->:IV = cast_unchecked<int64->>(iv_ptr);
+    
+    if (iv_len == 12i64) {
+        i = 0i64;
+        while (i < 12i64) { drop raw buf_put_u8(J0, i, raw buf_get_u8(IV, i)); i += 1i64; }
+        drop raw buf_put_u8(J0, 12i64, 0i64);
+        drop raw buf_put_u8(J0, 13i64, 0i64);
+        drop raw buf_put_u8(J0, 14i64, 0i64);
+        drop raw buf_put_u8(J0, 15i64, 1i64);
+    } else {
+        i = 0i64;
+        while (i < 16i64) { drop raw buf_put_u8(J0, i, 0i64); i += 1i64; }
+        drop raw ghash_update(j0_ptr, h_ptr, iv_ptr, iv_len);
+        
+        int64:len_blk = cast_unchecked<int64>(alloc(16i64));
+        int64->:L = cast_unchecked<int64->>(len_blk);
+        i = 0i64;
+        while (i < 16i64) { drop raw buf_put_u8(L, i, 0i64); i += 1i64; }
+        drop raw write_be64(L, 8i64, iv_len * 8i64);
+        drop raw ghash_update(j0_ptr, h_ptr, len_blk, 16i64);
+        free(cast_unchecked<int8->>(len_blk));
+    }
+    
+    int64:x_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64->:X_state = cast_unchecked<int64->>(x_ptr);
+    i = 0i64;
+    while (i < 16i64) { drop raw buf_put_u8(X_state, i, 0i64); i += 1i64; }
+    
+    if (aad_len > 0i64) {
+        drop raw ghash_update(x_ptr, h_ptr, aad_ptr, aad_len);
+    }
+    if (ct_len > 0i64) {
+        drop raw ghash_update(x_ptr, h_ptr, ct_ptr, ct_len);
+    }
+    
+    int64:len_blk2 = cast_unchecked<int64>(alloc(16i64));
+    int64->:L2 = cast_unchecked<int64->>(len_blk2);
+    drop raw write_be64(L2, 0i64, aad_len * 8i64);
+    drop raw write_be64(L2, 8i64, ct_len * 8i64);
+    
+    drop raw ghash_update(x_ptr, h_ptr, len_blk2, 16i64);
+    
+    int64:enc_j0 = cast_unchecked<int64>(alloc(16i64));
+    drop raw aes_encrypt_block(exp_key, key_len, j0_ptr, enc_j0);
+    int64->:EJ0 = cast_unchecked<int64->>(enc_j0);
+    
+    int64:expected_tag = cast_unchecked<int64>(alloc(16i64));
+    int64->:ETAG = cast_unchecked<int64->>(expected_tag);
+    i = 0i64;
+    while (i < 16i64) {
+        drop raw buf_put_u8(ETAG, i, raw buf_get_u8(X_state, i) ^ raw buf_get_u8(EJ0, i));
+        i += 1i64;
+    }
+    
+    // Constant time tag compare
+    int64->:TAG = cast_unchecked<int64->>(tag_ptr);
+    int64:diff = 0i64;
+    i = 0i64;
+    while (i < 16i64) {
+        diff |= (raw buf_get_u8(ETAG, i) ^ raw buf_get_u8(TAG, i));
+        i += 1i64;
+    }
+    
+    int32:res = 0i32;
+    if (diff != 0i64) {
+        res = -1i32;
+    } else {
+        // Only decrypt if tag is valid
+        int64:cb_ptr = cast_unchecked<int64>(alloc(16i64));
+        int64->:CB = cast_unchecked<int64->>(cb_ptr);
+        i = 0i64;
+        while (i < 16i64) { drop raw buf_put_u8(CB, i, raw buf_get_u8(J0, i)); i += 1i64; }
+        drop raw inc32(cb_ptr);
+        
+        int64:enc_cb = cast_unchecked<int64>(alloc(16i64));
+        int64->:ECB = cast_unchecked<int64->>(enc_cb);
+        int64->:PT = cast_unchecked<int64->>(pt_ptr);
+        int64->:CT = cast_unchecked<int64->>(ct_ptr);
+        
+        i = 0i64;
+        int64:j = 0i64;
+        while (i < ct_len) {
+            drop raw aes_encrypt_block(exp_key, key_len, cb_ptr, enc_cb);
+            j = 0i64;
+            while (j < 16i64) {
+                if ((i + j) < ct_len) {
+                    drop raw buf_put_u8(PT, i + j, raw buf_get_u8(CT, i + j) ^ raw buf_get_u8(ECB, j));
+                }
+                j += 1i64;
+            }
+            drop raw inc32(cb_ptr);
+            i += 16i64;
+        }
+        
+        free(cast_unchecked<int8->>(cb_ptr));
+        free(cast_unchecked<int8->>(enc_cb));
+    }
+    
+    free(cast_unchecked<int8->>(exp_key));
+    free(cast_unchecked<int8->>(h_ptr));
+    free(cast_unchecked<int8->>(zero_block));
+    free(cast_unchecked<int8->>(j0_ptr));
+    free(cast_unchecked<int8->>(x_ptr));
+    free(cast_unchecked<int8->>(len_blk2));
+    free(cast_unchecked<int8->>(enc_j0));
+    free(cast_unchecked<int8->>(expected_tag));
+    
+    pass res;
+};

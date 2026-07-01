@@ -354,6 +354,61 @@ pub func:sha512_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
     pass 0i32;
 };
 
+pub func:sha512_finalize_raw = int32(int64:ctx, int64:out_ptr) {
+    if (ctx == 0i64) { pass -1i32; }
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    int64->:out_buf = cast_unchecked<int64->>(out_ptr);
+
+    int64:fbuf = cast_unchecked<int64>(alloc(256i64));
+    int64->:fbuf_64 = cast_unchecked<int64->>(fbuf);
+    
+    int64:rem = ctx_64[10i64];
+    int64->:s_buf = cast_unchecked<int64->>(ctx + 88i64);
+    drop raw local_memcpy(fbuf_64, 0i64, ctx + 88i64, rem);
+    drop raw buf_set_u8(fbuf_64, rem, 128i64); // 0x80
+    rem += 1i64;
+
+    if (rem > 112i64) {
+        drop raw local_memset(fbuf_64, rem, 0i64, 128i64 - rem);
+        drop raw sha512_transform(ctx, fbuf_64, 0i64);
+        rem = 0i64;
+    }
+
+    drop raw local_memset(fbuf_64, rem, 0i64, 112i64 - rem);
+
+    uint64:chigh = raw buf_get_u64_be(ctx_64, 64i64);
+    uint64:clow = raw buf_get_u64_be(ctx_64, 72i64);
+    
+    drop raw buf_set_u64_be(fbuf_64, 112i64, chigh);
+    drop raw buf_set_u64_be(fbuf_64, 120i64, clow);
+
+    drop raw sha512_transform(ctx, fbuf_64, 0i64);
+
+    int64:is384 = ctx_64[27i64];
+    int64:words_to_output = 8i64;
+    if (is384 == 1i64) {
+        words_to_output = 6i64;
+    }
+
+    int64:n = 0i64;
+    while (n < words_to_output) {
+        uint64:val = raw buf_get_u64_be(ctx_64, n * 8i64);
+        int64:v = cast_unchecked<int64>(val);
+        drop raw buf_set_u8(out_buf, n * 8i64, (v >> 56i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 8i64 + 1i64, (v >> 48i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 8i64 + 2i64, (v >> 40i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 8i64 + 3i64, (v >> 32i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 8i64 + 4i64, (v >> 24i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 8i64 + 5i64, (v >> 16i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 8i64 + 6i64, (v >> 8i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 8i64 + 7i64, v & 255i64);
+        n += 1i64;
+    }
+
+    drop dalloc(cast_unchecked<int8->>(fbuf));
+    pass 0i32;
+};
+
 pub func:sha512_finalize = string(int64:ctx) {
     if (ctx == 0i64) { pass ""; }
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);

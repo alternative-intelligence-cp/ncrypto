@@ -1,4 +1,5 @@
 // src/kdf/mod.npk
 
-use "src/kdf/pbkdf2.npk".*;
-use "src/kdf/hkdf.npk".*;
+export "src/kdf/pbkdf2.npk".*;
+export "src/kdf/hkdf.npk".*;
+export "src/kdf/argon2.npk".*;
