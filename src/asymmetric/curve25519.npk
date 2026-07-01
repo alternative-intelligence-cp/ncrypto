@@ -1,0 +1,346 @@
+// src/asymmetric/curve25519.npk
+use "stdlib/core.npk".*;
+
+// Curve25519 field elements are represented as int64[16] (128 bytes)
+// Each element holds 16 bits of the number.
+
+func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    pass (w >> sh) & 255i64;
+};
+
+func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << sh);
+    w = (w & mask) | (byte_val << sh);
+    buf64[wi] = w;
+    pass 0i32;
+};
+
+pub func:gf_alloc = int64() {
+    pass cast_unchecked<int64>(alloc(128i64));
+};
+
+pub func:gf_free = int32(int64:p) {
+    if (p != 0i64) { free(cast_unchecked<int8->>(p)); }
+    pass 0i32;
+};
+
+pub func:gf_copy = int32(int64:o, int64:a) {
+    int64->:O = cast_unchecked<int64->>(o);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64:i = 0i64;
+    while (i < 16i64) {
+        O[i] = A[i];
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:gf_set0 = int32(int64:o) {
+    int64->:O = cast_unchecked<int64->>(o);
+    int64:i = 0i64;
+    while (i < 16i64) { O[i] = 0i64; i += 1i64; }
+    pass 0i32;
+};
+
+pub func:gf_set1 = int32(int64:o) {
+    int64->:O = cast_unchecked<int64->>(o);
+    O[0i64] = 1i64;
+    int64:i = 1i64;
+    while (i < 16i64) { O[i] = 0i64; i += 1i64; }
+    pass 0i32;
+};
+
+pub func:gf_add = int32(int64:o, int64:a, int64:b) {
+    int64->:O = cast_unchecked<int64->>(o);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
+    int64:i = 0i64;
+    while (i < 16i64) {
+        O[i] = A[i] + B[i];
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:gf_sub = int32(int64:o, int64:a, int64:b) {
+    int64->:O = cast_unchecked<int64->>(o);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
+    int64:i = 0i64;
+    while (i < 16i64) {
+        O[i] = A[i] - B[i];
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+func:car25519 = int32(int64:o) {
+    int64->:O = cast_unchecked<int64->>(o);
+    int64:i = 0i64;
+    int64:c = 0i64;
+    int64:next_idx = 0i64;
+    int64:add_val = 0i64;
+    while (i < 16i64) {
+        O[i] = O[i] + 65536i64;
+        c = O[i] >> 16i64;
+        if (O[i] < 0i64) {
+            c = c | (-1i64 << 48i64); // Emulate arithmetic shift right
+        }
+        
+        next_idx = 0i64;
+        if (i < 15i64) { next_idx = i + 1i64; }
+        
+        add_val = c - 1i64;
+        if (i == 15i64) {
+            add_val = add_val + 37i64 * (c - 1i64);
+        }
+        
+        O[next_idx] = O[next_idx] + add_val;
+        O[i] = O[i] - (c << 16i64);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:gf_mul = int32(int64:o, int64:a, int64:b) {
+    int64->:O = cast_unchecked<int64->>(o);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
+    
+    int64:t_ptr = cast_unchecked<int64>(alloc(248i64)); // 31 * 8
+    int64->:T = cast_unchecked<int64->>(t_ptr);
+    
+    int64:i = 0i64;
+    while (i < 31i64) { T[i] = 0i64; i += 1i64; }
+    
+    i = 0i64;
+    int64:j = 0i64;
+    while (i < 16i64) {
+        j = 0i64;
+        while (j < 16i64) {
+            T[i + j] = T[i + j] + A[i] * B[j];
+            j += 1i64;
+        }
+        i += 1i64;
+    }
+    
+    i = 0i64;
+    while (i < 15i64) {
+        T[i] = T[i] + 38i64 * T[i + 16i64];
+        i += 1i64;
+    }
+    
+    i = 0i64;
+    while (i < 16i64) {
+        O[i] = T[i];
+        i += 1i64;
+    }
+    
+    free(cast_unchecked<int8->>(t_ptr));
+    
+    drop raw car25519(o);
+    drop raw car25519(o);
+    pass 0i32;
+};
+
+pub func:gf_sqr = int32(int64:o, int64:a) {
+    pass raw gf_mul(o, a, a);
+};
+
+pub func:gf_inv = int32(int64:o, int64:a) {
+    int64:c = raw gf_alloc();
+    drop raw gf_copy(c, a);
+    
+    int64:i = 253i64;
+    while (i >= 0i64) {
+        drop raw gf_sqr(c, c);
+        if ((i != 2i64) && (i != 4i64)) {
+            drop raw gf_mul(c, c, a);
+        }
+        i -= 1i64;
+    }
+    
+    drop raw gf_copy(o, c);
+    drop raw gf_free(c);
+    pass 0i32;
+};
+
+pub func:gf_unpack = int32(int64:o, int64:n_ptr) {
+    int64->:O = cast_unchecked<int64->>(o);
+    int64->:N = cast_unchecked<int64->>(n_ptr);
+    int64:i = 0i64;
+    int64:b0 = 0i64;
+    int64:b1 = 0i64;
+    while (i < 16i64) {
+        b0 = raw buf_get_u8(N, 2i64 * i);
+        b1 = raw buf_get_u8(N, 2i64 * i + 1i64);
+        O[i] = b0 + (b1 << 8i64);
+        i += 1i64;
+    }
+    O[15i64] = O[15i64] & 0x7FFFi64;
+    pass 0i32;
+};
+
+pub func:sel25519 = int32(int64:p, int64:q, int64:b) {
+    int64->:P = cast_unchecked<int64->>(p);
+    int64->:Q = cast_unchecked<int64->>(q);
+    int64:c = ~(b - 1i64);
+    int64:i = 0i64;
+    int64:t = 0i64;
+    while (i < 16i64) {
+        t = c & (P[i] ^ Q[i]);
+        P[i] = P[i] ^ t;
+        Q[i] = Q[i] ^ t;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:gf_pack = int32(int64:o_ptr, int64:n) {
+    int64->:O = cast_unchecked<int64->>(o_ptr);
+    int64:t = raw gf_alloc();
+    int64:m = raw gf_alloc();
+    
+    drop raw gf_copy(t, n);
+    drop raw car25519(t);
+    drop raw car25519(t);
+    drop raw car25519(t);
+    
+    int64->:T = cast_unchecked<int64->>(t);
+    int64->:M = cast_unchecked<int64->>(m);
+    
+    int64:j = 0i64;
+    int64:i = 0i64;
+    int64:b = 0i64;
+    while (j < 2i64) {
+        M[0i64] = T[0i64] - 0xFFEDi64;
+        i = 1i64;
+        while (i < 15i64) {
+            M[i] = T[i] - 0xFFFFi64 - ((M[i - 1i64] >> 16i64) & 1i64);
+            M[i - 1i64] = M[i - 1i64] & 0xFFFFi64;
+            i += 1i64;
+        }
+        M[15i64] = T[15i64] - 0x7FFFi64 - ((M[14i64] >> 16i64) & 1i64);
+        b = (M[15i64] >> 16i64) & 1i64;
+        M[14i64] = M[14i64] & 0xFFFFi64;
+        drop raw sel25519(t, m, 1i64 - b);
+        j += 1i64;
+    }
+    
+    i = 0i64;
+    while (i < 16i64) {
+        drop raw buf_put_u8(O, 2i64 * i, T[i] & 0xFFi64);
+        drop raw buf_put_u8(O, 2i64 * i + 1i64, T[i] >> 8i64);
+        i += 1i64;
+    }
+    
+    drop raw gf_free(t);
+    drop raw gf_free(m);
+    pass 0i32;
+};
+
+pub func:x25519_scalarmult = int32(int64:q_ptr, int64:n_ptr, int64:p_ptr) {
+    int64:z_ptr = cast_unchecked<int64>(alloc(32i64));
+    int64->:Z_buf = cast_unchecked<int64->>(z_ptr);
+    int64->:N_buf = cast_unchecked<int64->>(n_ptr);
+    
+    int64:i = 0i64;
+    while (i < 31i64) {
+        drop raw buf_put_u8(Z_buf, i, raw buf_get_u8(N_buf, i));
+        i += 1i64;
+    }
+    int64:b31 = raw buf_get_u8(N_buf, 31i64);
+    drop raw buf_put_u8(Z_buf, 31i64, (b31 & 127i64) | 64i64);
+    int64:b0 = raw buf_get_u8(Z_buf, 0i64);
+    drop raw buf_put_u8(Z_buf, 0i64, b0 & 248i64);
+    
+    int64:x_arr = cast_unchecked<int64>(alloc(640i64)); // 80 * 8
+    int64->:X = cast_unchecked<int64->>(x_arr);
+    
+    int64:a = raw gf_alloc();
+    int64:b = raw gf_alloc();
+    int64:c = raw gf_alloc();
+    int64:d = raw gf_alloc();
+    int64:e = raw gf_alloc();
+    int64:f = raw gf_alloc();
+    int64:x = raw gf_alloc();
+    
+    drop raw gf_unpack(x, p_ptr);
+    i = 0i64;
+    int64->:B_gf = cast_unchecked<int64->>(b);
+    int64->:X_gf = cast_unchecked<int64->>(x);
+    while (i < 16i64) {
+        B_gf[i] = X_gf[i];
+        i += 1i64;
+    }
+    
+    drop raw gf_set1(a);
+    drop raw gf_set0(c);
+    drop raw gf_set1(d);
+    
+    int64:_121665 = raw gf_alloc();
+    drop raw gf_set0(_121665);
+    int64->:c121665 = cast_unchecked<int64->>(_121665);
+    c121665[0i64] = 0xDB41i64;
+    c121665[1i64] = 1i64;
+    
+    i = 254i64;
+    int64:r = 0i64;
+    while (i >= 0i64) {
+        r = (raw buf_get_u8(Z_buf, i >> 3i64) >> (i & 7i64)) & 1i64;
+        drop raw sel25519(a, b, r);
+        drop raw sel25519(c, d, r);
+        drop raw gf_add(e, a, c);
+        drop raw gf_sub(a, a, c);
+        drop raw gf_add(c, b, d);
+        drop raw gf_sub(b, b, d);
+        drop raw gf_sqr(d, e);
+        drop raw gf_sqr(f, a);
+        drop raw gf_mul(a, c, a);
+        drop raw gf_mul(c, b, e);
+        drop raw gf_add(e, a, c);
+        drop raw gf_sub(a, a, c);
+        drop raw gf_sqr(b, a);
+        drop raw gf_sub(c, d, f);
+        drop raw gf_mul(a, c, _121665);
+        drop raw gf_add(a, a, d);
+        drop raw gf_mul(c, c, a);
+        drop raw gf_mul(a, d, f);
+        drop raw gf_mul(d, b, x);
+        drop raw gf_sqr(b, e);
+        drop raw sel25519(a, b, r);
+        drop raw sel25519(c, d, r);
+        i -= 1i64;
+    }
+    
+    drop raw gf_inv(c, c);
+    drop raw gf_mul(a, a, c);
+    drop raw gf_pack(q_ptr, a);
+    
+    drop raw gf_free(a); drop raw gf_free(b); drop raw gf_free(c);
+    drop raw gf_free(d); drop raw gf_free(e); drop raw gf_free(f);
+    drop raw gf_free(x); drop raw gf_free(_121665);
+    free(cast_unchecked<int8->>(z_ptr));
+    free(cast_unchecked<int8->>(x_arr));
+    
+    pass 0i32;
+};
+
+pub func:x25519_scalarmult_base = int32(int64:q_ptr, int64:n_ptr) {
+    int64:p_ptr = cast_unchecked<int64>(alloc(32i64));
+    int64->:P_buf = cast_unchecked<int64->>(p_ptr);
+    drop raw buf_put_u8(P_buf, 0i64, 9i64);
+    int64:i = 1i64;
+    while (i < 32i64) { drop raw buf_put_u8(P_buf, i, 0i64); i += 1i64; }
+    
+    drop raw x25519_scalarmult(q_ptr, n_ptr, p_ptr);
+    
+    free(cast_unchecked<int8->>(p_ptr));
+    pass 0i32;
+};

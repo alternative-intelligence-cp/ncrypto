@@ -9,6 +9,13 @@ This repository provides pure Nitpick implementations for standard cryptographic
 - **MD5**
 - **SHA-1**
 - **SHA-256**
+- **SHA-512**
+- **SHA-3 (Keccak)**
+
+### Encoding & Formats
+- **Base64**: Encoder and Decoder with constant-time decoding paths.
+- **PEM**: Certificate and Key parser.
+- **ASN.1 DER Layer**: Embedded native parser and encoder for AST creation (Sequences, OIDs, Octet Strings), utilized for formatting `DigestInfo` in RSA signatures and PKCS#8/SPKI payloads.
 
 ### Asymmetric Cryptography (v0.7+)
 - **BigInt**: Dynamic arbitrary-precision arithmetic library supporting addition, subtraction, multiplication, binary long division, and modular exponentiation.
@@ -21,7 +28,9 @@ This repository provides pure Nitpick implementations for standard cryptographic
   - Constant-time scalar multiplication (`ecc_scalar_mul_ct`) resistant to timing analysis via constant-time swap methodologies.
 - **ECDSA**: Full signature generation and verification.
 - **ECDH**: Shared secret derivation utilizing `secp256k1`.
-- **ASN.1 DER Layer**: Embedded native parser and encoder for AST creation (Sequences, OIDs, Octet Strings), utilized for formatting `DigestInfo` in RSA signatures.
+- **Curve25519 (v0.8+)**:
+  - Full constant-time finite field arithmetic (`gf_add`, `gf_sub`, `gf_mul`, `gf_sqr`, `gf_inv`).
+  - **X25519 ECDH**: Montgomery ladder implementation mapped natively from TweetNaCl design.
 
 ## Security
 All cryptographic structures relying on private keys or mathematical permutations have been rigorously designed and tested for constant-time branchless execution natively in Nitpick. This project explicitly relies on LLVM scalar lowering configurations to emit specific instructions (e.g., `cmov`, `atomicrmw`) mitigating observable timing differences. Memory leaks and large-stack issues have been strictly audited and managed safely on the heap to conform to Nitpick constraints.

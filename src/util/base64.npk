@@ -1,0 +1,154 @@
+// src/util/base64.npk
+use "stdlib/core.npk".*;
+
+func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << sh);
+    w = (w & mask) | (byte_val << sh);
+    buf64[wi] = w;
+    pass 0i32;
+};
+
+func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    pass (w >> sh) & 255i64;
+};
+
+func:b64_encode_char = int64(int64:idx) {
+    int64:is_upper = (1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(idx) >> 63u64)) & (1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(25i64 - idx) >> 63u64));
+    int64:is_lower = (1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(idx - 26i64) >> 63u64)) & (1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(51i64 - idx) >> 63u64));
+    int64:is_digit = (1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(idx - 52i64) >> 63u64)) & (1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(61i64 - idx) >> 63u64));
+    int64:is_plus = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>((idx - 62i64) | (62i64 - idx)) >> 63u64);
+    int64:is_slash = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>((idx - 63i64) | (63i64 - idx)) >> 63u64);
+    
+    int64:c = (is_upper * (idx + 65i64))
+            + (is_lower * (idx + 71i64))
+            + (is_digit * (idx - 4i64))
+            + (is_plus * 43i64)
+            + (is_slash * 47i64);
+    pass c;
+};
+
+func:b64_decode_char = int64(int64:c) {
+    int64:ge_A = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(c - 65i64) >> 63u64);
+    int64:le_Z = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(90i64 - c) >> 63u64);
+    int64:is_upper = ge_A & le_Z;
+
+    int64:ge_a = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(c - 97i64) >> 63u64);
+    int64:le_z = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(122i64 - c) >> 63u64);
+    int64:is_lower = ge_a & le_z;
+
+    int64:ge_0 = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(c - 48i64) >> 63u64);
+    int64:le_9 = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(57i64 - c) >> 63u64);
+    int64:is_digit = ge_0 & le_9;
+
+    int64:is_plus = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>((c - 43i64) | (43i64 - c)) >> 63u64);
+    int64:is_slash = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>((c - 47i64) | (47i64 - c)) >> 63u64);
+    
+    int64:idx = (is_upper * (c - 65i64))
+              + (is_lower * (c - 71i64))
+              + (is_digit * (c + 4i64))
+              + (is_plus * 62i64)
+              + (is_slash * 63i64);
+              
+    int64:valid = is_upper | is_lower | is_digit | is_plus | is_slash;
+    pass (idx * valid) + (-1i64 * (valid ^ 1i64));
+};
+
+pub func:base64_encode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
+    int64:out_len = 4i64 * ((in_len + 2i64) / 3i64);
+    if (out_len > out_cap) { pass -1i64; }
+    
+    int64->:in_64 = cast_unchecked<int64->>(in_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    
+    int64:i = 0i64;
+    int64:o = 0i64;
+    while (i < in_len) {
+        int64:b0 = raw buf_get_u8(in_64, i);
+        int64:b1 = 0i64;
+        int64:b2 = 0i64;
+        
+        if ((i + 1i64) < in_len) { b1 = raw buf_get_u8(in_64, i + 1i64); }
+        if ((i + 2i64) < in_len) { b2 = raw buf_get_u8(in_64, i + 2i64); }
+        
+        int64:c0 = b0 >> 2i64;
+        int64:c1 = ((b0 & 3i64) << 4i64) | (b1 >> 4i64);
+        int64:c2 = ((b1 & 15i64) << 2i64) | (b2 >> 6i64);
+        int64:c3 = b2 & 63i64;
+        
+        drop raw buf_put_u8(out_64, o, raw b64_encode_char(c0));
+        drop raw buf_put_u8(out_64, o + 1i64, raw b64_encode_char(c1));
+        
+        if ((i + 1i64) < in_len) {
+            drop raw buf_put_u8(out_64, o + 2i64, raw b64_encode_char(c2));
+        } else {
+            drop raw buf_put_u8(out_64, o + 2i64, 61i64); // '='
+        }
+        
+        if ((i + 2i64) < in_len) {
+            drop raw buf_put_u8(out_64, o + 3i64, raw b64_encode_char(c3));
+        } else {
+            drop raw buf_put_u8(out_64, o + 3i64, 61i64); // '='
+        }
+        
+        i += 3i64;
+        o += 4i64;
+    }
+    
+    pass out_len;
+};
+
+pub func:base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
+    if ((in_len & 3i64) != 0i64) { pass -1i64; } // Must be multiple of 4
+    if (in_len == 0i64) { pass 0i64; }
+    
+    int64->:in_64 = cast_unchecked<int64->>(in_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    
+    int64:pad_count = 0i64;
+    if (in_len >= 2i64) {
+        if (raw buf_get_u8(in_64, in_len - 1i64) == 61i64) { pad_count += 1i64; }
+        if (raw buf_get_u8(in_64, in_len - 2i64) == 61i64) { pad_count += 1i64; }
+    }
+    
+    int64:out_len = ((in_len / 4i64) * 3i64) - pad_count;
+    if (out_len > out_cap) { pass -1i64; }
+    
+    int64:i = 0i64;
+    int64:o = 0i64;
+    while (i < in_len) {
+        int64:c0 = raw buf_get_u8(in_64, i);
+        int64:c1 = raw buf_get_u8(in_64, i + 1i64);
+        int64:c2 = raw buf_get_u8(in_64, i + 2i64);
+        int64:c3 = raw buf_get_u8(in_64, i + 3i64);
+        
+        if (c2 == 61i64) { c2 = 65i64; }
+        if (c3 == 61i64) { c3 = 65i64; }
+        
+        int64:v0 = raw b64_decode_char(c0);
+        int64:v1 = raw b64_decode_char(c1);
+        int64:v2 = raw b64_decode_char(c2);
+        int64:v3 = raw b64_decode_char(c3);
+        
+        if ((v0 < 0i64) || (v1 < 0i64) || (v2 < 0i64) || (v3 < 0i64)) {
+            pass -1i64;
+        }
+        
+        int64:b0 = (v0 << 2i64) | (v1 >> 4i64);
+        int64:b1 = ((v1 & 15i64) << 4i64) | (v2 >> 2i64);
+        int64:b2 = ((v2 & 3i64) << 6i64) | v3;
+        
+        if (o < out_len) { drop raw buf_put_u8(out_64, o, b0); o += 1i64; }
+        if (o < out_len) { drop raw buf_put_u8(out_64, o, b1); o += 1i64; }
+        if (o < out_len) { drop raw buf_put_u8(out_64, o, b2); o += 1i64; }
+        
+        i += 4i64;
+    }
+    
+    pass out_len;
+};

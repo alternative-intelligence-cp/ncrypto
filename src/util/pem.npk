@@ -1,0 +1,91 @@
+// src/util/pem.npk
+use "stdlib/core.npk".*;
+use "src/util/base64.npk".*;
+
+func:pem_buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << sh);
+    w = (w & mask) | (byte_val << sh);
+    buf64[wi] = w;
+    pass 0i32;
+};
+
+func:pem_buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    pass (w >> sh) & 255i64;
+};
+
+pub func:pem_decode = int64(int64:pem_ptr, int64:pem_len, int64:out_ptr, int64:out_cap) {
+    int64->:pem_64 = cast_unchecked<int64->>(pem_ptr);
+    
+    int64:start_idx = -1i64;
+    int64:i = 0i64;
+    int32:found = 0i32;
+    while ((i < (pem_len - 10i64)) && (found == 0i32)) {
+        if (raw pem_buf_get_u8(pem_64, i) == 45i64) { // '-'
+            if (raw pem_buf_get_u8(pem_64, i+1i64) == 45i64) { // '-'
+                if (raw pem_buf_get_u8(pem_64, i+5i64) == 66i64) { // 'B' (from BEGIN)
+                    start_idx = i;
+                    found = 1i32;
+                }
+            }
+        }
+        if (found == 0i32) { i += 1i64; }
+    }
+    
+    if (found == 0i32) { pass -1i64; }
+    
+    i = start_idx;
+    int32:nl_found = 0i32;
+    while ((i < pem_len) && (nl_found == 0i32)) {
+        if (raw pem_buf_get_u8(pem_64, i) == 10i64) { // '\n'
+            i += 1i64;
+            start_idx = i;
+            nl_found = 1i32;
+        } else {
+            i += 1i64;
+        }
+    }
+    
+    if (nl_found == 0i32) { pass -1i64; }
+    
+    int64:tmp_b64 = cast_unchecked<int64>(alloc(pem_len + 8i64));
+    int64->:tmp_64 = cast_unchecked<int64->>(tmp_b64);
+    int64:tmp_len = 0i64;
+    
+    i = start_idx;
+    int32:ended = 0i32;
+    while ((i < pem_len) && (ended == 0i32)) {
+        int64:c = raw pem_buf_get_u8(pem_64, i);
+        if (c == 45i64) { // '-'
+            if ((i + 1i64) < pem_len) {
+                if (raw pem_buf_get_u8(pem_64, i+1i64) == 45i64) {
+                    ended = 1i32;
+                }
+            }
+        }
+        
+        if (ended == 0i32) {
+            // Ignore \n (10), \r (13), space (32)
+            if ((c != 10i64) && (c != 13i64) && (c != 32i64)) {
+                drop raw pem_buf_put_u8(tmp_64, tmp_len, c);
+                tmp_len += 1i64;
+            }
+        }
+        i += 1i64;
+    }
+    
+    if (ended == 0i32) {
+        free(cast_unchecked<int8->>(tmp_b64));
+        pass -1i64;
+    }
+    
+    int64:dec_len = raw base64_decode(tmp_b64, tmp_len, out_ptr, out_cap);
+    free(cast_unchecked<int8->>(tmp_b64));
+    
+    pass dec_len;
+};
