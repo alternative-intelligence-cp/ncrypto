@@ -1,0 +1,299 @@
+// md5.npk - Native MD5 Implementation
+
+extern "nitpick_alloc" {
+    func:npk_core_alloc = int64(int64:size);
+    func:npk_core_dalloc = int32(int64:ptr);
+}
+
+pub func:string_data_ptr = int64(string:s) {
+    int64->:p_struct = cast_unchecked<int64->>(@s);
+    int64:struct_addr = <-p_struct;
+    int64->:struct_ptr = cast_unchecked<int64->>(struct_addr);
+    pass struct_ptr[0i64];
+};
+
+func:md5_k_gen = string() {
+    pass "\x78\xa4\x6a\xd7\x56\xb7\xc7\xe8\xdb\x70\x20\x24\xee\xce\xbd\xc1\xaf\x0f\x7c\xf5\x2a\xc6\x87\x47\x13\x46\x30\xa8\x01\x95\x46\xfd\xd8\x98\x80\x69\xaf\xf7\x44\x8b\xb1\x5b\xff\xff\xbe\xd7\x5c\x89\x22\x11\x90\x6b\x93\x71\x98\xfd\x8e\x43\x79\xa6\x21\x08\xb4\x49\x62\x25\x1e\xf6\x40\xb3\x40\xc0\x51\x5a\x5e\x26\xaa\xc7\xb6\xe9\x5d\x10\x2f\xd6\x53\x14\x44\x02\x81\xe6\xa1\xd8\xc8\xfb\xd3\xe7\xe6\xcd\xe1\x21\xd6\x07\x37\xc3\x87\x0d\xd5\xf4\xed\x14\x5a\x45\x05\xe9\xe3\xa9\xf8\xa3\xef\xfc\xd9\x02\x6f\x67\x8a\x4c\x2a\x8d\x42\x39\xfa\xff\x81\xf6\x71\x87\x22\x61\x9d\x6d\x0c\x38\xe5\xfd\x44\xea\xbe\xa4\xa9\xcf\xde\x4b\x60\x4b\xbb\xf6\x70\xbc\xbf\xbe\xc6\x7e\x9b\x28\xfa\x27\xa1\xea\x85\x30\xef\xd4\x05\x1d\x88\x04\x39\xd0\xd4\xd9\xe5\x99\xdb\xe6\xf8\x7c\xa2\x1f\x65\x56\xac\xc4\x44\x22\x29\xf4\x97\xff\x2a\x43\xa7\x23\x94\xab\x39\xa0\x93\xfc\xc3\x59\x5b\x65\x92\xcc\x0c\x8f\x7d\xf4\xef\xff\xd1\x5d\x84\x85\x4f\x7e\xa8\x6f\xe0\xe6\x2c\xfe\x14\x43\x01\xa3\xa1\x11\x08\x4e\x82\x7e\x53\xf7\x35\xf2\x3a\xbd\xbb\xd2\xd7\x2a\x91\xd3\x86\xeb";
+};
+
+func:md5_s_gen = string() {
+    pass "\x07\x0c\x11\x16\x07\x0c\x11\x16\x07\x0c\x11\x16\x07\x0c\x11\x16\x05\x09\x0e\x14\x05\x09\x0e\x14\x05\x09\x0e\x14\x05\x09\x0e\x14\x04\x0b\x10\x17\x04\x0b\x10\x17\x04\x0b\x10\x17\x04\x0b\x10\x17\x06\x0a\x0f\x15\x06\x0a\x0f\x15\x06\x0a\x0f\x15\x06\x0a\x0f\x15";
+};
+
+string:_global_md5_k = "";
+string:_global_md5_s = "";
+int32:_global_md5_init = 0i32;
+
+func:_get_md5_k_ptr = int64() {
+    if (_global_md5_init == 0i32) {
+        _global_md5_k = raw md5_k_gen();
+        _global_md5_s = raw md5_s_gen();
+        _global_md5_init = 1i32;
+    }
+    pass string_data_ptr(_global_md5_k);
+};
+
+func:_get_md5_s_ptr = int64() {
+    if (_global_md5_init == 0i32) {
+        _global_md5_k = raw md5_k_gen();
+        _global_md5_s = raw md5_s_gen();
+        _global_md5_init = 1i32;
+    }
+    pass string_data_ptr(_global_md5_s);
+};
+
+func:buf_get_u8 = int64(int64->:buf64, int64:offset) {
+    int64:word = buf64[offset / 8i64];
+    int64:shift = (offset & 7i64) * 8i64;
+    pass (word >> shift) & 255i64;
+};
+
+func:buf_get_u32 = int64(int64->:buf64, int64:byte_off) {
+    int64:b0 = raw buf_get_u8(buf64, byte_off);
+    int64:b1 = raw buf_get_u8(buf64, byte_off + 1i64);
+    int64:b2 = raw buf_get_u8(buf64, byte_off + 2i64);
+    int64:b3 = raw buf_get_u8(buf64, byte_off + 3i64);
+    pass b0 | (b1 << 8i64) | (b2 << 16i64) | (b3 << 24i64);
+};
+
+func:buf_set_u8 = int32(int64->:buf64, int64:byte_off, int64:val) {
+    int64:wi = byte_off / 8i64;
+    int64:shift = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << shift);
+    w = (w & mask) | ((val & 255i64) << shift);
+    buf64[wi] = w;
+    pass 0i32;
+};
+
+func:buf_set_u32 = int32(int64->:buf64, int64:byte_off, int64:val) {
+    drop raw buf_set_u8(buf64, byte_off, val);
+    drop raw buf_set_u8(buf64, byte_off + 1i64, val >> 8i64);
+    drop raw buf_set_u8(buf64, byte_off + 2i64, val >> 16i64);
+    drop raw buf_set_u8(buf64, byte_off + 3i64, val >> 24i64);
+    pass 0i32;
+};
+
+func:local_memcpy = int64(int64:dst, int64:src, int64:len) {
+    int64->:d = cast_unchecked<int64->>(dst);
+    int64->:s = cast_unchecked<int64->>(src);
+    int64:i = 0i64;
+    while (i < len) {
+        int64:val = raw buf_get_u8(s, i);
+        drop raw buf_set_u8(d, i, val);
+        i += 1i64;
+    }
+    pass dst;
+};
+
+func:local_memset = int64(int64:dst, int64:val, int64:len) {
+    int64->:d = cast_unchecked<int64->>(dst);
+    int64:i = 0i64;
+    while (i < len) {
+        drop raw buf_set_u8(d, i, val);
+        i += 1i64;
+    }
+    pass dst;
+};
+
+func:md5_transform = int32(int64:state_ptr, int64:block_ptr) {
+    int64->:state = cast_unchecked<int64->>(state_ptr);
+    int64->:block = cast_unchecked<int64->>(block_ptr);
+    
+    int64:k_ptr_raw = raw _get_md5_k_ptr();
+    int64->:k_ptr = cast_unchecked<int64->>(k_ptr_raw);
+    
+    int64:s_ptr_raw = raw _get_md5_s_ptr();
+    int64->:s_ptr = cast_unchecked<int64->>(s_ptr_raw);
+
+    int64:m_ptr_raw = npk_core_alloc(64i64);
+    int64->:m_ptr = cast_unchecked<int64->>(m_ptr_raw);
+
+    int64:i = 0i64;
+    while (i < 16i64) {
+        int64:val = raw buf_get_u32(block, i * 4i64);
+        drop raw buf_set_u32(m_ptr, i * 4i64, val);
+        i += 1i64;
+    }
+
+    int32:a = cast_unchecked<int32>(raw buf_get_u32(state, 0i64));
+    int32:b = cast_unchecked<int32>(raw buf_get_u32(state, 4i64));
+    int32:c = cast_unchecked<int32>(raw buf_get_u32(state, 8i64));
+    int32:d = cast_unchecked<int32>(raw buf_get_u32(state, 12i64));
+
+    i = 0i64;
+    while (i < 64i64) {
+        int32:f = 0i32;
+        int64:g = 0i64;
+
+        if (i < 16i64) {
+            f = (b & c) | ((~b) & d);
+            g = i;
+        } else if (i < 32i64) {
+            f = (d & b) | ((~d) & c);
+            g = ((5i64 * i) + 1i64) % 16i64;
+        } else if (i < 48i64) {
+            f = b ^ c ^ d;
+            g = ((3i64 * i) + 5i64) % 16i64;
+        } else {
+            f = c ^ (b | (~d));
+            g = (7i64 * i) % 16i64;
+        }
+
+        int32:tmp = d;
+        d = c;
+        c = b;
+        
+        int32:k_val = cast_unchecked<int32>(raw buf_get_u32(k_ptr, i * 4i64));
+        int32:m_val = cast_unchecked<int32>(raw buf_get_u32(m_ptr, g * 4i64));
+        int32:x = a + f + k_val + m_val;
+        
+        int64:x64 = cast_unchecked<int64>(x) & 4294967295i64;
+        int64:s_val64 = raw buf_get_u8(s_ptr, i);
+        int64:s_comp64 = 32i64 - s_val64;
+        int64:rotated = ((x64 << s_val64) | (x64 >> s_comp64)) & 4294967295i64;
+        b = b + cast_unchecked<int32>(rotated);
+        a = tmp;
+
+        i += 1i64;
+    }
+
+    int32:sa = cast_unchecked<int32>(raw buf_get_u32(state, 0i64));
+    int32:sb = cast_unchecked<int32>(raw buf_get_u32(state, 4i64));
+    int32:sc = cast_unchecked<int32>(raw buf_get_u32(state, 8i64));
+    int32:sd = cast_unchecked<int32>(raw buf_get_u32(state, 12i64));
+
+    drop raw buf_set_u32(state, 0i64, cast_unchecked<int64>(sa + a));
+    drop raw buf_set_u32(state, 4i64, cast_unchecked<int64>(sb + b));
+    drop raw buf_set_u32(state, 8i64, cast_unchecked<int64>(sc + c));
+    drop raw buf_set_u32(state, 12i64, cast_unchecked<int64>(sd + d));
+
+    drop npk_core_dalloc(m_ptr_raw);
+    pass 0i32;
+};
+
+pub func:md5_init = int64() {
+    int64:ctx = npk_core_alloc(104i64); // 4 * 4 (state) + 8 (count) + 8 (buflen) + 64 (buf) = 96, padding to 104
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    drop raw buf_set_u32(ctx_64, 0i64, 0x67452301i64);
+    drop raw buf_set_u32(ctx_64, 4i64, 0xefcdab89i64);
+    drop raw buf_set_u32(ctx_64, 8i64, 0x98badcfei64);
+    drop raw buf_set_u32(ctx_64, 12i64, 0x10325476i64);
+    
+    ctx_64[2i64] = 0i64; // count at offset 16 (8-byte word 2)
+    ctx_64[3i64] = 0i64; // buflen at offset 24 (8-byte word 3)
+    pass ctx;
+};
+
+pub func:md5_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
+    if (ctx == 0i64) { pass -1i32; }
+    if (buf_ptr == 0i64) { pass -1i32; }
+    if (length == 0i64) { pass -1i32; }
+
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    int64:ctx_buf = ctx + 32i64; // buf starts at offset 32
+    
+    ctx_64[2i64] = ctx_64[2i64] + length; // update count
+    
+    int64:buflen = ctx_64[3i64];
+    int64:i = 0i64;
+
+    if (buflen > 0i64) {
+        int64:need = 64i64 - buflen;
+        int64:copy = length;
+        if (length >= need) { copy = need; }
+
+        drop raw local_memcpy(ctx_buf + buflen, buf_ptr, copy);
+        buflen += copy;
+        ctx_64[3i64] = buflen;
+        i += copy;
+
+        if (buflen == 64i64) {
+            drop raw md5_transform(ctx, ctx_buf);
+            ctx_64[3i64] = 0i64;
+        }
+    }
+
+    while ((i + 64i64) <= length) {
+        drop raw md5_transform(ctx, buf_ptr + i);
+        i += 64i64;
+    }
+
+    if (i < length) {
+        int64:rem = length - i;
+        ctx_64[3i64] = rem;
+        drop raw local_memcpy(ctx_buf, buf_ptr + i, rem);
+    }
+    
+    pass 0i32;
+};
+
+pub func:md5_finalize = string(int64:ctx) {
+    if (ctx == 0i64) { pass ""; }
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    int64:ctx_buf = ctx + 32i64;
+
+    int64:fbuf = npk_core_alloc(128i64);
+    int64->:fbuf_64 = cast_unchecked<int64->>(fbuf);
+    
+    int64:rem = ctx_64[3i64];
+    drop raw local_memcpy(fbuf, ctx_buf, rem);
+    drop raw buf_set_u8(fbuf_64, rem, 128i64); // 0x80
+    rem += 1i64;
+
+    if (rem > 56i64) {
+        drop raw local_memset(fbuf + rem, 0i64, 64i64 - rem);
+        drop raw md5_transform(ctx, fbuf);
+        rem = 0i64;
+    }
+
+    drop raw local_memset(fbuf + rem, 0i64, 56i64 - rem);
+
+    int64:bits = ctx_64[2i64] * 8i64;
+    int64:j = 0i64;
+    while (j < 8i64) {
+        int64:b = (bits >> (j * 8i64)) & 255i64;
+        drop raw buf_set_u8(fbuf_64, 56i64 + j, b);
+        j += 1i64;
+    }
+
+    drop raw md5_transform(ctx, fbuf);
+
+    string:out_hex = "";
+    int64:n = 0i64;
+    while (n < 4i64) {
+        int64:val = raw buf_get_u32(ctx_64, n * 4i64);
+        int64:b0 = val & 255i64;
+        int64:b1 = (val >> 8i64) & 255i64;
+        int64:b2 = (val >> 16i64) & 255i64;
+        int64:b3 = (val >> 24i64) & 255i64;
+        
+        string:h0 = string_to_hex(string_from_char(cast_unchecked<int8>(b0)));
+        string:h1 = string_to_hex(string_from_char(cast_unchecked<int8>(b1)));
+        string:h2 = string_to_hex(string_from_char(cast_unchecked<int8>(b2)));
+        string:h3 = string_to_hex(string_from_char(cast_unchecked<int8>(b3)));
+        
+        out_hex = out_hex + h0 + h1 + h2 + h3;
+        n += 1i64;
+    }
+
+    drop npk_core_dalloc(fbuf);
+    pass out_hex;
+};
+
+pub func:md5_free = int32(int64:ctx) {
+    if (ctx != 0i64) {
+        drop npk_core_dalloc(ctx);
+    }
+    pass 0i32;
+};
+
+pub func:md5 = string(string:data) {
+    int64:ctx = raw md5_init();
+    int64:data_ptr = raw string_data_ptr(data);
+    int64:data_len = string_length(data);
+    drop raw md5_update(ctx, data_ptr, data_len);
+    string:res = raw md5_finalize(ctx);
+    drop raw md5_free(ctx);
+    pass res;
+};

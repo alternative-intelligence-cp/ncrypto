@@ -1,0 +1,268 @@
+// sha1.npk - Native SHA1 Implementation
+
+extern "nitpick_alloc" {
+    func:npk_core_alloc = int64(int64:size);
+    func:npk_core_dalloc = int32(int64:ptr);
+}
+
+pub func:string_data_ptr = int64(string:s) {
+    int64->:p_struct = cast_unchecked<int64->>(@s);
+    int64:struct_addr = <-p_struct;
+    int64->:struct_ptr = cast_unchecked<int64->>(struct_addr);
+    pass struct_ptr[0i64];
+};
+
+func:buf_get_u8 = int64(int64->:buf64, int64:offset) {
+    int64:word = buf64[offset / 8i64];
+    int64:shift = (offset & 7i64) * 8i64;
+    pass (word >> shift) & 255i64;
+};
+
+func:buf_get_u32_be = int64(int64->:buf64, int64:byte_off) {
+    int64:b0 = raw buf_get_u8(buf64, byte_off);
+    int64:b1 = raw buf_get_u8(buf64, byte_off + 1i64);
+    int64:b2 = raw buf_get_u8(buf64, byte_off + 2i64);
+    int64:b3 = raw buf_get_u8(buf64, byte_off + 3i64);
+    pass (b0 << 24i64) | (b1 << 16i64) | (b2 << 8i64) | b3;
+};
+
+func:buf_set_u8 = int32(int64->:buf64, int64:byte_off, int64:val) {
+    int64:wi = byte_off / 8i64;
+    int64:shift = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << shift);
+    w = (w & mask) | ((val & 255i64) << shift);
+    buf64[wi] = w;
+    pass 0i32;
+};
+
+func:buf_set_u32_be = int32(int64->:buf64, int64:byte_off, int64:val) {
+    drop raw buf_set_u8(buf64, byte_off, val >> 24i64);
+    drop raw buf_set_u8(buf64, byte_off + 1i64, val >> 16i64);
+    drop raw buf_set_u8(buf64, byte_off + 2i64, val >> 8i64);
+    drop raw buf_set_u8(buf64, byte_off + 3i64, val);
+    pass 0i32;
+};
+
+func:local_memcpy = int64(int64:dst, int64:src, int64:len) {
+    int64->:d = cast_unchecked<int64->>(dst);
+    int64->:s = cast_unchecked<int64->>(src);
+    int64:i = 0i64;
+    while (i < len) {
+        int64:val = raw buf_get_u8(s, i);
+        drop raw buf_set_u8(d, i, val);
+        i += 1i64;
+    }
+    pass dst;
+};
+
+func:local_memset = int64(int64:dst, int64:val, int64:len) {
+    int64->:d = cast_unchecked<int64->>(dst);
+    int64:i = 0i64;
+    while (i < len) {
+        drop raw buf_set_u8(d, i, val);
+        i += 1i64;
+    }
+    pass dst;
+};
+
+func:sha1_rotl = int64(int64:bits, int64:word) {
+    pass ((word << bits) | (word >> (32i64 - bits))) & 4294967295i64;
+};
+
+func:sha1_transform = int32(int64:state_ptr, int64:block_ptr) {
+    int64->:state = cast_unchecked<int64->>(state_ptr);
+    int64->:block = cast_unchecked<int64->>(block_ptr);
+
+    int64:w_ptr_raw = npk_core_alloc(640i64); // 80 * 8 bytes
+    int64->:w = cast_unchecked<int64->>(w_ptr_raw);
+
+    int64:i = 0i64;
+    while (i < 16i64) {
+        w[i] = raw buf_get_u32_be(block, i * 4i64);
+        i += 1i64;
+    }
+
+    while (i < 80i64) {
+        int64:temp = w[i - 3i64] ^ w[i - 8i64] ^ w[i - 14i64] ^ w[i - 16i64];
+        w[i] = raw sha1_rotl(1i64, temp);
+        i += 1i64;
+    }
+
+    int64:a = raw buf_get_u32_be(state, 0i64);
+    int64:b = raw buf_get_u32_be(state, 4i64);
+    int64:c = raw buf_get_u32_be(state, 8i64);
+    int64:d = raw buf_get_u32_be(state, 12i64);
+    int64:e = raw buf_get_u32_be(state, 16i64);
+
+    i = 0i64;
+    while (i < 80i64) {
+        int64:f = 0i64;
+        int64:k = 0i64;
+
+        if (i < 20i64) {
+            f = (b & c) | ((~b) & d);
+            k = 0x5A827999i64;
+        } else if (i < 40i64) {
+            f = b ^ c ^ d;
+            k = 0x6ED9EBA1i64;
+        } else if (i < 60i64) {
+            f = (b & c) | (b & d) | (c & d);
+            k = 0x8F1BBCDCi64;
+        } else {
+            f = b ^ c ^ d;
+            k = 0xCA62C1D6i64;
+        }
+
+        int64:temp = (raw sha1_rotl(5i64, a) + f + e + k + w[i]) & 4294967295i64;
+        e = d;
+        d = c;
+        c = raw sha1_rotl(30i64, b);
+        b = a;
+        a = temp;
+
+        i += 1i64;
+    }
+
+    int64:sa = raw buf_get_u32_be(state, 0i64);
+    int64:sb = raw buf_get_u32_be(state, 4i64);
+    int64:sc = raw buf_get_u32_be(state, 8i64);
+    int64:sd = raw buf_get_u32_be(state, 12i64);
+    int64:se = raw buf_get_u32_be(state, 16i64);
+
+    drop raw buf_set_u32_be(state, 0i64, (sa + a) & 4294967295i64);
+    drop raw buf_set_u32_be(state, 4i64, (sb + b) & 4294967295i64);
+    drop raw buf_set_u32_be(state, 8i64, (sc + c) & 4294967295i64);
+    drop raw buf_set_u32_be(state, 12i64, (sd + d) & 4294967295i64);
+    drop raw buf_set_u32_be(state, 16i64, (se + e) & 4294967295i64);
+
+    drop npk_core_dalloc(w_ptr_raw);
+    pass 0i32;
+};
+
+pub func:sha1_init = int64() {
+    int64:ctx = npk_core_alloc(104i64); // 5 * 4 (state) + 8 (count) + 8 (buflen) + 64 (buf) = 100 bytes, padding to 104
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    drop raw buf_set_u32_be(ctx_64, 0i64, 0x67452301i64);
+    drop raw buf_set_u32_be(ctx_64, 4i64, 0xEFCDAB89i64);
+    drop raw buf_set_u32_be(ctx_64, 8i64, 0x98BADCFEi64);
+    drop raw buf_set_u32_be(ctx_64, 12i64, 0x10325476i64);
+    drop raw buf_set_u32_be(ctx_64, 16i64, 0xC3D2E1F0i64);
+    
+    ctx_64[3i64] = 0i64; // count at offset 24
+    ctx_64[4i64] = 0i64; // buflen at offset 32
+    pass ctx;
+};
+
+pub func:sha1_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
+    if (ctx == 0i64) { pass -1i32; }
+    if (buf_ptr == 0i64) { pass -1i32; }
+    if (length == 0i64) { pass -1i32; }
+
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    int64:ctx_buf = ctx + 40i64; // buf starts at offset 40
+    
+    ctx_64[3i64] = ctx_64[3i64] + length; // update count
+    
+    int64:buflen = ctx_64[4i64];
+    int64:i = 0i64;
+
+    if (buflen > 0i64) {
+        int64:need = 64i64 - buflen;
+        int64:copy = length;
+        if (length >= need) { copy = need; }
+
+        drop raw local_memcpy(ctx_buf + buflen, buf_ptr, copy);
+        buflen += copy;
+        ctx_64[4i64] = buflen;
+        i += copy;
+
+        if (buflen == 64i64) {
+            drop raw sha1_transform(ctx, ctx_buf);
+            ctx_64[4i64] = 0i64;
+        }
+    }
+
+    while ((i + 64i64) <= length) {
+        drop raw sha1_transform(ctx, buf_ptr + i);
+        i += 64i64;
+    }
+
+    if (i < length) {
+        int64:rem = length - i;
+        ctx_64[4i64] = rem;
+        drop raw local_memcpy(ctx_buf, buf_ptr + i, rem);
+    }
+    
+    pass 0i32;
+};
+
+pub func:sha1_finalize = string(int64:ctx) {
+    if (ctx == 0i64) { pass ""; }
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    int64:ctx_buf = ctx + 40i64;
+
+    int64:fbuf = npk_core_alloc(128i64);
+    int64->:fbuf_64 = cast_unchecked<int64->>(fbuf);
+    
+    int64:rem = ctx_64[4i64];
+    drop raw local_memcpy(fbuf, ctx_buf, rem);
+    drop raw buf_set_u8(fbuf_64, rem, 128i64); // 0x80
+    rem += 1i64;
+
+    if (rem > 56i64) {
+        drop raw local_memset(fbuf + rem, 0i64, 64i64 - rem);
+        drop raw sha1_transform(ctx, fbuf);
+        rem = 0i64;
+    }
+
+    drop raw local_memset(fbuf + rem, 0i64, 56i64 - rem);
+
+    int64:bits = ctx_64[3i64] * 8i64;
+    int64:j = 7i64;
+    while (j >= 0i64) {
+        int64:b = (bits >> (j * 8i64)) & 255i64;
+        drop raw buf_set_u8(fbuf_64, 56i64 + (7i64 - j), b);
+        j -= 1i64;
+    }
+
+    drop raw sha1_transform(ctx, fbuf);
+
+    string:out_hex = "";
+    int64:n = 0i64;
+    while (n < 5i64) {
+        int64:val = raw buf_get_u32_be(ctx_64, n * 4i64);
+        int64:b0 = (val >> 24i64) & 255i64;
+        int64:b1 = (val >> 16i64) & 255i64;
+        int64:b2 = (val >> 8i64) & 255i64;
+        int64:b3 = val & 255i64;
+        
+        string:h0 = string_to_hex(string_from_char(cast_unchecked<int8>(b0)));
+        string:h1 = string_to_hex(string_from_char(cast_unchecked<int8>(b1)));
+        string:h2 = string_to_hex(string_from_char(cast_unchecked<int8>(b2)));
+        string:h3 = string_to_hex(string_from_char(cast_unchecked<int8>(b3)));
+        
+        out_hex = out_hex + h0 + h1 + h2 + h3;
+        n += 1i64;
+    }
+
+    drop npk_core_dalloc(fbuf);
+    pass out_hex;
+};
+
+pub func:sha1_free = int32(int64:ctx) {
+    if (ctx != 0i64) {
+        drop npk_core_dalloc(ctx);
+    }
+    pass 0i32;
+};
+
+pub func:sha1 = string(string:data) {
+    int64:ctx = raw sha1_init();
+    int64:data_ptr = raw string_data_ptr(data);
+    int64:data_len = string_length(data);
+    drop raw sha1_update(ctx, data_ptr, data_len);
+    string:res = raw sha1_finalize(ctx);
+    drop raw sha1_free(ctx);
+    pass res;
+};

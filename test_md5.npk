@@ -1,0 +1,30 @@
+use "src/md5.npk".*;
+
+pub func:main = int32() {
+    string:h1 = raw md5("hello world");
+    string:h2 = raw md5("");
+    string:h3 = raw md5("The quick brown fox jumps over the lazy dog");
+
+    // "hello world" -> 5eb63bbbe01eeed093cb22bb8f5acdc3
+    if (h1 != "5eb63bbbe01eeed093cb22bb8f5acdc3") {
+        drop sys!!(1i64, 1i64, raw string_data_ptr("h1 wrong\n"), 9i64);
+        exit(1i32);
+    }
+
+    if (h2 != "d41d8cd98f00b204e9800998ecf8427e") {
+        drop sys!!(1i64, 1i64, raw string_data_ptr("h2 wrong\n"), 9i64);
+        exit(2i32);
+    }
+
+    if (h3 != "9e107d9d372bb6826bd81d3542a419d6") {
+        drop sys!!(1i64, 1i64, raw string_data_ptr("h3 wrong\n"), 9i64);
+        exit(3i32);
+    }
+
+    drop sys!!(1i64, 1i64, raw string_data_ptr("OK!\n"), 4i64);
+    exit(0i32);
+};
+
+func:failsafe = int32(tbb32:err) {
+    exit(1i32);
+};
