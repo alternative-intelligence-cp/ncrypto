@@ -1,0 +1,18 @@
+use "stdlib/core.npk".*;
+use "src/util/hex.npk".*;
+use "src/hash/sha3.npk".*;
+
+pub func:failsafe = int32(tbb32:err) { exit(1i32); };
+
+pub func:main = int32() {
+    int64:out512 = cast_unchecked<int64>(alloc(64i64));
+    int64:empty_ptr = cast_unchecked<int64>("");
+    drop raw sha3_512_hash(empty_ptr, 0i64, out512);
+    
+    string:hex_out = raw raw_to_hex(out512, 64i64);
+    drop sys!!(1i64, 1i64, "ACTUAL: ", 8i64);
+    drop sys!!(1i64, 1i64, raw my_string_ptr(hex_out), 128i64);
+    drop sys!!(1i64, 1i64, "\n", 1i64);
+    
+    exit(0i32);
+};

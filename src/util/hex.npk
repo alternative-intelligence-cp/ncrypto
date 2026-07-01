@@ -1,0 +1,83 @@
+// src/util/hex.npk
+// Hex encoding/decoding utilities
+
+use "stdlib/core.npk".*;
+
+pub func:my_string_ptr = int64(string:s) {
+    int64:p = cast_unchecked<int64>(s);
+    pass p + 8i64;
+};
+
+func:hex_char_to_int = int64(int32:c) {
+    // '0' = 48, '9' = 57
+    if (c >= 48i32 && c <= 57i32) {
+        pass cast_unchecked<int64>(c - 48i32);
+    }
+    // 'a' = 97, 'f' = 102
+    if (c >= 97i32 && c <= 102i32) {
+        pass cast_unchecked<int64>(c - 97i32 + 10i32);
+    }
+    // 'A' = 65, 'F' = 70
+    if (c >= 65i32 && c <= 70i32) {
+        pass cast_unchecked<int64>(c - 65i32 + 10i32);
+    }
+    pass 0i64;
+};
+
+pub func:hex_to_raw = int32(string:hex, int64:buf) {
+    int64:len = string_length(hex);
+    int64:i = 0i64;
+    int64:wi = 0i64;
+    int64:shift = 0i64;
+    int64:byte_val = 0i64;
+    int64:mask = 0i64;
+    int32:c1 = 0i32;
+    int32:c2 = 0i32;
+    int64:v1 = 0i64;
+    int64:v2 = 0i64;
+    
+    while (i < len) {
+        c1 = raw char_at(hex, i);
+        c2 = raw char_at(hex, i + 1i64);
+        v1 = raw hex_char_to_int(c1);
+        v2 = raw hex_char_to_int(c2);
+        byte_val = (v1 << 4i64) | v2;
+        
+        wi = (i / 2i64) / 8i64;
+        shift = ((i / 2i64) & 7i64) * 8i64;
+        
+        mask = ~(255i64 << shift);
+        int64->:w_ptr = cast_unchecked<int64->>(buf + wi * 8i64);
+        w_ptr[0i64] = (w_ptr[0i64] & mask) | (byte_val << shift);
+        
+        i += 2i64;
+    }
+    
+    pass 0i32;
+};
+
+// Converts raw bytes to a hex string
+pub func:raw_to_hex = string(int64:raw_ptr, int64:length) {
+    string:res = "";
+    int64->:raw_buf = cast_unchecked<int64->>(raw_ptr);
+    int64:i = 0i64;
+    int64:wi = 0i64;
+    int64:shift = 0i64;
+    int64:byte_val = 0i64;
+    string:hexb = "";
+    
+    while (i < length) {
+        wi = i / 8i64;
+        shift = (i & 7i64) * 8i64;
+        int64->:r_ptr = cast_unchecked<int64->>(raw_ptr + wi * 8i64);
+        byte_val = (r_ptr[0i64] >> shift) & 255i64;
+        
+        hexb = string_to_hex(string_from_char(cast_unchecked<int8>(byte_val)));
+        if (string_length(hexb) == 1i64) {
+            res = string_concat(res, "0");
+        }
+        res = string_concat(res, hexb);
+        i += 1i64;
+    }
+    pass res;
+};

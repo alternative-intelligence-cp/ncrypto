@@ -1,0 +1,52 @@
+// test_ecdh.npk
+use "stdlib/core.npk".*;
+use "src/asymmetric/ecc.npk".*;
+use "src/asymmetric/ecdsa.npk".*; // for bigint_from_random
+use "src/asymmetric/ecdh.npk".*;
+use "src/math/bigint.npk".*;
+use "src/util/hex.npk".*;
+
+pub func:failsafe = int32(tbb32:err) { exit(1i32); };
+
+pub func:main = int32() {
+    drop sys!!(1i64, 1i64, "Testing ECDH Secp256k1...\n", 26i64);
+    
+    Secp256k1Params:params = raw secp256k1_get_params();
+    
+    // Alice generates keypair
+    drop sys!!(1i64, 1i64, "Generating Alice keypair...\n", 28i64);
+    int64:d_alice = raw bigint_from_random(params.n);
+    ECCPoint:Q_alice = raw ecc_point_alloc();
+    drop raw ecc_scalar_mul_ct(d_alice, params.G, params.p, Q_alice);
+    
+    // Bob generates keypair
+    drop sys!!(1i64, 1i64, "Generating Bob keypair...\n", 26i64);
+    int64:d_bob = raw bigint_from_random(params.n);
+    ECCPoint:Q_bob = raw ecc_point_alloc();
+    drop raw ecc_scalar_mul_ct(d_bob, params.G, params.p, Q_bob);
+    
+    // Alice computes shared secret using Bob's public key
+    drop sys!!(1i64, 1i64, "Alice computing shared secret...\n", 33i64);
+    int64:S_alice = raw ecdh_derive(d_alice, Q_bob, params);
+    
+    // Bob computes shared secret using Alice's public key
+    drop sys!!(1i64, 1i64, "Bob computing shared secret...\n", 31i64);
+    int64:S_bob = raw ecdh_derive(d_bob, Q_alice, params);
+    
+    if (raw bigint_ucmp(S_alice, S_bob) != 0i32) {
+        drop sys!!(1i64, 1i64, "Error: Shared secrets do not match!\n", 36i64);
+        exit(1i32);
+    }
+    
+    drop sys!!(1i64, 1i64, "ECDH Success: Shared secrets match!\n", 36i64);
+    
+    drop raw bigint_free(d_alice);
+    drop raw bigint_free(d_bob);
+    drop raw ecc_point_free(Q_alice);
+    drop raw ecc_point_free(Q_bob);
+    drop raw bigint_free(S_alice);
+    drop raw bigint_free(S_bob);
+    drop raw secp256k1_free_params(params);
+    
+    exit(0i32);
+};

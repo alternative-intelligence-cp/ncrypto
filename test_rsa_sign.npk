@@ -1,0 +1,92 @@
+// test_rsa_sign.npk
+use "stdlib/core.npk".*;
+use "src/asymmetric/rsa.npk".*;
+use "src/asymmetric/rsa_sign.npk".*;
+use "src/math/bigint.npk".*;
+
+pub func:failsafe = int32(tbb32:err) { exit(1i32); };
+
+func:put_byte = int32(int64->:b64, int64:off, int64:v) {
+    int64:wi = off / 8i64;
+    int64:sh = (off & 7i64) * 8i64;
+    int64:mask = ~(255i64 << sh);
+    b64[wi] = (b64[wi] & mask) | (v << sh);
+    pass 0i32;
+};
+
+pub func:main = int32() {
+    drop sys!!(1i64, 1i64, "Generating RSA-1024 Keypair...\n", 31i64);
+    RSAPrivateKey:priv = raw rsa_generate_key(1024i64);
+    RSAPublicKey:pub_key = RSAPublicKey { n: priv.n, e: raw bigint_alloc(10i64) };
+    int64->:e_b = cast_unchecked<int64->>(pub_key.e);
+    e_b[1i64] = 1i64; e_b[2i64] = 1i64; e_b[3i64] = 65537i64;
+    
+    // Hash is 32 bytes (e.g. SHA-256)
+    int64:hash_len = 32i64;
+    int64:hash_ptr = cast_unchecked<int64>(alloc(40i64));
+    int64->:hash_64 = cast_unchecked<int64->>(hash_ptr);
+    int64:i = 0i64;
+    while (i < hash_len) {
+        drop raw put_byte(hash_64, i, i + 1i64); // some dummy hash 01 02 03...
+        i += 1i64;
+    }
+    
+    // SHA-256 OID: 2.16.840.1.101.3.4.2.1
+    int64:oid_len = 9i64;
+    int64:oid_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64->:oid_64 = cast_unchecked<int64->>(oid_ptr);
+    drop raw put_byte(oid_64, 0i64, 0x60i64);
+    drop raw put_byte(oid_64, 1i64, 0x86i64);
+    drop raw put_byte(oid_64, 2i64, 0x48i64);
+    drop raw put_byte(oid_64, 3i64, 0x01i64);
+    drop raw put_byte(oid_64, 4i64, 0x65i64);
+    drop raw put_byte(oid_64, 5i64, 0x03i64);
+    drop raw put_byte(oid_64, 6i64, 0x04i64);
+    drop raw put_byte(oid_64, 7i64, 0x02i64);
+    drop raw put_byte(oid_64, 8i64, 0x01i64);
+    
+    drop sys!!(1i64, 1i64, "Signing hash...\n", 16i64);
+    
+    int64:sig_len = 128i64; // 1024 bits = 128 bytes
+    int64:sig_ptr = cast_unchecked<int64>(alloc(136i64));
+    
+    int64:res = raw rsa_sign_pkcs1v15(priv, hash_ptr, hash_len, oid_ptr, oid_len, sig_ptr, sig_len);
+    if (res != 128i64) {
+        drop sys!!(1i64, 1i64, "Error: Sign failed.\n", 20i64);
+        exit(1i32);
+    }
+    
+    drop sys!!(1i64, 1i64, "Signature generated successfully.\n", 34i64);
+    
+    int64:out_hash = cast_unchecked<int64>(alloc(64i64));
+    int64:rec_len = raw rsa_verify_pkcs1v15(pub_key, sig_ptr, 128i64, oid_ptr, oid_len, out_hash, 64i64);
+    
+    if (rec_len != hash_len) {
+        drop sys!!(1i64, 1i64, "Error: Verification failed or length mismatch.\n", 47i64);
+        exit(1i32);
+    }
+    
+    int64->:out_hash_64 = cast_unchecked<int64->>(out_hash);
+    i = 0i64;
+    while (i < hash_len) {
+        int64:wi = i / 8i64;
+        int64:sh = (i & 7i64) * 8i64;
+        int64:b = (out_hash_64[wi] >> sh) & 255i64;
+        if (b != (i + 1i64)) {
+            drop sys!!(1i64, 1i64, "Error: Verified hash mismatch.\n", 31i64);
+            exit(1i32);
+        }
+        i += 1i64;
+    }
+    
+    drop sys!!(1i64, 1i64, "Verification successful! Hash matched perfectly.\n", 49i64);
+    
+    free(cast_unchecked<int8->>(hash_ptr));
+    free(cast_unchecked<int8->>(oid_ptr));
+    free(cast_unchecked<int8->>(sig_ptr));
+    free(cast_unchecked<int8->>(out_hash));
+    drop raw bigint_free(priv.n); drop raw bigint_free(priv.d); drop raw bigint_free(priv.p); drop raw bigint_free(priv.q);
+    drop raw bigint_free(pub_key.e);
+    
+    exit(0i32);
+};

@@ -1,0 +1,25 @@
+use "src/cipher/chacha20.npk".*;
+use "src/util/hex.npk".*;
+
+pub func:main = int32() {
+    int64:key = cast_unchecked<int64>(alloc(32i64));
+    int64:nonce = cast_unchecked<int64>(alloc(12i64));
+    int64:out = cast_unchecked<int64>(alloc(64i64));
+    
+    drop raw hex_to_raw("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", key);
+    drop raw hex_to_raw("000000090000004a00000000", nonce);
+    
+    drop raw chacha20_block(key, 1i64, nonce, out);
+    
+    string:res = raw raw_to_hex(out, 64i64);
+    drop raw sys!!(1i64, 1i64, raw my_string_ptr("OUTPUT: "), 8i64);
+    drop raw sys!!(1i64, 1i64, raw my_string_ptr(res), string_length(res));
+    drop raw sys!!(1i64, 1i64, raw my_string_ptr("\\n"), 1i64);
+    
+    exit(0i32);
+};
+
+func:failsafe = int32(tbb32:err) {
+    discard(err);
+    exit(1i32);
+};

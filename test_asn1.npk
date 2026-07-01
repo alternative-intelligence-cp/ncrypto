@@ -1,0 +1,108 @@
+// test_asn1.npk
+use "stdlib/core.npk".*;
+use "src/asn1/der.npk".*;
+
+pub func:failsafe = int32(tbb32:err) { exit(1i32); };
+
+pub func:main = int32() {
+    drop sys!!(1i64, 1i64, "Testing ASN.1 DER Parser...\n", 28i64);
+    
+    // Create a SEQUENCE
+    int64:seq = raw asn1_node_alloc(16i64, 1i64); // 0x10 is SEQUENCE
+    
+    // Create an OID (0x06)
+    int64:oid = raw asn1_node_alloc(6i64, 0i64);
+    int64:oid_data = cast_unchecked<int64>(alloc(16i64));
+    int64->:od_64 = cast_unchecked<int64->>(oid_data);
+    // 2.16.840.1.101.3.4.2.1 (SHA-256) -> 0x60 0x86 0x48 0x01 0x65 0x03 0x04 0x02 0x01
+    int64:i = 0i64;
+    while (i < 16i64) {
+        int64:wi = i / 8i64;
+        int64:sh = (i & 7i64) * 8i64;
+        int64:mask = ~(255i64 << sh);
+        od_64[wi] = od_64[wi] & mask;
+        i += 1i64;
+    }
+    
+    func:put_byte = int32(int64->:b64, int64:off, int64:v) {
+        int64:wi = off / 8i64;
+        int64:sh = (off & 7i64) * 8i64;
+        int64:mask = ~(255i64 << sh);
+        b64[wi] = (b64[wi] & mask) | (v << sh);
+        pass 0i32;
+    };
+    
+    drop raw put_byte(od_64, 0i64, 0x60i64);
+    drop raw put_byte(od_64, 1i64, 0x86i64);
+    drop raw put_byte(od_64, 2i64, 0x48i64);
+    drop raw put_byte(od_64, 3i64, 0x01i64);
+    drop raw put_byte(od_64, 4i64, 0x65i64);
+    drop raw put_byte(od_64, 5i64, 0x03i64);
+    drop raw put_byte(od_64, 6i64, 0x04i64);
+    drop raw put_byte(od_64, 7i64, 0x02i64);
+    drop raw put_byte(od_64, 8i64, 0x01i64);
+    
+    drop raw asn1_node_set_data(oid, oid_data, 9i64);
+    free(cast_unchecked<int8->>(oid_data));
+    
+    // Create NULL (0x05)
+    int64:null_node = raw asn1_node_alloc(5i64, 0i64);
+    drop raw asn1_node_set_data(null_node, 0i64, 0i64); // empty data
+    
+    // Create inner SEQUENCE for AlgorithmIdentifier
+    int64:alg_seq = raw asn1_node_alloc(16i64, 1i64);
+    drop raw asn1_node_add_child(alg_seq, oid);
+    drop raw asn1_node_add_child(alg_seq, null_node);
+    
+    // Add AlgorithmIdentifier to main SEQUENCE
+    drop raw asn1_node_add_child(seq, alg_seq);
+    
+    // Create OCTET STRING (0x04)
+    int64:oct = raw asn1_node_alloc(4i64, 0i64);
+    int64:oct_data = cast_unchecked<int64>(alloc(40i64)); // 32 bytes for SHA-256
+    int64->:oct_64 = cast_unchecked<int64->>(oct_data);
+    i = 0i64;
+    while (i < 32i64) {
+        drop raw put_byte(oct_64, i, 0xAAi64);
+        i += 1i64;
+    }
+    drop raw asn1_node_set_data(oct, oct_data, 32i64);
+    free(cast_unchecked<int8->>(oct_data));
+    
+    drop raw asn1_node_add_child(seq, oct);
+    
+    int64:enc_len = raw asn1_encode_len(seq);
+    int64:enc_buf = cast_unchecked<int64>(alloc(enc_len + 8i64));
+    
+    int64:written = raw asn1_encode(seq, enc_buf, 0i64);
+    
+    if (written != enc_len) {
+        drop sys!!(1i64, 1i64, "Error: encoded length mismatch!\n", 32i64);
+        exit(1i32);
+    }
+    drop sys!!(1i64, 1i64, "Encoded successfully.\n", 22i64);
+    
+    // Now parse it back
+    int64:parsed_node = raw asn1_parse(enc_buf, enc_len);
+    if (parsed_node == 0i64) {
+        drop sys!!(1i64, 1i64, "Error: parsed node is null!\n", 28i64);
+        exit(1i32);
+    }
+    
+    int64->:pn_64 = cast_unchecked<int64->>(parsed_node);
+    if (pn_64[0i64] != 16i64) {
+        drop sys!!(1i64, 1i64, "Error: parsed node is not SEQUENCE!\n", 36i64);
+        exit(1i32);
+    }
+    if (pn_64[5i64] != 2i64) {
+        drop sys!!(1i64, 1i64, "Error: parsed node does not have 2 children!\n", 45i64);
+        exit(1i32);
+    }
+    
+    drop raw asn1_node_free(seq);
+    drop raw asn1_node_free(parsed_node);
+    free(cast_unchecked<int8->>(enc_buf));
+    
+    drop sys!!(1i64, 1i64, "All ASN.1 tests passed.\n", 24i64);
+    exit(0i32);
+};

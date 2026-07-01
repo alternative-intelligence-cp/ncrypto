@@ -1,0 +1,195 @@
+// src/asymmetric/ecdsa.npk
+use "stdlib/core.npk".*;
+use "../math/bigint.npk".*;
+use "ecc.npk".*;
+
+pub struct:ECDSASignature = {
+    int64:r;
+    int64:s;
+};
+
+pub func:ecdsa_signature_alloc = ECDSASignature() {
+    pass ECDSASignature {
+        r: raw bigint_alloc(10i64),
+        s: raw bigint_alloc(10i64)
+    };
+};
+
+pub func:ecdsa_signature_free = int32(ECDSASignature:sig) {
+    drop raw bigint_free(sig.r);
+    drop raw bigint_free(sig.s);
+    pass 0i32;
+};
+
+pub func:bigint_from_random = int64(int64:n) {
+    int64:n_bits = raw bigint_bit_len(n);
+    int64:n_bytes = (n_bits + 7i64) / 8i64;
+    int64:buf = cast_unchecked<int64>(alloc(n_bytes));
+    int64->:buf64 = cast_unchecked<int64->>(buf);
+    
+    int64:zero = raw bigint_alloc(1i64);
+    int64->:zero_b = cast_unchecked<int64->>(zero);
+    zero_b[1i64] = 1i64;
+    zero_b[2i64] = 1i64;
+    zero_b[3i64] = 0i64;
+    
+    int64:k = raw bigint_alloc((n_bytes / 4i64) + 2i64);
+    
+    int64:done = 0i64;
+    while (done == 0i64) {
+        drop sys!!(318i64, buf, n_bytes, 0i64);
+        
+        int64:excess = (n_bytes * 8i64) - n_bits;
+        if (excess > 0i64) {
+            int64:mask = (1i64 << (8i64 - excess)) - 1i64;
+            int64:w_idx = (n_bytes - 1i64) / 8i64;
+            int64:w = buf64[w_idx];
+            int64:sh = ((n_bytes - 1i64) & 7i64) * 8i64;
+            int64:b = (w >> sh) & 255i64;
+            b = b & mask;
+            w = (w & ~(255i64 << sh)) | (b << sh);
+            buf64[w_idx] = w;
+        }
+        
+        int64:j = 0i64;
+        int64->:k_limbs = cast_unchecked<int64->>(k);
+        int64:clear_i = 0i64;
+        while (clear_i < ((n_bytes / 4i64) + 2i64)) {
+            k_limbs[3i64 + clear_i] = 0i64;
+            clear_i += 1i64;
+        }
+        
+        while (j < n_bytes) {
+            int64:w = buf64[j / 8i64];
+            int64:sh = (j & 7i64) * 8i64;
+            int64:b = (w >> sh) & 255i64;
+            
+            int64:limb_idx = j / 4i64;
+            int64:byte_in_limb = j & 3i64;
+            
+            k_limbs[3i64 + limb_idx] = k_limbs[3i64 + limb_idx] | (b << (byte_in_limb * 8i64));
+            j += 1i64;
+        }
+        
+        k_limbs[1i64] = (n_bytes + 3i64) / 4i64;
+        k_limbs[2i64] = 1i64;
+        drop raw bigint_trim(k);
+        
+        if (raw bigint_ucmp(k, zero) > 0i32) {
+            if (raw bigint_ucmp(k, n) < 0i32) {
+                done = 1i64;
+            }
+        }
+    }
+    
+    drop raw bigint_free(zero);
+    free(cast_unchecked<int8->>(buf));
+    pass k;
+};
+
+pub func:ecdsa_sign = int32(int64:z, int64:d, Secp256k1Params:params, ECDSASignature:sig) {
+    int64:zero = raw bigint_alloc(1i64);
+    cast_unchecked<int64->>(zero)[1i64] = 1i64;
+    cast_unchecked<int64->>(zero)[2i64] = 1i64;
+    cast_unchecked<int64->>(zero)[3i64] = 0i64;
+    
+    int64:done = 0i64;
+    while (done == 0i64) {
+        int64:k = raw bigint_from_random(params.n);
+        
+        ECCPoint:R = raw ecc_point_alloc();
+        drop raw ecc_scalar_mul_ct(k, params.G, params.p, R);
+        
+        drop raw ecc_mod_add(R.x, zero, params.n, sig.r);
+        
+        if (raw bigint_ucmp(sig.r, zero) > 0i32) {
+            int64:k_inv = raw bigint_alloc(10i64);
+            drop raw bigint_modinv(k, params.n, k_inv);
+            
+            int64:tmp1 = raw bigint_alloc(20i64);
+            int64:tmp2 = raw bigint_alloc(20i64);
+            int64:q = raw bigint_alloc(20i64);
+            
+            drop raw bigint_mul(sig.r, d, tmp1);
+            drop raw bigint_div_mod(tmp1, params.n, q, tmp2);
+            drop raw bigint_copy(tmp2, tmp1);
+            
+            drop raw bigint_div_mod(z, params.n, q, tmp2);
+            
+            drop raw ecc_mod_add(tmp2, tmp1, params.n, tmp2);
+            drop raw ecc_mod_mul(k_inv, tmp2, params.n, sig.s);
+            
+            if (raw bigint_ucmp(sig.s, zero) > 0i32) {
+                done = 1i64;
+            }
+            
+            drop raw bigint_free(k_inv);
+            drop raw bigint_free(tmp1);
+            drop raw bigint_free(tmp2);
+            drop raw bigint_free(q);
+        }
+        
+        drop raw ecc_point_free(R);
+        drop raw bigint_free(k);
+    }
+    
+    drop raw bigint_free(zero);
+    pass 0i32;
+};
+
+pub func:ecdsa_verify = int32(int64:z, ECCPoint:Q, Secp256k1Params:params, ECDSASignature:sig) {
+    int64:zero = raw bigint_alloc(1i64);
+    cast_unchecked<int64->>(zero)[1i64] = 1i64;
+    cast_unchecked<int64->>(zero)[2i64] = 1i64;
+    cast_unchecked<int64->>(zero)[3i64] = 0i64;
+    
+    if (raw bigint_ucmp(sig.r, zero) <= 0i32) { drop raw bigint_free(zero); pass 0i32; }
+    if (raw bigint_ucmp(sig.r, params.n) >= 0i32) { drop raw bigint_free(zero); pass 0i32; }
+    
+    if (raw bigint_ucmp(sig.s, zero) <= 0i32) { drop raw bigint_free(zero); pass 0i32; }
+    if (raw bigint_ucmp(sig.s, params.n) >= 0i32) { drop raw bigint_free(zero); pass 0i32; }
+    
+    int64:s_inv = raw bigint_alloc(10i64);
+    drop raw bigint_modinv(sig.s, params.n, s_inv);
+    
+    int64:u1 = raw bigint_alloc(10i64);
+    int64:u2 = raw bigint_alloc(10i64);
+    
+    int64:z_mod_n = raw bigint_alloc(10i64);
+    int64:q = raw bigint_alloc(20i64);
+    drop raw bigint_div_mod(z, params.n, q, z_mod_n);
+    
+    drop raw ecc_mod_mul(z_mod_n, s_inv, params.n, u1);
+    drop raw ecc_mod_mul(sig.r, s_inv, params.n, u2);
+    
+    ECCPoint:R1 = raw ecc_point_alloc();
+    drop raw ecc_scalar_mul_ct(u1, params.G, params.p, R1);
+    
+    ECCPoint:R2 = raw ecc_point_alloc();
+    drop raw ecc_scalar_mul_ct(u2, Q, params.p, R2);
+    
+    ECCPoint:R = raw ecc_point_alloc();
+    drop raw ecc_point_add(R1, R2, params.p, R);
+    
+    int32:valid = 0i32;
+    if (raw get_inf(R) == 0i64) {
+        int64:r_calc = raw bigint_alloc(10i64);
+        drop raw ecc_mod_add(R.x, zero, params.n, r_calc);
+        if (raw bigint_ucmp(sig.r, r_calc) == 0i32) {
+            valid = 1i32;
+        }
+        drop raw bigint_free(r_calc);
+    }
+    
+    drop raw bigint_free(zero);
+    drop raw bigint_free(s_inv);
+    drop raw bigint_free(u1);
+    drop raw bigint_free(u2);
+    drop raw bigint_free(z_mod_n);
+    drop raw bigint_free(q);
+    drop raw ecc_point_free(R1);
+    drop raw ecc_point_free(R2);
+    drop raw ecc_point_free(R);
+    
+    pass valid;
+};

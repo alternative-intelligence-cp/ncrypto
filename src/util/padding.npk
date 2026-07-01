@@ -1,0 +1,57 @@
+// src/util/padding.npk
+
+// Pads the input buffer in place.
+// `buf_ptr` points to a buffer of at least size `in_len + block_size`.
+// `in_len` is the current length of the data.
+// `block_size` is the block size (e.g., 16 for AES).
+// Returns the new padded length.
+pub func:pad_pkcs7 = int64(int64:buf_ptr, int64:in_len, int64:block_size) {
+    int64:pad_val = block_size - (in_len % block_size);
+    int64:out_len = in_len + pad_val;
+    
+    int64->:buf_64 = cast_unchecked<int64->>(buf_ptr);
+    
+    int64:i = in_len;
+    int64:sh = 0i64;
+    while (i < out_len) {
+        sh = (i & 7i64) * 8i64;
+        buf_64[i / 8i64] = (buf_64[i / 8i64] & ~(255i64 << sh)) | (pad_val << sh);
+        i += 1i64;
+    }
+    
+    pass out_len;
+};
+
+// Validates and returns the unpadded length of the input buffer.
+// Returns -1i64 if the padding is invalid.
+pub func:unpad_pkcs7 = int64(int64:buf_ptr, int64:in_len, int64:block_size) {
+    if (in_len == 0i64) { pass -1i64; }
+    if ((in_len % block_size) != 0i64) { pass -1i64; }
+    
+    int64->:buf_64 = cast_unchecked<int64->>(buf_ptr);
+    
+    int64:last_idx = in_len - 1i64;
+    int64:last_sh = (last_idx & 7i64) * 8i64;
+    int64:pad_val = (buf_64[last_idx / 8i64] >> last_sh) & 255i64;
+    
+    if (pad_val == 0i64) { pass -1i64; }
+    if (pad_val > block_size) { pass -1i64; }
+    if (pad_val > in_len) { pass -1i64; }
+    
+    int64:i = 0i64;
+    int64:check_idx = 0i64;
+    int64:csh = 0i64;
+    int64:check_val = 0i64;
+    while (i < pad_val) {
+        check_idx = in_len - 1i64 - i;
+        csh = (check_idx & 7i64) * 8i64;
+        check_val = (buf_64[check_idx / 8i64] >> csh) & 255i64;
+        
+        if (check_val != pad_val) {
+            pass -1i64;
+        }
+        i += 1i64;
+    }
+    
+    pass in_len - pad_val;
+};

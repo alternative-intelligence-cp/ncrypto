@@ -1,0 +1,1001 @@
+// src/cipher/aes.npk
+// Advanced Encryption Standard (AES)
+
+func:get_sbox = int64(int64:i) {
+    if (i == 0i64) { pass 99i64; }
+    if (i == 1i64) { pass 124i64; }
+    if (i == 2i64) { pass 119i64; }
+    if (i == 3i64) { pass 123i64; }
+    if (i == 4i64) { pass 242i64; }
+    if (i == 5i64) { pass 107i64; }
+    if (i == 6i64) { pass 111i64; }
+    if (i == 7i64) { pass 197i64; }
+    if (i == 8i64) { pass 48i64; }
+    if (i == 9i64) { pass 1i64; }
+    if (i == 10i64) { pass 103i64; }
+    if (i == 11i64) { pass 43i64; }
+    if (i == 12i64) { pass 254i64; }
+    if (i == 13i64) { pass 215i64; }
+    if (i == 14i64) { pass 171i64; }
+    if (i == 15i64) { pass 118i64; }
+    if (i == 16i64) { pass 202i64; }
+    if (i == 17i64) { pass 130i64; }
+    if (i == 18i64) { pass 201i64; }
+    if (i == 19i64) { pass 125i64; }
+    if (i == 20i64) { pass 250i64; }
+    if (i == 21i64) { pass 89i64; }
+    if (i == 22i64) { pass 71i64; }
+    if (i == 23i64) { pass 240i64; }
+    if (i == 24i64) { pass 173i64; }
+    if (i == 25i64) { pass 212i64; }
+    if (i == 26i64) { pass 162i64; }
+    if (i == 27i64) { pass 175i64; }
+    if (i == 28i64) { pass 156i64; }
+    if (i == 29i64) { pass 164i64; }
+    if (i == 30i64) { pass 114i64; }
+    if (i == 31i64) { pass 192i64; }
+    if (i == 32i64) { pass 183i64; }
+    if (i == 33i64) { pass 253i64; }
+    if (i == 34i64) { pass 147i64; }
+    if (i == 35i64) { pass 38i64; }
+    if (i == 36i64) { pass 54i64; }
+    if (i == 37i64) { pass 63i64; }
+    if (i == 38i64) { pass 247i64; }
+    if (i == 39i64) { pass 204i64; }
+    if (i == 40i64) { pass 52i64; }
+    if (i == 41i64) { pass 165i64; }
+    if (i == 42i64) { pass 229i64; }
+    if (i == 43i64) { pass 241i64; }
+    if (i == 44i64) { pass 113i64; }
+    if (i == 45i64) { pass 216i64; }
+    if (i == 46i64) { pass 49i64; }
+    if (i == 47i64) { pass 21i64; }
+    if (i == 48i64) { pass 4i64; }
+    if (i == 49i64) { pass 199i64; }
+    if (i == 50i64) { pass 35i64; }
+    if (i == 51i64) { pass 195i64; }
+    if (i == 52i64) { pass 24i64; }
+    if (i == 53i64) { pass 150i64; }
+    if (i == 54i64) { pass 5i64; }
+    if (i == 55i64) { pass 154i64; }
+    if (i == 56i64) { pass 7i64; }
+    if (i == 57i64) { pass 18i64; }
+    if (i == 58i64) { pass 128i64; }
+    if (i == 59i64) { pass 226i64; }
+    if (i == 60i64) { pass 235i64; }
+    if (i == 61i64) { pass 39i64; }
+    if (i == 62i64) { pass 178i64; }
+    if (i == 63i64) { pass 117i64; }
+    if (i == 64i64) { pass 9i64; }
+    if (i == 65i64) { pass 131i64; }
+    if (i == 66i64) { pass 44i64; }
+    if (i == 67i64) { pass 26i64; }
+    if (i == 68i64) { pass 27i64; }
+    if (i == 69i64) { pass 110i64; }
+    if (i == 70i64) { pass 90i64; }
+    if (i == 71i64) { pass 160i64; }
+    if (i == 72i64) { pass 82i64; }
+    if (i == 73i64) { pass 59i64; }
+    if (i == 74i64) { pass 214i64; }
+    if (i == 75i64) { pass 179i64; }
+    if (i == 76i64) { pass 41i64; }
+    if (i == 77i64) { pass 227i64; }
+    if (i == 78i64) { pass 47i64; }
+    if (i == 79i64) { pass 132i64; }
+    if (i == 80i64) { pass 83i64; }
+    if (i == 81i64) { pass 209i64; }
+    if (i == 82i64) { pass 0i64; }
+    if (i == 83i64) { pass 237i64; }
+    if (i == 84i64) { pass 32i64; }
+    if (i == 85i64) { pass 252i64; }
+    if (i == 86i64) { pass 177i64; }
+    if (i == 87i64) { pass 91i64; }
+    if (i == 88i64) { pass 106i64; }
+    if (i == 89i64) { pass 203i64; }
+    if (i == 90i64) { pass 190i64; }
+    if (i == 91i64) { pass 57i64; }
+    if (i == 92i64) { pass 74i64; }
+    if (i == 93i64) { pass 76i64; }
+    if (i == 94i64) { pass 88i64; }
+    if (i == 95i64) { pass 207i64; }
+    if (i == 96i64) { pass 208i64; }
+    if (i == 97i64) { pass 239i64; }
+    if (i == 98i64) { pass 170i64; }
+    if (i == 99i64) { pass 251i64; }
+    if (i == 100i64) { pass 67i64; }
+    if (i == 101i64) { pass 77i64; }
+    if (i == 102i64) { pass 51i64; }
+    if (i == 103i64) { pass 133i64; }
+    if (i == 104i64) { pass 69i64; }
+    if (i == 105i64) { pass 249i64; }
+    if (i == 106i64) { pass 2i64; }
+    if (i == 107i64) { pass 127i64; }
+    if (i == 108i64) { pass 80i64; }
+    if (i == 109i64) { pass 60i64; }
+    if (i == 110i64) { pass 159i64; }
+    if (i == 111i64) { pass 168i64; }
+    if (i == 112i64) { pass 81i64; }
+    if (i == 113i64) { pass 163i64; }
+    if (i == 114i64) { pass 64i64; }
+    if (i == 115i64) { pass 143i64; }
+    if (i == 116i64) { pass 146i64; }
+    if (i == 117i64) { pass 157i64; }
+    if (i == 118i64) { pass 56i64; }
+    if (i == 119i64) { pass 245i64; }
+    if (i == 120i64) { pass 188i64; }
+    if (i == 121i64) { pass 182i64; }
+    if (i == 122i64) { pass 218i64; }
+    if (i == 123i64) { pass 33i64; }
+    if (i == 124i64) { pass 16i64; }
+    if (i == 125i64) { pass 255i64; }
+    if (i == 126i64) { pass 243i64; }
+    if (i == 127i64) { pass 210i64; }
+    if (i == 128i64) { pass 205i64; }
+    if (i == 129i64) { pass 12i64; }
+    if (i == 130i64) { pass 19i64; }
+    if (i == 131i64) { pass 236i64; }
+    if (i == 132i64) { pass 95i64; }
+    if (i == 133i64) { pass 151i64; }
+    if (i == 134i64) { pass 68i64; }
+    if (i == 135i64) { pass 23i64; }
+    if (i == 136i64) { pass 196i64; }
+    if (i == 137i64) { pass 167i64; }
+    if (i == 138i64) { pass 126i64; }
+    if (i == 139i64) { pass 61i64; }
+    if (i == 140i64) { pass 100i64; }
+    if (i == 141i64) { pass 93i64; }
+    if (i == 142i64) { pass 25i64; }
+    if (i == 143i64) { pass 115i64; }
+    if (i == 144i64) { pass 96i64; }
+    if (i == 145i64) { pass 129i64; }
+    if (i == 146i64) { pass 79i64; }
+    if (i == 147i64) { pass 220i64; }
+    if (i == 148i64) { pass 34i64; }
+    if (i == 149i64) { pass 42i64; }
+    if (i == 150i64) { pass 144i64; }
+    if (i == 151i64) { pass 136i64; }
+    if (i == 152i64) { pass 70i64; }
+    if (i == 153i64) { pass 238i64; }
+    if (i == 154i64) { pass 184i64; }
+    if (i == 155i64) { pass 20i64; }
+    if (i == 156i64) { pass 222i64; }
+    if (i == 157i64) { pass 94i64; }
+    if (i == 158i64) { pass 11i64; }
+    if (i == 159i64) { pass 219i64; }
+    if (i == 160i64) { pass 224i64; }
+    if (i == 161i64) { pass 50i64; }
+    if (i == 162i64) { pass 58i64; }
+    if (i == 163i64) { pass 10i64; }
+    if (i == 164i64) { pass 73i64; }
+    if (i == 165i64) { pass 6i64; }
+    if (i == 166i64) { pass 36i64; }
+    if (i == 167i64) { pass 92i64; }
+    if (i == 168i64) { pass 194i64; }
+    if (i == 169i64) { pass 211i64; }
+    if (i == 170i64) { pass 172i64; }
+    if (i == 171i64) { pass 98i64; }
+    if (i == 172i64) { pass 145i64; }
+    if (i == 173i64) { pass 149i64; }
+    if (i == 174i64) { pass 228i64; }
+    if (i == 175i64) { pass 121i64; }
+    if (i == 176i64) { pass 231i64; }
+    if (i == 177i64) { pass 200i64; }
+    if (i == 178i64) { pass 55i64; }
+    if (i == 179i64) { pass 109i64; }
+    if (i == 180i64) { pass 141i64; }
+    if (i == 181i64) { pass 213i64; }
+    if (i == 182i64) { pass 78i64; }
+    if (i == 183i64) { pass 169i64; }
+    if (i == 184i64) { pass 108i64; }
+    if (i == 185i64) { pass 86i64; }
+    if (i == 186i64) { pass 244i64; }
+    if (i == 187i64) { pass 234i64; }
+    if (i == 188i64) { pass 101i64; }
+    if (i == 189i64) { pass 122i64; }
+    if (i == 190i64) { pass 174i64; }
+    if (i == 191i64) { pass 8i64; }
+    if (i == 192i64) { pass 186i64; }
+    if (i == 193i64) { pass 120i64; }
+    if (i == 194i64) { pass 37i64; }
+    if (i == 195i64) { pass 46i64; }
+    if (i == 196i64) { pass 28i64; }
+    if (i == 197i64) { pass 166i64; }
+    if (i == 198i64) { pass 180i64; }
+    if (i == 199i64) { pass 198i64; }
+    if (i == 200i64) { pass 232i64; }
+    if (i == 201i64) { pass 221i64; }
+    if (i == 202i64) { pass 116i64; }
+    if (i == 203i64) { pass 31i64; }
+    if (i == 204i64) { pass 75i64; }
+    if (i == 205i64) { pass 189i64; }
+    if (i == 206i64) { pass 139i64; }
+    if (i == 207i64) { pass 138i64; }
+    if (i == 208i64) { pass 112i64; }
+    if (i == 209i64) { pass 62i64; }
+    if (i == 210i64) { pass 181i64; }
+    if (i == 211i64) { pass 102i64; }
+    if (i == 212i64) { pass 72i64; }
+    if (i == 213i64) { pass 3i64; }
+    if (i == 214i64) { pass 246i64; }
+    if (i == 215i64) { pass 14i64; }
+    if (i == 216i64) { pass 97i64; }
+    if (i == 217i64) { pass 53i64; }
+    if (i == 218i64) { pass 87i64; }
+    if (i == 219i64) { pass 185i64; }
+    if (i == 220i64) { pass 134i64; }
+    if (i == 221i64) { pass 193i64; }
+    if (i == 222i64) { pass 29i64; }
+    if (i == 223i64) { pass 158i64; }
+    if (i == 224i64) { pass 225i64; }
+    if (i == 225i64) { pass 248i64; }
+    if (i == 226i64) { pass 152i64; }
+    if (i == 227i64) { pass 17i64; }
+    if (i == 228i64) { pass 105i64; }
+    if (i == 229i64) { pass 217i64; }
+    if (i == 230i64) { pass 142i64; }
+    if (i == 231i64) { pass 148i64; }
+    if (i == 232i64) { pass 155i64; }
+    if (i == 233i64) { pass 30i64; }
+    if (i == 234i64) { pass 135i64; }
+    if (i == 235i64) { pass 233i64; }
+    if (i == 236i64) { pass 206i64; }
+    if (i == 237i64) { pass 85i64; }
+    if (i == 238i64) { pass 40i64; }
+    if (i == 239i64) { pass 223i64; }
+    if (i == 240i64) { pass 140i64; }
+    if (i == 241i64) { pass 161i64; }
+    if (i == 242i64) { pass 137i64; }
+    if (i == 243i64) { pass 13i64; }
+    if (i == 244i64) { pass 191i64; }
+    if (i == 245i64) { pass 230i64; }
+    if (i == 246i64) { pass 66i64; }
+    if (i == 247i64) { pass 104i64; }
+    if (i == 248i64) { pass 65i64; }
+    if (i == 249i64) { pass 153i64; }
+    if (i == 250i64) { pass 45i64; }
+    if (i == 251i64) { pass 15i64; }
+    if (i == 252i64) { pass 176i64; }
+    if (i == 253i64) { pass 84i64; }
+    if (i == 254i64) { pass 187i64; }
+    if (i == 255i64) { pass 22i64; }
+    pass 0i64;
+};
+
+pub func:get_inv_sbox = int64(int64:i) {
+    if (i == 0i64) { pass 82i64; }
+    if (i == 1i64) { pass 9i64; }
+    if (i == 2i64) { pass 106i64; }
+    if (i == 3i64) { pass 213i64; }
+    if (i == 4i64) { pass 48i64; }
+    if (i == 5i64) { pass 54i64; }
+    if (i == 6i64) { pass 165i64; }
+    if (i == 7i64) { pass 56i64; }
+    if (i == 8i64) { pass 191i64; }
+    if (i == 9i64) { pass 64i64; }
+    if (i == 10i64) { pass 163i64; }
+    if (i == 11i64) { pass 158i64; }
+    if (i == 12i64) { pass 129i64; }
+    if (i == 13i64) { pass 243i64; }
+    if (i == 14i64) { pass 215i64; }
+    if (i == 15i64) { pass 251i64; }
+    if (i == 16i64) { pass 124i64; }
+    if (i == 17i64) { pass 227i64; }
+    if (i == 18i64) { pass 57i64; }
+    if (i == 19i64) { pass 130i64; }
+    if (i == 20i64) { pass 155i64; }
+    if (i == 21i64) { pass 47i64; }
+    if (i == 22i64) { pass 255i64; }
+    if (i == 23i64) { pass 135i64; }
+    if (i == 24i64) { pass 52i64; }
+    if (i == 25i64) { pass 142i64; }
+    if (i == 26i64) { pass 67i64; }
+    if (i == 27i64) { pass 68i64; }
+    if (i == 28i64) { pass 196i64; }
+    if (i == 29i64) { pass 222i64; }
+    if (i == 30i64) { pass 233i64; }
+    if (i == 31i64) { pass 203i64; }
+    if (i == 32i64) { pass 84i64; }
+    if (i == 33i64) { pass 123i64; }
+    if (i == 34i64) { pass 148i64; }
+    if (i == 35i64) { pass 50i64; }
+    if (i == 36i64) { pass 166i64; }
+    if (i == 37i64) { pass 194i64; }
+    if (i == 38i64) { pass 35i64; }
+    if (i == 39i64) { pass 61i64; }
+    if (i == 40i64) { pass 238i64; }
+    if (i == 41i64) { pass 76i64; }
+    if (i == 42i64) { pass 149i64; }
+    if (i == 43i64) { pass 11i64; }
+    if (i == 44i64) { pass 66i64; }
+    if (i == 45i64) { pass 250i64; }
+    if (i == 46i64) { pass 195i64; }
+    if (i == 47i64) { pass 78i64; }
+    if (i == 48i64) { pass 8i64; }
+    if (i == 49i64) { pass 46i64; }
+    if (i == 50i64) { pass 161i64; }
+    if (i == 51i64) { pass 102i64; }
+    if (i == 52i64) { pass 40i64; }
+    if (i == 53i64) { pass 217i64; }
+    if (i == 54i64) { pass 36i64; }
+    if (i == 55i64) { pass 178i64; }
+    if (i == 56i64) { pass 118i64; }
+    if (i == 57i64) { pass 91i64; }
+    if (i == 58i64) { pass 162i64; }
+    if (i == 59i64) { pass 73i64; }
+    if (i == 60i64) { pass 109i64; }
+    if (i == 61i64) { pass 139i64; }
+    if (i == 62i64) { pass 209i64; }
+    if (i == 63i64) { pass 37i64; }
+    if (i == 64i64) { pass 114i64; }
+    if (i == 65i64) { pass 248i64; }
+    if (i == 66i64) { pass 246i64; }
+    if (i == 67i64) { pass 100i64; }
+    if (i == 68i64) { pass 134i64; }
+    if (i == 69i64) { pass 104i64; }
+    if (i == 70i64) { pass 152i64; }
+    if (i == 71i64) { pass 22i64; }
+    if (i == 72i64) { pass 212i64; }
+    if (i == 73i64) { pass 164i64; }
+    if (i == 74i64) { pass 92i64; }
+    if (i == 75i64) { pass 204i64; }
+    if (i == 76i64) { pass 93i64; }
+    if (i == 77i64) { pass 101i64; }
+    if (i == 78i64) { pass 182i64; }
+    if (i == 79i64) { pass 146i64; }
+    if (i == 80i64) { pass 108i64; }
+    if (i == 81i64) { pass 112i64; }
+    if (i == 82i64) { pass 72i64; }
+    if (i == 83i64) { pass 80i64; }
+    if (i == 84i64) { pass 253i64; }
+    if (i == 85i64) { pass 237i64; }
+    if (i == 86i64) { pass 185i64; }
+    if (i == 87i64) { pass 218i64; }
+    if (i == 88i64) { pass 94i64; }
+    if (i == 89i64) { pass 21i64; }
+    if (i == 90i64) { pass 70i64; }
+    if (i == 91i64) { pass 87i64; }
+    if (i == 92i64) { pass 167i64; }
+    if (i == 93i64) { pass 141i64; }
+    if (i == 94i64) { pass 157i64; }
+    if (i == 95i64) { pass 132i64; }
+    if (i == 96i64) { pass 144i64; }
+    if (i == 97i64) { pass 216i64; }
+    if (i == 98i64) { pass 171i64; }
+    if (i == 99i64) { pass 0i64; }
+    if (i == 100i64) { pass 140i64; }
+    if (i == 101i64) { pass 188i64; }
+    if (i == 102i64) { pass 211i64; }
+    if (i == 103i64) { pass 10i64; }
+    if (i == 104i64) { pass 247i64; }
+    if (i == 105i64) { pass 228i64; }
+    if (i == 106i64) { pass 88i64; }
+    if (i == 107i64) { pass 5i64; }
+    if (i == 108i64) { pass 184i64; }
+    if (i == 109i64) { pass 179i64; }
+    if (i == 110i64) { pass 69i64; }
+    if (i == 111i64) { pass 6i64; }
+    if (i == 112i64) { pass 208i64; }
+    if (i == 113i64) { pass 44i64; }
+    if (i == 114i64) { pass 30i64; }
+    if (i == 115i64) { pass 143i64; }
+    if (i == 116i64) { pass 202i64; }
+    if (i == 117i64) { pass 63i64; }
+    if (i == 118i64) { pass 15i64; }
+    if (i == 119i64) { pass 2i64; }
+    if (i == 120i64) { pass 193i64; }
+    if (i == 121i64) { pass 175i64; }
+    if (i == 122i64) { pass 189i64; }
+    if (i == 123i64) { pass 3i64; }
+    if (i == 124i64) { pass 1i64; }
+    if (i == 125i64) { pass 19i64; }
+    if (i == 126i64) { pass 138i64; }
+    if (i == 127i64) { pass 107i64; }
+    if (i == 128i64) { pass 58i64; }
+    if (i == 129i64) { pass 145i64; }
+    if (i == 130i64) { pass 17i64; }
+    if (i == 131i64) { pass 65i64; }
+    if (i == 132i64) { pass 79i64; }
+    if (i == 133i64) { pass 103i64; }
+    if (i == 134i64) { pass 220i64; }
+    if (i == 135i64) { pass 234i64; }
+    if (i == 136i64) { pass 151i64; }
+    if (i == 137i64) { pass 242i64; }
+    if (i == 138i64) { pass 207i64; }
+    if (i == 139i64) { pass 206i64; }
+    if (i == 140i64) { pass 240i64; }
+    if (i == 141i64) { pass 180i64; }
+    if (i == 142i64) { pass 230i64; }
+    if (i == 143i64) { pass 115i64; }
+    if (i == 144i64) { pass 150i64; }
+    if (i == 145i64) { pass 172i64; }
+    if (i == 146i64) { pass 116i64; }
+    if (i == 147i64) { pass 34i64; }
+    if (i == 148i64) { pass 231i64; }
+    if (i == 149i64) { pass 173i64; }
+    if (i == 150i64) { pass 53i64; }
+    if (i == 151i64) { pass 133i64; }
+    if (i == 152i64) { pass 226i64; }
+    if (i == 153i64) { pass 249i64; }
+    if (i == 154i64) { pass 55i64; }
+    if (i == 155i64) { pass 232i64; }
+    if (i == 156i64) { pass 28i64; }
+    if (i == 157i64) { pass 117i64; }
+    if (i == 158i64) { pass 223i64; }
+    if (i == 159i64) { pass 110i64; }
+    if (i == 160i64) { pass 71i64; }
+    if (i == 161i64) { pass 241i64; }
+    if (i == 162i64) { pass 26i64; }
+    if (i == 163i64) { pass 113i64; }
+    if (i == 164i64) { pass 29i64; }
+    if (i == 165i64) { pass 41i64; }
+    if (i == 166i64) { pass 197i64; }
+    if (i == 167i64) { pass 137i64; }
+    if (i == 168i64) { pass 111i64; }
+    if (i == 169i64) { pass 183i64; }
+    if (i == 170i64) { pass 98i64; }
+    if (i == 171i64) { pass 14i64; }
+    if (i == 172i64) { pass 170i64; }
+    if (i == 173i64) { pass 24i64; }
+    if (i == 174i64) { pass 190i64; }
+    if (i == 175i64) { pass 27i64; }
+    if (i == 176i64) { pass 252i64; }
+    if (i == 177i64) { pass 86i64; }
+    if (i == 178i64) { pass 62i64; }
+    if (i == 179i64) { pass 75i64; }
+    if (i == 180i64) { pass 198i64; }
+    if (i == 181i64) { pass 210i64; }
+    if (i == 182i64) { pass 121i64; }
+    if (i == 183i64) { pass 32i64; }
+    if (i == 184i64) { pass 154i64; }
+    if (i == 185i64) { pass 219i64; }
+    if (i == 186i64) { pass 192i64; }
+    if (i == 187i64) { pass 254i64; }
+    if (i == 188i64) { pass 120i64; }
+    if (i == 189i64) { pass 205i64; }
+    if (i == 190i64) { pass 90i64; }
+    if (i == 191i64) { pass 244i64; }
+    if (i == 192i64) { pass 31i64; }
+    if (i == 193i64) { pass 221i64; }
+    if (i == 194i64) { pass 168i64; }
+    if (i == 195i64) { pass 51i64; }
+    if (i == 196i64) { pass 136i64; }
+    if (i == 197i64) { pass 7i64; }
+    if (i == 198i64) { pass 199i64; }
+    if (i == 199i64) { pass 49i64; }
+    if (i == 200i64) { pass 177i64; }
+    if (i == 201i64) { pass 18i64; }
+    if (i == 202i64) { pass 16i64; }
+    if (i == 203i64) { pass 89i64; }
+    if (i == 204i64) { pass 39i64; }
+    if (i == 205i64) { pass 128i64; }
+    if (i == 206i64) { pass 236i64; }
+    if (i == 207i64) { pass 95i64; }
+    if (i == 208i64) { pass 96i64; }
+    if (i == 209i64) { pass 81i64; }
+    if (i == 210i64) { pass 127i64; }
+    if (i == 211i64) { pass 169i64; }
+    if (i == 212i64) { pass 25i64; }
+    if (i == 213i64) { pass 181i64; }
+    if (i == 214i64) { pass 74i64; }
+    if (i == 215i64) { pass 13i64; }
+    if (i == 216i64) { pass 45i64; }
+    if (i == 217i64) { pass 229i64; }
+    if (i == 218i64) { pass 122i64; }
+    if (i == 219i64) { pass 159i64; }
+    if (i == 220i64) { pass 147i64; }
+    if (i == 221i64) { pass 201i64; }
+    if (i == 222i64) { pass 156i64; }
+    if (i == 223i64) { pass 239i64; }
+    if (i == 224i64) { pass 160i64; }
+    if (i == 225i64) { pass 224i64; }
+    if (i == 226i64) { pass 59i64; }
+    if (i == 227i64) { pass 77i64; }
+    if (i == 228i64) { pass 174i64; }
+    if (i == 229i64) { pass 42i64; }
+    if (i == 230i64) { pass 245i64; }
+    if (i == 231i64) { pass 176i64; }
+    if (i == 232i64) { pass 200i64; }
+    if (i == 233i64) { pass 235i64; }
+    if (i == 234i64) { pass 187i64; }
+    if (i == 235i64) { pass 60i64; }
+    if (i == 236i64) { pass 131i64; }
+    if (i == 237i64) { pass 83i64; }
+    if (i == 238i64) { pass 153i64; }
+    if (i == 239i64) { pass 97i64; }
+    if (i == 240i64) { pass 23i64; }
+    if (i == 241i64) { pass 43i64; }
+    if (i == 242i64) { pass 4i64; }
+    if (i == 243i64) { pass 126i64; }
+    if (i == 244i64) { pass 186i64; }
+    if (i == 245i64) { pass 119i64; }
+    if (i == 246i64) { pass 214i64; }
+    if (i == 247i64) { pass 38i64; }
+    if (i == 248i64) { pass 225i64; }
+    if (i == 249i64) { pass 105i64; }
+    if (i == 250i64) { pass 20i64; }
+    if (i == 251i64) { pass 99i64; }
+    if (i == 252i64) { pass 85i64; }
+    if (i == 253i64) { pass 33i64; }
+    if (i == 254i64) { pass 12i64; }
+    if (i == 255i64) { pass 125i64; }
+    pass 0i64;
+};
+
+func:get_rcon = int64(int64:i) {
+    if (i == 0i64) { pass 0i64; }
+    if (i == 1i64) { pass 1i64; }
+    if (i == 2i64) { pass 2i64; }
+    if (i == 3i64) { pass 4i64; }
+    if (i == 4i64) { pass 8i64; }
+    if (i == 5i64) { pass 16i64; }
+    if (i == 6i64) { pass 32i64; }
+    if (i == 7i64) { pass 64i64; }
+    if (i == 8i64) { pass 128i64; }
+    if (i == 9i64) { pass 27i64; }
+    if (i == 10i64) { pass 54i64; }
+    if (i == 11i64) { pass 108i64; }
+    if (i == 12i64) { pass 216i64; }
+    if (i == 13i64) { pass 171i64; }
+    if (i == 14i64) { pass 77i64; }
+    if (i == 15i64) { pass 154i64; }
+    pass 0i64;
+};
+
+
+pub func:gmul = int64(int64:a, int64:b) {
+    int64:p = 0i64;
+    int64:i = 0i64;
+    int64:hi_bit_set = 0i64;
+    while (i < 8i64) {
+        if ((b & 1i64) != 0i64) {
+            p ^= a;
+        }
+        int64:hi_bit_set = a & 128i64;
+        a <<= 1i64;
+        if (hi_bit_set != 0i64) {
+            a ^= 27i64;
+        }
+        a &= 255i64;
+        b >>= 1i64;
+        i += 1i64;
+    }
+    pass p;
+};
+
+pub func:aes_key_expand = int32(int64:key_ptr, int64:key_len, int64:exp_key_ptr) {
+    int64:Nk = key_len / 4i64;
+    int64:Nb = 4i64;
+    int64:Nr = 10i64;
+    if (Nk == 6i64) { Nr = 12i64; }
+    if (Nk == 8i64) { Nr = 14i64; }
+    
+    int64->:key_64 = cast_unchecked<int64->>(key_ptr);
+    int64->:exp_64 = cast_unchecked<int64->>(exp_key_ptr);
+    
+    int64:i = 0i64;
+    int64:ksh = 0i64;
+    int64:val = 0i64;
+    int64:esh = 0i64;
+    while (i < key_len) {
+        ksh = (i & 7i64) * 8i64;
+        val = (key_64[i / 8i64] >> ksh) & 255i64;
+        esh = (i & 7i64) * 8i64;
+        exp_64[i / 8i64] = (exp_64[i / 8i64] & ~(255i64 << esh)) | (val << esh);
+        i += 1i64;
+    }
+    
+    int64:bytes_generated = key_len;
+    int64:words_generated = Nk;
+    int64:total_words = Nb * (Nr + 1i64);
+    
+    int64:w_prev_idx = 0i64;
+    int64:v0 = 0i64;
+    int64:v1 = 0i64;
+    int64:v2 = 0i64;
+    int64:v3 = 0i64;
+    int64:tmp = 0i64;
+    int64:w_nk_idx = 0i64;
+    int64:u0 = 0i64;
+    int64:u1 = 0i64;
+    int64:u2 = 0i64;
+    int64:u3 = 0i64;
+    int64:n0 = 0i64;
+    int64:n1 = 0i64;
+    int64:n2 = 0i64;
+    int64:n3 = 0i64;
+    int64:w_cur_idx = 0i64;
+    
+    while (words_generated < total_words) {
+        w_prev_idx = (words_generated - 1i64) * 4i64;
+        v0 = (exp_64[(w_prev_idx + 0i64) / 8i64] >> (((w_prev_idx + 0i64) & 7i64) * 8i64)) & 255i64;
+        v1 = (exp_64[(w_prev_idx + 1i64) / 8i64] >> (((w_prev_idx + 1i64) & 7i64) * 8i64)) & 255i64;
+        v2 = (exp_64[(w_prev_idx + 2i64) / 8i64] >> (((w_prev_idx + 2i64) & 7i64) * 8i64)) & 255i64;
+        v3 = (exp_64[(w_prev_idx + 3i64) / 8i64] >> (((w_prev_idx + 3i64) & 7i64) * 8i64)) & 255i64;
+        
+        if ((words_generated % Nk) == 0i64) {
+            tmp = v0; v0 = v1; v1 = v2; v2 = v3; v3 = tmp;
+            v0 = raw get_sbox(v0);
+            v1 = raw get_sbox(v1);
+            v2 = raw get_sbox(v2);
+            v3 = raw get_sbox(v3);
+            v0 ^= raw get_rcon(words_generated / Nk);
+        }
+        
+        if (Nk > 6i64) {
+            if ((words_generated % Nk) == 4i64) {
+                v0 = raw get_sbox(v0);
+                v1 = raw get_sbox(v1);
+                v2 = raw get_sbox(v2);
+                v3 = raw get_sbox(v3);
+            }
+        }
+        
+        w_nk_idx = (words_generated - Nk) * 4i64;
+        u0 = (exp_64[(w_nk_idx + 0i64) / 8i64] >> (((w_nk_idx + 0i64) & 7i64) * 8i64)) & 255i64;
+        u1 = (exp_64[(w_nk_idx + 1i64) / 8i64] >> (((w_nk_idx + 1i64) & 7i64) * 8i64)) & 255i64;
+        u2 = (exp_64[(w_nk_idx + 2i64) / 8i64] >> (((w_nk_idx + 2i64) & 7i64) * 8i64)) & 255i64;
+        u3 = (exp_64[(w_nk_idx + 3i64) / 8i64] >> (((w_nk_idx + 3i64) & 7i64) * 8i64)) & 255i64;
+        
+        n0 = u0 ^ v0;
+        n1 = u1 ^ v1;
+        n2 = u2 ^ v2;
+        n3 = u3 ^ v3;
+        
+        w_cur_idx = words_generated * 4i64;
+        exp_64[(w_cur_idx + 0i64) / 8i64] = (exp_64[(w_cur_idx + 0i64) / 8i64] & ~(255i64 << (((w_cur_idx + 0i64) & 7i64) * 8i64))) | (n0 << (((w_cur_idx + 0i64) & 7i64) * 8i64));
+        exp_64[(w_cur_idx + 1i64) / 8i64] = (exp_64[(w_cur_idx + 1i64) / 8i64] & ~(255i64 << (((w_cur_idx + 1i64) & 7i64) * 8i64))) | (n1 << (((w_cur_idx + 1i64) & 7i64) * 8i64));
+        exp_64[(w_cur_idx + 2i64) / 8i64] = (exp_64[(w_cur_idx + 2i64) / 8i64] & ~(255i64 << (((w_cur_idx + 2i64) & 7i64) * 8i64))) | (n2 << (((w_cur_idx + 2i64) & 7i64) * 8i64));
+        exp_64[(w_cur_idx + 3i64) / 8i64] = (exp_64[(w_cur_idx + 3i64) / 8i64] & ~(255i64 << (((w_cur_idx + 3i64) & 7i64) * 8i64))) | (n3 << (((w_cur_idx + 3i64) & 7i64) * 8i64));
+        
+        words_generated += 1i64;
+    }
+    
+    pass 0i32;
+};
+
+pub func:aes_encrypt_block = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr, int64:out_ptr) {
+    int64:Nr = 10i64;
+    if (key_len == 24i64) { Nr = 12i64; }
+    if (key_len == 32i64) { Nr = 14i64; }
+    
+    int64:state = cast_unchecked<int64>(alloc(24i64)); // 16 bytes
+    int64->:state_64 = cast_unchecked<int64->>(state);
+    int64->:in_64 = cast_unchecked<int64->>(in_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    int64->:exp_64 = cast_unchecked<int64->>(exp_key_ptr);
+    
+    int64:i = 0i64;
+    int64:v = 0i64;
+    while (i < 16i64) {
+        v = (in_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (v << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    i = 0i64;
+    int64:sv = 0i64;
+    int64:kv = 0i64;
+    int64:nv = 0i64;
+    while (i < 16i64) {
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        kv = (exp_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        nv = sv ^ kv;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    int64:round = 1i64;
+    int64:c = 0i64;
+    int64:c0_idx = 0i64; int64:c1_idx = 0i64; int64:c2_idx = 0i64; int64:c3_idx = 0i64;
+    int64:v0 = 0i64; int64:v1 = 0i64; int64:v2 = 0i64; int64:v3 = 0i64;
+    int64:nv0 = 0i64; int64:nv1 = 0i64; int64:nv2 = 0i64; int64:nv3 = 0i64;
+    int64:k_base = 0i64; int64:k_idx = 0i64;
+    int64:s1=0i64; int64:s5=0i64; int64:s9=0i64; int64:s13=0i64;
+    int64:s2=0i64; int64:s6=0i64; int64:s10=0i64; int64:s14=0i64;
+    int64:s3=0i64; int64:s7=0i64; int64:s11=0i64; int64:s15=0i64;
+    
+    while (round < Nr) {
+        i = 0i64;
+        while (i < 16i64) {
+            sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+            sv = raw get_sbox(sv);
+            state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (sv << ((i & 7i64) * 8i64));
+            i += 1i64;
+        }
+        
+        s1 = (state_64[1i64 / 8i64] >> ((1i64 & 7i64) * 8i64)) & 255i64;
+        s5 = (state_64[5i64 / 8i64] >> ((5i64 & 7i64) * 8i64)) & 255i64;
+        s9 = (state_64[9i64 / 8i64] >> ((9i64 & 7i64) * 8i64)) & 255i64;
+        s13 = (state_64[13i64 / 8i64] >> ((13i64 & 7i64) * 8i64)) & 255i64;
+        state_64[1i64 / 8i64] = (state_64[1i64 / 8i64] & ~(255i64 << ((1i64 & 7i64) * 8i64))) | (s5 << ((1i64 & 7i64) * 8i64));
+        state_64[5i64 / 8i64] = (state_64[5i64 / 8i64] & ~(255i64 << ((5i64 & 7i64) * 8i64))) | (s9 << ((5i64 & 7i64) * 8i64));
+        state_64[9i64 / 8i64] = (state_64[9i64 / 8i64] & ~(255i64 << ((9i64 & 7i64) * 8i64))) | (s13 << ((9i64 & 7i64) * 8i64));
+        state_64[13i64 / 8i64] = (state_64[13i64 / 8i64] & ~(255i64 << ((13i64 & 7i64) * 8i64))) | (s1 << ((13i64 & 7i64) * 8i64));
+        
+        s2 = (state_64[2i64 / 8i64] >> ((2i64 & 7i64) * 8i64)) & 255i64;
+        s6 = (state_64[6i64 / 8i64] >> ((6i64 & 7i64) * 8i64)) & 255i64;
+        s10 = (state_64[10i64 / 8i64] >> ((10i64 & 7i64) * 8i64)) & 255i64;
+        s14 = (state_64[14i64 / 8i64] >> ((14i64 & 7i64) * 8i64)) & 255i64;
+        state_64[2i64 / 8i64] = (state_64[2i64 / 8i64] & ~(255i64 << ((2i64 & 7i64) * 8i64))) | (s10 << ((2i64 & 7i64) * 8i64));
+        state_64[6i64 / 8i64] = (state_64[6i64 / 8i64] & ~(255i64 << ((6i64 & 7i64) * 8i64))) | (s14 << ((6i64 & 7i64) * 8i64));
+        state_64[10i64 / 8i64] = (state_64[10i64 / 8i64] & ~(255i64 << ((10i64 & 7i64) * 8i64))) | (s2 << ((10i64 & 7i64) * 8i64));
+        state_64[14i64 / 8i64] = (state_64[14i64 / 8i64] & ~(255i64 << ((14i64 & 7i64) * 8i64))) | (s6 << ((14i64 & 7i64) * 8i64));
+        
+        s3 = (state_64[3i64 / 8i64] >> ((3i64 & 7i64) * 8i64)) & 255i64;
+        s7 = (state_64[7i64 / 8i64] >> ((7i64 & 7i64) * 8i64)) & 255i64;
+        s11 = (state_64[11i64 / 8i64] >> ((11i64 & 7i64) * 8i64)) & 255i64;
+        s15 = (state_64[15i64 / 8i64] >> ((15i64 & 7i64) * 8i64)) & 255i64;
+        state_64[3i64 / 8i64] = (state_64[3i64 / 8i64] & ~(255i64 << ((3i64 & 7i64) * 8i64))) | (s15 << ((3i64 & 7i64) * 8i64));
+        state_64[7i64 / 8i64] = (state_64[7i64 / 8i64] & ~(255i64 << ((7i64 & 7i64) * 8i64))) | (s3 << ((7i64 & 7i64) * 8i64));
+        state_64[11i64 / 8i64] = (state_64[11i64 / 8i64] & ~(255i64 << ((11i64 & 7i64) * 8i64))) | (s7 << ((11i64 & 7i64) * 8i64));
+        state_64[15i64 / 8i64] = (state_64[15i64 / 8i64] & ~(255i64 << ((15i64 & 7i64) * 8i64))) | (s11 << ((15i64 & 7i64) * 8i64));
+        
+        c = 0i64;
+        while (c < 4i64) {
+            c0_idx = c * 4i64 + 0i64;
+            c1_idx = c * 4i64 + 1i64;
+            c2_idx = c * 4i64 + 2i64;
+            c3_idx = c * 4i64 + 3i64;
+            
+            v0 = (state_64[c0_idx / 8i64] >> ((c0_idx & 7i64) * 8i64)) & 255i64;
+            v1 = (state_64[c1_idx / 8i64] >> ((c1_idx & 7i64) * 8i64)) & 255i64;
+            v2 = (state_64[c2_idx / 8i64] >> ((c2_idx & 7i64) * 8i64)) & 255i64;
+            v3 = (state_64[c3_idx / 8i64] >> ((c3_idx & 7i64) * 8i64)) & 255i64;
+            
+            nv0 = raw gmul(2i64, v0) ^ raw gmul(3i64, v1) ^ v2 ^ v3;
+            nv1 = v0 ^ raw gmul(2i64, v1) ^ raw gmul(3i64, v2) ^ v3;
+            nv2 = v0 ^ v1 ^ raw gmul(2i64, v2) ^ raw gmul(3i64, v3);
+            nv3 = raw gmul(3i64, v0) ^ v1 ^ v2 ^ raw gmul(2i64, v3);
+            
+            state_64[c0_idx / 8i64] = (state_64[c0_idx / 8i64] & ~(255i64 << ((c0_idx & 7i64) * 8i64))) | (nv0 << ((c0_idx & 7i64) * 8i64));
+            state_64[c1_idx / 8i64] = (state_64[c1_idx / 8i64] & ~(255i64 << ((c1_idx & 7i64) * 8i64))) | (nv1 << ((c1_idx & 7i64) * 8i64));
+            state_64[c2_idx / 8i64] = (state_64[c2_idx / 8i64] & ~(255i64 << ((c2_idx & 7i64) * 8i64))) | (nv2 << ((c2_idx & 7i64) * 8i64));
+            state_64[c3_idx / 8i64] = (state_64[c3_idx / 8i64] & ~(255i64 << ((c3_idx & 7i64) * 8i64))) | (nv3 << ((c3_idx & 7i64) * 8i64));
+            
+            c += 1i64;
+        }
+        
+        i = 0i64;
+        k_base = round * 16i64;
+        while (i < 16i64) {
+            k_idx = k_base + i;
+            sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+            kv = (exp_64[k_idx / 8i64] >> ((k_idx & 7i64) * 8i64)) & 255i64;
+            nv = sv ^ kv;
+            state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+            i += 1i64;
+        }
+        
+        round += 1i64;
+    }
+    
+    i = 0i64;
+    while (i < 16i64) {
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        sv = raw get_sbox(sv);
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (sv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    s1 = (state_64[1i64 / 8i64] >> ((1i64 & 7i64) * 8i64)) & 255i64;
+    s5 = (state_64[5i64 / 8i64] >> ((5i64 & 7i64) * 8i64)) & 255i64;
+    s9 = (state_64[9i64 / 8i64] >> ((9i64 & 7i64) * 8i64)) & 255i64;
+    s13 = (state_64[13i64 / 8i64] >> ((13i64 & 7i64) * 8i64)) & 255i64;
+    state_64[1i64 / 8i64] = (state_64[1i64 / 8i64] & ~(255i64 << ((1i64 & 7i64) * 8i64))) | (s5 << ((1i64 & 7i64) * 8i64));
+    state_64[5i64 / 8i64] = (state_64[5i64 / 8i64] & ~(255i64 << ((5i64 & 7i64) * 8i64))) | (s9 << ((5i64 & 7i64) * 8i64));
+    state_64[9i64 / 8i64] = (state_64[9i64 / 8i64] & ~(255i64 << ((9i64 & 7i64) * 8i64))) | (s13 << ((9i64 & 7i64) * 8i64));
+    state_64[13i64 / 8i64] = (state_64[13i64 / 8i64] & ~(255i64 << ((13i64 & 7i64) * 8i64))) | (s1 << ((13i64 & 7i64) * 8i64));
+    
+    s2 = (state_64[2i64 / 8i64] >> ((2i64 & 7i64) * 8i64)) & 255i64;
+    s6 = (state_64[6i64 / 8i64] >> ((6i64 & 7i64) * 8i64)) & 255i64;
+    s10 = (state_64[10i64 / 8i64] >> ((10i64 & 7i64) * 8i64)) & 255i64;
+    s14 = (state_64[14i64 / 8i64] >> ((14i64 & 7i64) * 8i64)) & 255i64;
+    state_64[2i64 / 8i64] = (state_64[2i64 / 8i64] & ~(255i64 << ((2i64 & 7i64) * 8i64))) | (s10 << ((2i64 & 7i64) * 8i64));
+    state_64[6i64 / 8i64] = (state_64[6i64 / 8i64] & ~(255i64 << ((6i64 & 7i64) * 8i64))) | (s14 << ((6i64 & 7i64) * 8i64));
+    state_64[10i64 / 8i64] = (state_64[10i64 / 8i64] & ~(255i64 << ((10i64 & 7i64) * 8i64))) | (s2 << ((10i64 & 7i64) * 8i64));
+    state_64[14i64 / 8i64] = (state_64[14i64 / 8i64] & ~(255i64 << ((14i64 & 7i64) * 8i64))) | (s6 << ((14i64 & 7i64) * 8i64));
+    
+    s3 = (state_64[3i64 / 8i64] >> ((3i64 & 7i64) * 8i64)) & 255i64;
+    s7 = (state_64[7i64 / 8i64] >> ((7i64 & 7i64) * 8i64)) & 255i64;
+    s11 = (state_64[11i64 / 8i64] >> ((11i64 & 7i64) * 8i64)) & 255i64;
+    s15 = (state_64[15i64 / 8i64] >> ((15i64 & 7i64) * 8i64)) & 255i64;
+    state_64[3i64 / 8i64] = (state_64[3i64 / 8i64] & ~(255i64 << ((3i64 & 7i64) * 8i64))) | (s15 << ((3i64 & 7i64) * 8i64));
+    state_64[7i64 / 8i64] = (state_64[7i64 / 8i64] & ~(255i64 << ((7i64 & 7i64) * 8i64))) | (s3 << ((7i64 & 7i64) * 8i64));
+    state_64[11i64 / 8i64] = (state_64[11i64 / 8i64] & ~(255i64 << ((11i64 & 7i64) * 8i64))) | (s7 << ((11i64 & 7i64) * 8i64));
+    state_64[15i64 / 8i64] = (state_64[15i64 / 8i64] & ~(255i64 << ((15i64 & 7i64) * 8i64))) | (s11 << ((15i64 & 7i64) * 8i64));
+    
+    i = 0i64;
+    k_base = round * 16i64;
+    while (i < 16i64) {
+        k_idx = k_base + i;
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        kv = (exp_64[k_idx / 8i64] >> ((k_idx & 7i64) * 8i64)) & 255i64;
+        nv = sv ^ kv;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    i = 0i64;
+    while (i < 16i64) {
+        v = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        out_64[i / 8i64] = (out_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (v << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    drop raw sys!!(4i64, state);
+    pass 0i32;
+};
+
+pub func:aes_decrypt_block = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr, int64:out_ptr) {
+    int64:Nr = 10i64;
+    if (key_len == 24i64) { Nr = 12i64; }
+    if (key_len == 32i64) { Nr = 14i64; }
+    
+    int64:state = cast_unchecked<int64>(alloc(24i64)); // 16 bytes
+    int64->:state_64 = cast_unchecked<int64->>(state);
+    int64->:in_64 = cast_unchecked<int64->>(in_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    int64->:exp_64 = cast_unchecked<int64->>(exp_key_ptr);
+    
+    int64:i = 0i64;
+    int64:v = 0i64;
+    while (i < 16i64) {
+        v = (in_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (v << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    i = 0i64;
+    int64:k_base = Nr * 16i64;
+    int64:k_idx = 0i64;
+    int64:sv = 0i64;
+    int64:kv = 0i64;
+    int64:nv = 0i64;
+    while (i < 16i64) {
+        k_idx = k_base + i;
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        kv = (exp_64[k_idx / 8i64] >> ((k_idx & 7i64) * 8i64)) & 255i64;
+        nv = sv ^ kv;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    int64:round = Nr - 1i64;
+    int64:c = 0i64;
+    int64:c0_idx = 0i64; int64:c1_idx = 0i64; int64:c2_idx = 0i64; int64:c3_idx = 0i64;
+    int64:v0 = 0i64; int64:v1 = 0i64; int64:v2 = 0i64; int64:v3 = 0i64;
+    int64:nv0 = 0i64; int64:nv1 = 0i64; int64:nv2 = 0i64; int64:nv3 = 0i64;
+    int64:s1=0i64; int64:s5=0i64; int64:s9=0i64; int64:s13=0i64;
+    int64:s2=0i64; int64:s6=0i64; int64:s10=0i64; int64:s14=0i64;
+    int64:s3=0i64; int64:s7=0i64; int64:s11=0i64; int64:s15=0i64;
+    
+    while (round > 0i64) {
+        s1 = (state_64[1i64 / 8i64] >> ((1i64 & 7i64) * 8i64)) & 255i64;
+        s5 = (state_64[5i64 / 8i64] >> ((5i64 & 7i64) * 8i64)) & 255i64;
+        s9 = (state_64[9i64 / 8i64] >> ((9i64 & 7i64) * 8i64)) & 255i64;
+        s13 = (state_64[13i64 / 8i64] >> ((13i64 & 7i64) * 8i64)) & 255i64;
+        state_64[1i64 / 8i64] = (state_64[1i64 / 8i64] & ~(255i64 << ((1i64 & 7i64) * 8i64))) | (s13 << ((1i64 & 7i64) * 8i64));
+        state_64[5i64 / 8i64] = (state_64[5i64 / 8i64] & ~(255i64 << ((5i64 & 7i64) * 8i64))) | (s1 << ((5i64 & 7i64) * 8i64));
+        state_64[9i64 / 8i64] = (state_64[9i64 / 8i64] & ~(255i64 << ((9i64 & 7i64) * 8i64))) | (s5 << ((9i64 & 7i64) * 8i64));
+        state_64[13i64 / 8i64] = (state_64[13i64 / 8i64] & ~(255i64 << ((13i64 & 7i64) * 8i64))) | (s9 << ((13i64 & 7i64) * 8i64));
+        
+        s2 = (state_64[2i64 / 8i64] >> ((2i64 & 7i64) * 8i64)) & 255i64;
+        s6 = (state_64[6i64 / 8i64] >> ((6i64 & 7i64) * 8i64)) & 255i64;
+        s10 = (state_64[10i64 / 8i64] >> ((10i64 & 7i64) * 8i64)) & 255i64;
+        s14 = (state_64[14i64 / 8i64] >> ((14i64 & 7i64) * 8i64)) & 255i64;
+        state_64[2i64 / 8i64] = (state_64[2i64 / 8i64] & ~(255i64 << ((2i64 & 7i64) * 8i64))) | (s10 << ((2i64 & 7i64) * 8i64));
+        state_64[6i64 / 8i64] = (state_64[6i64 / 8i64] & ~(255i64 << ((6i64 & 7i64) * 8i64))) | (s14 << ((6i64 & 7i64) * 8i64));
+        state_64[10i64 / 8i64] = (state_64[10i64 / 8i64] & ~(255i64 << ((10i64 & 7i64) * 8i64))) | (s2 << ((10i64 & 7i64) * 8i64));
+        state_64[14i64 / 8i64] = (state_64[14i64 / 8i64] & ~(255i64 << ((14i64 & 7i64) * 8i64))) | (s6 << ((14i64 & 7i64) * 8i64));
+        
+        s3 = (state_64[3i64 / 8i64] >> ((3i64 & 7i64) * 8i64)) & 255i64;
+        s7 = (state_64[7i64 / 8i64] >> ((7i64 & 7i64) * 8i64)) & 255i64;
+        s11 = (state_64[11i64 / 8i64] >> ((11i64 & 7i64) * 8i64)) & 255i64;
+        s15 = (state_64[15i64 / 8i64] >> ((15i64 & 7i64) * 8i64)) & 255i64;
+        state_64[3i64 / 8i64] = (state_64[3i64 / 8i64] & ~(255i64 << ((3i64 & 7i64) * 8i64))) | (s7 << ((3i64 & 7i64) * 8i64));
+        state_64[7i64 / 8i64] = (state_64[7i64 / 8i64] & ~(255i64 << ((7i64 & 7i64) * 8i64))) | (s11 << ((7i64 & 7i64) * 8i64));
+        state_64[11i64 / 8i64] = (state_64[11i64 / 8i64] & ~(255i64 << ((11i64 & 7i64) * 8i64))) | (s15 << ((11i64 & 7i64) * 8i64));
+        state_64[15i64 / 8i64] = (state_64[15i64 / 8i64] & ~(255i64 << ((15i64 & 7i64) * 8i64))) | (s3 << ((15i64 & 7i64) * 8i64));
+        
+        i = 0i64;
+        while (i < 16i64) {
+            sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+            sv = raw get_inv_sbox(sv);
+            state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (sv << ((i & 7i64) * 8i64));
+            i += 1i64;
+        }
+        
+        i = 0i64;
+        k_base = round * 16i64;
+        while (i < 16i64) {
+            k_idx = k_base + i;
+            sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+            kv = (exp_64[k_idx / 8i64] >> ((k_idx & 7i64) * 8i64)) & 255i64;
+            nv = sv ^ kv;
+            state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+            i += 1i64;
+        }
+        
+        c = 0i64;
+        while (c < 4i64) {
+            c0_idx = c * 4i64 + 0i64;
+            c1_idx = c * 4i64 + 1i64;
+            c2_idx = c * 4i64 + 2i64;
+            c3_idx = c * 4i64 + 3i64;
+            
+            v0 = (state_64[c0_idx / 8i64] >> ((c0_idx & 7i64) * 8i64)) & 255i64;
+            v1 = (state_64[c1_idx / 8i64] >> ((c1_idx & 7i64) * 8i64)) & 255i64;
+            v2 = (state_64[c2_idx / 8i64] >> ((c2_idx & 7i64) * 8i64)) & 255i64;
+            v3 = (state_64[c3_idx / 8i64] >> ((c3_idx & 7i64) * 8i64)) & 255i64;
+            
+            nv0 = raw gmul(14i64, v0) ^ raw gmul(11i64, v1) ^ raw gmul(13i64, v2) ^ raw gmul(9i64, v3);
+            nv1 = raw gmul(9i64, v0) ^ raw gmul(14i64, v1) ^ raw gmul(11i64, v2) ^ raw gmul(13i64, v3);
+            nv2 = raw gmul(13i64, v0) ^ raw gmul(9i64, v1) ^ raw gmul(14i64, v2) ^ raw gmul(11i64, v3);
+            nv3 = raw gmul(11i64, v0) ^ raw gmul(13i64, v1) ^ raw gmul(9i64, v2) ^ raw gmul(14i64, v3);
+            
+            state_64[c0_idx / 8i64] = (state_64[c0_idx / 8i64] & ~(255i64 << ((c0_idx & 7i64) * 8i64))) | (nv0 << ((c0_idx & 7i64) * 8i64));
+            state_64[c1_idx / 8i64] = (state_64[c1_idx / 8i64] & ~(255i64 << ((c1_idx & 7i64) * 8i64))) | (nv1 << ((c1_idx & 7i64) * 8i64));
+            state_64[c2_idx / 8i64] = (state_64[c2_idx / 8i64] & ~(255i64 << ((c2_idx & 7i64) * 8i64))) | (nv2 << ((c2_idx & 7i64) * 8i64));
+            state_64[c3_idx / 8i64] = (state_64[c3_idx / 8i64] & ~(255i64 << ((c3_idx & 7i64) * 8i64))) | (nv3 << ((c3_idx & 7i64) * 8i64));
+            
+            c += 1i64;
+        }
+        
+        round -= 1i64;
+    }
+    
+    s1 = (state_64[1i64 / 8i64] >> ((1i64 & 7i64) * 8i64)) & 255i64;
+    s5 = (state_64[5i64 / 8i64] >> ((5i64 & 7i64) * 8i64)) & 255i64;
+    s9 = (state_64[9i64 / 8i64] >> ((9i64 & 7i64) * 8i64)) & 255i64;
+    s13 = (state_64[13i64 / 8i64] >> ((13i64 & 7i64) * 8i64)) & 255i64;
+    state_64[1i64 / 8i64] = (state_64[1i64 / 8i64] & ~(255i64 << ((1i64 & 7i64) * 8i64))) | (s13 << ((1i64 & 7i64) * 8i64));
+    state_64[5i64 / 8i64] = (state_64[5i64 / 8i64] & ~(255i64 << ((5i64 & 7i64) * 8i64))) | (s1 << ((5i64 & 7i64) * 8i64));
+    state_64[9i64 / 8i64] = (state_64[9i64 / 8i64] & ~(255i64 << ((9i64 & 7i64) * 8i64))) | (s5 << ((9i64 & 7i64) * 8i64));
+    state_64[13i64 / 8i64] = (state_64[13i64 / 8i64] & ~(255i64 << ((13i64 & 7i64) * 8i64))) | (s9 << ((13i64 & 7i64) * 8i64));
+    
+    s2 = (state_64[2i64 / 8i64] >> ((2i64 & 7i64) * 8i64)) & 255i64;
+    s6 = (state_64[6i64 / 8i64] >> ((6i64 & 7i64) * 8i64)) & 255i64;
+    s10 = (state_64[10i64 / 8i64] >> ((10i64 & 7i64) * 8i64)) & 255i64;
+    s14 = (state_64[14i64 / 8i64] >> ((14i64 & 7i64) * 8i64)) & 255i64;
+    state_64[2i64 / 8i64] = (state_64[2i64 / 8i64] & ~(255i64 << ((2i64 & 7i64) * 8i64))) | (s10 << ((2i64 & 7i64) * 8i64));
+    state_64[6i64 / 8i64] = (state_64[6i64 / 8i64] & ~(255i64 << ((6i64 & 7i64) * 8i64))) | (s14 << ((6i64 & 7i64) * 8i64));
+    state_64[10i64 / 8i64] = (state_64[10i64 / 8i64] & ~(255i64 << ((10i64 & 7i64) * 8i64))) | (s2 << ((10i64 & 7i64) * 8i64));
+    state_64[14i64 / 8i64] = (state_64[14i64 / 8i64] & ~(255i64 << ((14i64 & 7i64) * 8i64))) | (s6 << ((14i64 & 7i64) * 8i64));
+    
+    s3 = (state_64[3i64 / 8i64] >> ((3i64 & 7i64) * 8i64)) & 255i64;
+    s7 = (state_64[7i64 / 8i64] >> ((7i64 & 7i64) * 8i64)) & 255i64;
+    s11 = (state_64[11i64 / 8i64] >> ((11i64 & 7i64) * 8i64)) & 255i64;
+    s15 = (state_64[15i64 / 8i64] >> ((15i64 & 7i64) * 8i64)) & 255i64;
+    state_64[3i64 / 8i64] = (state_64[3i64 / 8i64] & ~(255i64 << ((3i64 & 7i64) * 8i64))) | (s7 << ((3i64 & 7i64) * 8i64));
+    state_64[7i64 / 8i64] = (state_64[7i64 / 8i64] & ~(255i64 << ((7i64 & 7i64) * 8i64))) | (s11 << ((7i64 & 7i64) * 8i64));
+    state_64[11i64 / 8i64] = (state_64[11i64 / 8i64] & ~(255i64 << ((11i64 & 7i64) * 8i64))) | (s15 << ((11i64 & 7i64) * 8i64));
+    state_64[15i64 / 8i64] = (state_64[15i64 / 8i64] & ~(255i64 << ((15i64 & 7i64) * 8i64))) | (s3 << ((15i64 & 7i64) * 8i64));
+    
+    i = 0i64;
+    while (i < 16i64) {
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        sv = raw get_inv_sbox(sv);
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (sv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    i = 0i64;
+    k_base = round * 16i64;
+    while (i < 16i64) {
+        k_idx = k_base + i;
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        kv = (exp_64[k_idx / 8i64] >> ((k_idx & 7i64) * 8i64)) & 255i64;
+        nv = sv ^ kv;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    i = 0i64;
+    while (i < 16i64) {
+        v = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        out_64[i / 8i64] = (out_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (v << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    drop raw sys!!(4i64, state);
+    pass 0i32;
+};

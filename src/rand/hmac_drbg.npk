@@ -1,0 +1,228 @@
+use "src/hash/sha256.npk".*;
+use "src/mac/hmac.npk".*;
+use "src/util/hex.npk".*;
+
+pub struct:HMAC_DRBG_State = {
+    int64: V_ptr;
+    int64: Key_ptr;
+    int64: reseed_counter;
+};
+
+// HMAC-DRBG Update function (SP 800-90A)
+pub func:hmac_drbg_update = int32(HMAC_DRBG_State:state, int64:provided_data_ptr, int64:provided_data_len) {
+    int64:hash_len = 32i64; // SHA-256
+    int64:msg_buf = cast_unchecked<int64>(alloc(hash_len + 1i64 + provided_data_len + 8i64));
+    int64->:msg_buf_64 = cast_unchecked<int64->>(msg_buf);
+    
+    // Copy V into msg_buf
+    int64->:V_64 = cast_unchecked<int64->>(state.V_ptr);
+    int64:i = 0i64;
+    while (i < hash_len) {
+        int64:shift = (i & 7i64) * 8i64;
+        int64:val = (V_64[i / 8i64] >> shift) & 255i64;
+        
+        int64:mshift = (i & 7i64) * 8i64;
+        msg_buf_64[i / 8i64] = (msg_buf_64[i / 8i64] & ~(255i64 << mshift)) | (val << mshift);
+        i += 1i64;
+    }
+    
+    // Append 0x00
+    int64:zshift = (hash_len & 7i64) * 8i64;
+    msg_buf_64[hash_len / 8i64] = (msg_buf_64[hash_len / 8i64] & ~(255i64 << zshift)); // OR 0 is same
+    
+    // Append provided_data
+    if (provided_data_len > 0i64) {
+        int64->:pd_64 = cast_unchecked<int64->>(provided_data_ptr);
+        int64:j = 0i64;
+        while (j < provided_data_len) {
+            int64:pj = hash_len + 1i64 + j;
+            int64:pshift = (j & 7i64) * 8i64;
+            int64:pval = (pd_64[j / 8i64] >> pshift) & 255i64;
+            
+            int64:mshift2 = (pj & 7i64) * 8i64;
+            msg_buf_64[pj / 8i64] = (msg_buf_64[pj / 8i64] & ~(255i64 << mshift2)) | (pval << mshift2);
+            j += 1i64;
+        }
+    }
+    
+    // Key = HMAC(Key, V || 0x00 || provided_data)
+    string:k1_hex = raw hmac_sha256(state.Key_ptr, hash_len, msg_buf, hash_len + 1i64 + provided_data_len);
+    drop raw hex_to_raw(k1_hex, state.Key_ptr);
+    
+    // V = HMAC(Key, V)
+    string:v1_hex = raw hmac_sha256(state.Key_ptr, hash_len, state.V_ptr, hash_len);
+    drop raw hex_to_raw(v1_hex, state.V_ptr);
+    
+    if (provided_data_len == 0i64) {
+        drop raw sys!!(4i64, msg_buf); // free
+        pass 0i32;
+    }
+    
+    // Append 0x01 instead of 0x00
+    // Copy V into msg_buf again
+    i = 0i64;
+    while (i < hash_len) {
+        int64:shift = (i & 7i64) * 8i64;
+        int64:val = (V_64[i / 8i64] >> shift) & 255i64;
+        
+        int64:mshift = (i & 7i64) * 8i64;
+        msg_buf_64[i / 8i64] = (msg_buf_64[i / 8i64] & ~(255i64 << mshift)) | (val << mshift);
+        i += 1i64;
+    }
+    msg_buf_64[hash_len / 8i64] = (msg_buf_64[hash_len / 8i64] & ~(255i64 << zshift)) | (1i64 << zshift);
+    // provided_data is still there
+    
+    // Key = HMAC(Key, V || 0x01 || provided_data)
+    string:k2_hex = raw hmac_sha256(state.Key_ptr, hash_len, msg_buf, hash_len + 1i64 + provided_data_len);
+    drop raw hex_to_raw(k2_hex, state.Key_ptr);
+    
+    // V = HMAC(Key, V)
+    string:v2_hex = raw hmac_sha256(state.Key_ptr, hash_len, state.V_ptr, hash_len);
+    drop raw hex_to_raw(v2_hex, state.V_ptr);
+    
+    drop raw sys!!(4i64, msg_buf); // free
+    pass 0i32;
+};
+
+// Instantiate
+pub func:hmac_drbg_instantiate = HMAC_DRBG_State(int64:entropy_ptr, int64:entropy_len, int64:nonce_ptr, int64:nonce_len, int64:pers_ptr, int64:pers_len) {
+    HMAC_DRBG_State:state = HMAC_DRBG_State {
+        V_ptr: cast_unchecked<int64>(alloc(40i64)),
+        Key_ptr: cast_unchecked<int64>(alloc(40i64)),
+        reseed_counter: 1i64
+    };
+    
+    int64->:V_64 = cast_unchecked<int64->>(state.V_ptr);
+    int64->:Key_64 = cast_unchecked<int64->>(state.Key_ptr);
+    
+    int64:i = 0i64;
+    while (i < 32i64) {
+        int64:vshift = (i & 7i64) * 8i64;
+        V_64[i / 8i64] = (V_64[i / 8i64] & ~(255i64 << vshift)) | (1i64 << vshift); // 0x01
+        
+        Key_64[i / 8i64] = (Key_64[i / 8i64] & ~(255i64 << vshift)); // 0x00
+        i += 1i64;
+    }
+    
+    int64:seed_material_len = entropy_len + nonce_len + pers_len;
+    int64:seed_material = cast_unchecked<int64>(alloc(seed_material_len + 8i64));
+    int64->:sm_64 = cast_unchecked<int64->>(seed_material);
+    
+    int64:idx = 0i64;
+    int64->:e_64 = cast_unchecked<int64->>(entropy_ptr);
+    i = 0i64;
+    while (i < entropy_len) {
+        int64:sh = (i & 7i64) * 8i64;
+        int64:v = (e_64[i / 8i64] >> sh) & 255i64;
+        int64:idxsh = (idx & 7i64) * 8i64;
+        sm_64[idx / 8i64] = (sm_64[idx / 8i64] & ~(255i64 << idxsh)) | (v << idxsh);
+        idx += 1i64;
+        i += 1i64;
+    }
+    
+    int64->:n_64 = cast_unchecked<int64->>(nonce_ptr);
+    i = 0i64;
+    while (i < nonce_len) {
+        int64:sh = (i & 7i64) * 8i64;
+        int64:v = (n_64[i / 8i64] >> sh) & 255i64;
+        int64:idxsh = (idx & 7i64) * 8i64;
+        sm_64[idx / 8i64] = (sm_64[idx / 8i64] & ~(255i64 << idxsh)) | (v << idxsh);
+        idx += 1i64;
+        i += 1i64;
+    }
+    
+    int64->:p_64 = cast_unchecked<int64->>(pers_ptr);
+    i = 0i64;
+    while (i < pers_len) {
+        int64:sh = (i & 7i64) * 8i64;
+        int64:v = (p_64[i / 8i64] >> sh) & 255i64;
+        int64:idxsh = (idx & 7i64) * 8i64;
+        sm_64[idx / 8i64] = (sm_64[idx / 8i64] & ~(255i64 << idxsh)) | (v << idxsh);
+        idx += 1i64;
+        i += 1i64;
+    }
+    
+    drop raw hmac_drbg_update(state, seed_material, seed_material_len);
+    
+    drop raw sys!!(4i64, seed_material);
+    pass state;
+};
+
+// Reseed
+pub func:hmac_drbg_reseed = int32(HMAC_DRBG_State:state, int64:entropy_ptr, int64:entropy_len, int64:addi_ptr, int64:addi_len) {
+    int64:seed_material_len = entropy_len + addi_len;
+    int64:seed_material = cast_unchecked<int64>(alloc(seed_material_len + 8i64));
+    int64->:sm_64 = cast_unchecked<int64->>(seed_material);
+    
+    int64:idx = 0i64;
+    int64->:e_64 = cast_unchecked<int64->>(entropy_ptr);
+    int64:i = 0i64;
+    while (i < entropy_len) {
+        int64:sh = (i & 7i64) * 8i64;
+        int64:v = (e_64[i / 8i64] >> sh) & 255i64;
+        int64:idxsh = (idx & 7i64) * 8i64;
+        sm_64[idx / 8i64] = (sm_64[idx / 8i64] & ~(255i64 << idxsh)) | (v << idxsh);
+        idx += 1i64;
+        i += 1i64;
+    }
+    
+    int64->:a_64 = cast_unchecked<int64->>(addi_ptr);
+    i = 0i64;
+    while (i < addi_len) {
+        int64:sh = (i & 7i64) * 8i64;
+        int64:v = (a_64[i / 8i64] >> sh) & 255i64;
+        int64:idxsh = (idx & 7i64) * 8i64;
+        sm_64[idx / 8i64] = (sm_64[idx / 8i64] & ~(255i64 << idxsh)) | (v << idxsh);
+        idx += 1i64;
+        i += 1i64;
+    }
+    
+    drop raw hmac_drbg_update(state, seed_material, seed_material_len);
+    state.reseed_counter = 1i64;
+    
+    drop raw sys!!(4i64, seed_material);
+    pass 0i32;
+};
+
+// Generate
+pub func:hmac_drbg_generate = int32(HMAC_DRBG_State:state, int64:out_ptr, int64:out_len, int64:addi_ptr, int64:addi_len) {
+    if (state.reseed_counter > 10000i64) {
+        // Must reseed
+        pass -1i32;
+    }
+    
+    if (addi_len > 0i64) {
+        drop raw hmac_drbg_update(state, addi_ptr, addi_len);
+    }
+    
+    int64:hash_len = 32i64; // SHA-256
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    int64->:V_64 = cast_unchecked<int64->>(state.V_ptr);
+    
+    int64:generated = 0i64;
+    while (generated < out_len) {
+        // V = HMAC(Key, V)
+        string:v_hex = raw hmac_sha256(state.Key_ptr, hash_len, state.V_ptr, hash_len);
+        drop raw hex_to_raw(v_hex, state.V_ptr);
+        
+        // Copy to output
+        int64:i = 0i64;
+        while (i < hash_len) {
+            if ((generated + i) < out_len) {
+                int64:vshift = (i & 7i64) * 8i64;
+                int64:val = (V_64[i / 8i64] >> vshift) & 255i64;
+                
+                int64:out_idx = generated + i;
+                int64:outsh = (out_idx & 7i64) * 8i64;
+                out_64[out_idx / 8i64] = (out_64[out_idx / 8i64] & ~(255i64 << outsh)) | (val << outsh);
+            }
+            i += 1i64;
+        }
+        generated += hash_len;
+    }
+    
+    drop raw hmac_drbg_update(state, addi_ptr, addi_len);
+    state.reseed_counter += 1i64;
+    
+    pass 0i32;
+};

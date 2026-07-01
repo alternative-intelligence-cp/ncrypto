@@ -1,0 +1,211 @@
+// src/cipher/modes.npk
+use "src/cipher/aes.npk".*;
+
+func:inc_counter = int32(int64:ctr_ptr) {
+    int64->:ctr_64 = cast_unchecked<int64->>(ctr_ptr);
+    int64:i = 15i64;
+    int64:carry = 1i64;
+    int64:sh = 0i64;
+    int64:v = 0i64;
+    while (i >= 0i64) {
+        if (carry == 0i64) {
+            pass 0i32;
+        }
+        sh = (i & 7i64) * 8i64;
+        v = (ctr_64[i / 8i64] >> sh) & 255i64;
+        v += carry;
+        if (v > 255i64) {
+            v &= 255i64;
+            carry = 1i64;
+        } else {
+            carry = 0i64;
+        }
+        ctr_64[i / 8i64] = (ctr_64[i / 8i64] & ~(255i64 << sh)) | (v << sh);
+        i -= 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:aes_ecb_encrypt = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr, int64:in_len, int64:out_ptr) {
+    if ((in_len % 16i64) != 0i64) { pass -1i32; }
+    int64:i = 0i64;
+    while (i < in_len) {
+        drop raw aes_encrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
+        i += 16i64;
+    }
+    pass 0i32;
+};
+
+pub func:aes_ecb_decrypt = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr, int64:in_len, int64:out_ptr) {
+    if ((in_len % 16i64) != 0i64) { pass -1i32; }
+    int64:i = 0i64;
+    while (i < in_len) {
+        drop raw aes_decrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
+        i += 16i64;
+    }
+    pass 0i32;
+};
+
+pub func:aes_cbc_encrypt = int32(int64:exp_key_ptr, int64:key_len, int64:iv_ptr, int64:in_ptr, int64:in_len, int64:out_ptr) {
+    if ((in_len % 16i64) != 0i64) { pass -1i32; }
+    
+    int64:tmp_iv = cast_unchecked<int64>(alloc(16i64));
+    int64->:tmp_iv_64 = cast_unchecked<int64->>(tmp_iv);
+    int64->:iv_64 = cast_unchecked<int64->>(iv_ptr);
+    
+    int64:j = 0i64;
+    int64:v = 0i64;
+    while (j < 16i64) {
+        v = (iv_64[j / 8i64] >> ((j & 7i64) * 8i64)) & 255i64;
+        tmp_iv_64[j / 8i64] = (tmp_iv_64[j / 8i64] & ~(255i64 << ((j & 7i64) * 8i64))) | (v << ((j & 7i64) * 8i64));
+        j += 1i64;
+    }
+    
+    int64->:in_64 = cast_unchecked<int64->>(in_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    
+    int64:i = 0i64;
+    int64:idx = 0i64;
+    int64:iv_v = 0i64;
+    int64:in_v = 0i64;
+    int64:nv = 0i64;
+    int64:out_v = 0i64;
+    while (i < in_len) {
+        j = 0i64;
+        while (j < 16i64) {
+            idx = i + j;
+            iv_v = (tmp_iv_64[j / 8i64] >> ((j & 7i64) * 8i64)) & 255i64;
+            in_v = (in_64[idx / 8i64] >> ((idx & 7i64) * 8i64)) & 255i64;
+            nv = iv_v ^ in_v;
+            tmp_iv_64[j / 8i64] = (tmp_iv_64[j / 8i64] & ~(255i64 << ((j & 7i64) * 8i64))) | (nv << ((j & 7i64) * 8i64));
+            j += 1i64;
+        }
+        
+        drop raw aes_encrypt_block(exp_key_ptr, key_len, tmp_iv, out_ptr + i);
+        
+        j = 0i64;
+        while (j < 16i64) {
+            idx = i + j;
+            out_v = (out_64[idx / 8i64] >> ((idx & 7i64) * 8i64)) & 255i64;
+            tmp_iv_64[j / 8i64] = (tmp_iv_64[j / 8i64] & ~(255i64 << ((j & 7i64) * 8i64))) | (out_v << ((j & 7i64) * 8i64));
+            j += 1i64;
+        }
+        i += 16i64;
+    }
+    
+    drop raw sys!!(4i64, tmp_iv);
+    pass 0i32;
+};
+
+pub func:aes_cbc_decrypt = int32(int64:exp_key_ptr, int64:key_len, int64:iv_ptr, int64:in_ptr, int64:in_len, int64:out_ptr) {
+    if ((in_len % 16i64) != 0i64) { pass -1i32; }
+    
+    int64:tmp_iv = cast_unchecked<int64>(alloc(16i64));
+    int64:next_iv = cast_unchecked<int64>(alloc(16i64));
+    
+    int64->:tmp_iv_64 = cast_unchecked<int64->>(tmp_iv);
+    int64->:next_iv_64 = cast_unchecked<int64->>(next_iv);
+    int64->:iv_64 = cast_unchecked<int64->>(iv_ptr);
+    int64->:in_64 = cast_unchecked<int64->>(in_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    
+    int64:j = 0i64;
+    int64:v = 0i64;
+    while (j < 16i64) {
+        v = (iv_64[j / 8i64] >> ((j & 7i64) * 8i64)) & 255i64;
+        tmp_iv_64[j / 8i64] = (tmp_iv_64[j / 8i64] & ~(255i64 << ((j & 7i64) * 8i64))) | (v << ((j & 7i64) * 8i64));
+        j += 1i64;
+    }
+    
+    int64:i = 0i64;
+    int64:idx = 0i64;
+    int64:iv_v = 0i64;
+    int64:out_v = 0i64;
+    int64:nv = 0i64;
+    while (i < in_len) {
+        j = 0i64;
+        while (j < 16i64) {
+            idx = i + j;
+            v = (in_64[idx / 8i64] >> ((idx & 7i64) * 8i64)) & 255i64;
+            next_iv_64[j / 8i64] = (next_iv_64[j / 8i64] & ~(255i64 << ((j & 7i64) * 8i64))) | (v << ((j & 7i64) * 8i64));
+            j += 1i64;
+        }
+        
+        drop raw aes_decrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
+        
+        j = 0i64;
+        while (j < 16i64) {
+            idx = i + j;
+            iv_v = (tmp_iv_64[j / 8i64] >> ((j & 7i64) * 8i64)) & 255i64;
+            out_v = (out_64[idx / 8i64] >> ((idx & 7i64) * 8i64)) & 255i64;
+            nv = out_v ^ iv_v;
+            out_64[idx / 8i64] = (out_64[idx / 8i64] & ~(255i64 << ((idx & 7i64) * 8i64))) | (nv << ((idx & 7i64) * 8i64));
+            j += 1i64;
+        }
+        
+        j = 0i64;
+        while (j < 16i64) {
+            v = (next_iv_64[j / 8i64] >> ((j & 7i64) * 8i64)) & 255i64;
+            tmp_iv_64[j / 8i64] = (tmp_iv_64[j / 8i64] & ~(255i64 << ((j & 7i64) * 8i64))) | (v << ((j & 7i64) * 8i64));
+            j += 1i64;
+        }
+        
+        i += 16i64;
+    }
+    
+    drop raw sys!!(4i64, tmp_iv);
+    drop raw sys!!(4i64, next_iv);
+    pass 0i32;
+};
+
+pub func:aes_ctr_process = int32(int64:exp_key_ptr, int64:key_len, int64:nonce_ptr, int64:in_ptr, int64:in_len, int64:out_ptr) {
+    int64:tmp_ctr = cast_unchecked<int64>(alloc(16i64));
+    int64:enc_ctr = cast_unchecked<int64>(alloc(16i64));
+    
+    int64->:tmp_ctr_64 = cast_unchecked<int64->>(tmp_ctr);
+    int64->:enc_ctr_64 = cast_unchecked<int64->>(enc_ctr);
+    int64->:nonce_64 = cast_unchecked<int64->>(nonce_ptr);
+    
+    int64:j = 0i64;
+    int64:v = 0i64;
+    while (j < 16i64) {
+        v = (nonce_64[j / 8i64] >> ((j & 7i64) * 8i64)) & 255i64;
+        tmp_ctr_64[j / 8i64] = (tmp_ctr_64[j / 8i64] & ~(255i64 << ((j & 7i64) * 8i64))) | (v << ((j & 7i64) * 8i64));
+        j += 1i64;
+    }
+    
+    int64->:in_64 = cast_unchecked<int64->>(in_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    
+    int64:i = 0i64;
+    int64:chunk = 0i64;
+    int64:idx = 0i64;
+    int64:enc_v = 0i64;
+    int64:in_v = 0i64;
+    int64:nv = 0i64;
+    while (i < in_len) {
+        drop raw aes_encrypt_block(exp_key_ptr, key_len, tmp_ctr, enc_ctr);
+        
+        chunk = 16i64;
+        if ((in_len - i) < 16i64) {
+            chunk = in_len - i;
+        }
+        
+        j = 0i64;
+        while (j < chunk) {
+            idx = i + j;
+            enc_v = (enc_ctr_64[j / 8i64] >> ((j & 7i64) * 8i64)) & 255i64;
+            in_v = (in_64[idx / 8i64] >> ((idx & 7i64) * 8i64)) & 255i64;
+            nv = in_v ^ enc_v;
+            out_64[idx / 8i64] = (out_64[idx / 8i64] & ~(255i64 << ((idx & 7i64) * 8i64))) | (nv << ((idx & 7i64) * 8i64));
+            j += 1i64;
+        }
+        
+        drop raw inc_counter(tmp_ctr);
+        i += chunk;
+    }
+    
+    drop raw sys!!(4i64, tmp_ctr);
+    drop raw sys!!(4i64, enc_ctr);
+    pass 0i32;
+};

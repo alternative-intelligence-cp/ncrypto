@@ -1,0 +1,170 @@
+// src/cipher/chacha20_poly1305.npk
+// RFC 8439 ChaCha20-Poly1305 AEAD
+
+use "stdlib/core.npk".*;
+use "src/cipher/chacha20.npk".*;
+use "src/mac/poly1305.npk".*;
+
+pub func:chacha20_poly1305_encrypt = int32(
+    int64:key_ptr, int64:nonce_ptr,
+    int64:aad_ptr, int64:aad_len,
+    int64:pt_ptr, int64:pt_len,
+    int64:ct_ptr, int64:mac_ptr
+) {
+    // 1. Generate Poly1305 key (first 32 bytes of block 0)
+    int64:block0_ptr = cast_unchecked<int64>(alloc(64i64));
+    drop raw chacha20_block(key_ptr, 0i64, nonce_ptr, block0_ptr);
+    
+    // We only need the first 32 bytes as the poly1305 key.
+    // Poly1305 init:
+    int64:poly_state = cast_unchecked<int64>(alloc(192i64));
+    drop raw poly1305_init(poly_state, block0_ptr);
+
+    // 2. Encrypt plaintext (starting counter = 1)
+    if (pt_len > 0i64) {
+        drop raw chacha20_process(key_ptr, 1i64, nonce_ptr, pt_ptr, ct_ptr, pt_len);
+    }
+
+    // 3. Process AAD
+    if (aad_len > 0i64) {
+        drop raw poly1305_update(poly_state, aad_ptr, aad_len);
+        // Pad AAD to 16 bytes
+        int64:aad_rem = aad_len % 16i64;
+        if (aad_rem > 0i64) {
+            int64:pad_len = 16i64 - aad_rem;
+            int64:pad_ptr = cast_unchecked<int64>(alloc(16i64));
+            // calloc zeroes it out. alloc zeroes it out? core.npk alloc zeroes?
+            // To be safe, just clear it.
+            int64->:pad64 = cast_unchecked<int64->>(pad_ptr);
+            pad64[0i64] = 0i64; pad64[1i64] = 0i64;
+            drop raw poly1305_update(poly_state, pad_ptr, pad_len);
+            free(cast_unchecked<int8->>(pad_ptr));
+        }
+    }
+
+    // 4. Process Ciphertext
+    if (pt_len > 0i64) {
+        drop raw poly1305_update(poly_state, ct_ptr, pt_len);
+        // Pad CT to 16 bytes
+        int64:ct_rem = pt_len % 16i64;
+        if (ct_rem > 0i64) {
+            int64:pad_len = 16i64 - ct_rem;
+            int64:pad_ptr = cast_unchecked<int64>(alloc(16i64));
+            int64->:pad64 = cast_unchecked<int64->>(pad_ptr);
+            pad64[0i64] = 0i64; pad64[1i64] = 0i64;
+            drop raw poly1305_update(poly_state, pad_ptr, pad_len);
+            free(cast_unchecked<int8->>(pad_ptr));
+        }
+    }
+
+    // 5. Process Lengths (AAD len, then CT len)
+    int64:lens_ptr = cast_unchecked<int64>(alloc(16i64));
+    int64->:lens64 = cast_unchecked<int64->>(lens_ptr);
+    // Write lengths as 64-bit little-endian
+    // In Nitpick, if the host is little-endian (x86_64), writing an int64 straight to memory is little-endian.
+    // For portability, we should use write_u32_le. Or just use it directly if we assume LE host.
+    // Nitpick spec says standard types are native. Let's just use write_u32_le.
+    
+    // Low 32 bits of aad_len
+    drop raw write_u32_le(lens_ptr, 0i64, aad_len & 0xFFFFFFFFi64);
+    // High 32 bits of aad_len
+    drop raw write_u32_le(lens_ptr, 4i64, (aad_len >> 32i64) & 0xFFFFFFFFi64);
+
+    // Low 32 bits of pt_len
+    drop raw write_u32_le(lens_ptr, 8i64, pt_len & 0xFFFFFFFFi64);
+    // High 32 bits of pt_len
+    drop raw write_u32_le(lens_ptr, 12i64, (pt_len >> 32i64) & 0xFFFFFFFFi64);
+
+    drop raw poly1305_update(poly_state, lens_ptr, 16i64);
+
+    // 6. Finalize MAC
+    drop raw poly1305_finish(poly_state, mac_ptr);
+
+    free(cast_unchecked<int8->>(block0_ptr));
+    free(cast_unchecked<int8->>(poly_state));
+    free(cast_unchecked<int8->>(lens_ptr));
+
+    pass 0i32;
+};
+
+// Returns 0 on success, 1 on MAC mismatch
+pub func:chacha20_poly1305_decrypt = int32(
+    int64:key_ptr, int64:nonce_ptr,
+    int64:aad_ptr, int64:aad_len,
+    int64:ct_ptr, int64:ct_len,
+    int64:mac_ptr, int64:pt_ptr
+) {
+    // 1. Generate Poly1305 key
+    int64:block0_ptr = cast_unchecked<int64>(alloc(64i64));
+    drop raw chacha20_block(key_ptr, 0i64, nonce_ptr, block0_ptr);
+    
+    int64:poly_state = cast_unchecked<int64>(alloc(192i64));
+    drop raw poly1305_init(poly_state, block0_ptr);
+
+    // 2. Process AAD
+    if (aad_len > 0i64) {
+        drop raw poly1305_update(poly_state, aad_ptr, aad_len);
+        int64:aad_rem = aad_len % 16i64;
+        if (aad_rem > 0i64) {
+            int64:pad_len = 16i64 - aad_rem;
+            int64:pad_ptr = cast_unchecked<int64>(alloc(16i64));
+            int64->:pad64 = cast_unchecked<int64->>(pad_ptr);
+            pad64[0i64] = 0i64; pad64[1i64] = 0i64;
+            drop raw poly1305_update(poly_state, pad_ptr, pad_len);
+            free(cast_unchecked<int8->>(pad_ptr));
+        }
+    }
+
+    // 3. Process Ciphertext
+    if (ct_len > 0i64) {
+        drop raw poly1305_update(poly_state, ct_ptr, ct_len);
+        int64:ct_rem = ct_len % 16i64;
+        if (ct_rem > 0i64) {
+            int64:pad_len = 16i64 - ct_rem;
+            int64:pad_ptr = cast_unchecked<int64>(alloc(16i64));
+            int64->:pad64 = cast_unchecked<int64->>(pad_ptr);
+            pad64[0i64] = 0i64; pad64[1i64] = 0i64;
+            drop raw poly1305_update(poly_state, pad_ptr, pad_len);
+            free(cast_unchecked<int8->>(pad_ptr));
+        }
+    }
+
+    // 4. Process Lengths
+    int64:lens_ptr = cast_unchecked<int64>(alloc(16i64));
+    drop raw write_u32_le(lens_ptr, 0i64, aad_len & 0xFFFFFFFFi64);
+    drop raw write_u32_le(lens_ptr, 4i64, (aad_len >> 32i64) & 0xFFFFFFFFi64);
+    drop raw write_u32_le(lens_ptr, 8i64, ct_len & 0xFFFFFFFFi64);
+    drop raw write_u32_le(lens_ptr, 12i64, (ct_len >> 32i64) & 0xFFFFFFFFi64);
+    drop raw poly1305_update(poly_state, lens_ptr, 16i64);
+
+    // 5. Finalize MAC and compare
+    int64:computed_mac = cast_unchecked<int64>(alloc(16i64));
+    drop raw poly1305_finish(poly_state, computed_mac);
+
+    // Constant-time compare (or standard compare)
+    int64->:c_mac64 = cast_unchecked<int64->>(computed_mac);
+    int64->:e_mac64 = cast_unchecked<int64->>(mac_ptr);
+    int64:diff = 0i64;
+    diff = diff | (c_mac64[0i64] ^ e_mac64[0i64]);
+    diff = diff | (c_mac64[1i64] ^ e_mac64[1i64]);
+
+    if (diff != 0i64) {
+        free(cast_unchecked<int8->>(block0_ptr));
+        free(cast_unchecked<int8->>(poly_state));
+        free(cast_unchecked<int8->>(lens_ptr));
+        free(cast_unchecked<int8->>(computed_mac));
+        pass 1i32; // mismatch
+    }
+
+    // 6. If MAC matches, decrypt (starting counter = 1)
+    if (ct_len > 0i64) {
+        drop raw chacha20_process(key_ptr, 1i64, nonce_ptr, ct_ptr, pt_ptr, ct_len);
+    }
+
+    free(cast_unchecked<int8->>(block0_ptr));
+    free(cast_unchecked<int8->>(poly_state));
+    free(cast_unchecked<int8->>(lens_ptr));
+    free(cast_unchecked<int8->>(computed_mac));
+
+    pass 0i32;
+};

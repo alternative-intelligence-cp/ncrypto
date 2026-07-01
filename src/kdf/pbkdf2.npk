@@ -1,0 +1,226 @@
+use "src/hash/sha256.npk".*;
+use "src/hash/sha512.npk".*;
+use "src/mac/hmac.npk".*;
+use "src/util/hex.npk".*;
+
+func:int32_to_be_bytes = int32(int64:val, int64:out_ptr) {
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    int64:v1 = (val >> 24i64) & 255i64;
+    int64:v2 = (val >> 16i64) & 255i64;
+    int64:v3 = (val >> 8i64) & 255i64;
+    int64:v4 = val & 255i64;
+    
+    // Store manually using RMW to avoid unaligned/cast issues
+    int64:sh0 = 0i64;
+    out_64[0i64] = (out_64[0i64] & ~(255i64 << sh0)) | (v1 << sh0);
+    int64:sh1 = 8i64;
+    out_64[0i64] = (out_64[0i64] & ~(255i64 << sh1)) | (v2 << sh1);
+    int64:sh2 = 16i64;
+    out_64[0i64] = (out_64[0i64] & ~(255i64 << sh2)) | (v3 << sh2);
+    int64:sh3 = 24i64;
+    out_64[0i64] = (out_64[0i64] & ~(255i64 << sh3)) | (v4 << sh3);
+    
+    pass 0i32;
+};
+
+// PBKDF2 with HMAC-SHA256
+pub func:pbkdf2_hmac_sha256 = int32(int64:pass_ptr, int64:pass_len, int64:salt_ptr, int64:salt_len, int64:iterations, int64:out_ptr, int64:out_len) {
+    int64:hash_len = 32i64;
+    
+    int64:l = out_len / hash_len;
+    if ((out_len % hash_len) != 0i64) {
+        l += 1i64;
+    }
+    
+    int64:U_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    int64:T_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    int64:salt_block_len = salt_len + 4i64;
+    int64:salt_block = cast_unchecked<int64>(alloc(salt_block_len + 8i64));
+    
+    int64->:U_64 = cast_unchecked<int64->>(U_buf);
+    int64->:T_64 = cast_unchecked<int64->>(T_buf);
+    int64->:salt_64 = cast_unchecked<int64->>(salt_block);
+    int64->:in_salt_64 = cast_unchecked<int64->>(salt_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    
+    // Copy salt to salt_block
+    int64:j = 0i64;
+    while (j < salt_len) {
+        int64:sh_in = (j & 7i64) * 8i64;
+        int64:val = (in_salt_64[j / 8i64] >> sh_in) & 255i64;
+        
+        int64:sh_out = (j & 7i64) * 8i64;
+        salt_64[j / 8i64] = (salt_64[j / 8i64] & ~(255i64 << sh_out)) | (val << sh_out);
+        j += 1i64;
+    }
+    
+    int64:out_generated = 0i64;
+    int64:i = 1i64;
+    while (i <= l) {
+        // Encode i as 32-bit big-endian and append to salt_block
+        int64:v1 = (i >> 24i64) & 255i64;
+        int64:v2 = (i >> 16i64) & 255i64;
+        int64:v3 = (i >> 8i64) & 255i64;
+        int64:v4 = i & 255i64;
+        
+        int64:p = salt_len;
+        salt_64[p / 8i64] = (salt_64[p / 8i64] & ~(255i64 << ((p & 7i64) * 8i64))) | (v1 << ((p & 7i64) * 8i64)); p += 1i64;
+        salt_64[p / 8i64] = (salt_64[p / 8i64] & ~(255i64 << ((p & 7i64) * 8i64))) | (v2 << ((p & 7i64) * 8i64)); p += 1i64;
+        salt_64[p / 8i64] = (salt_64[p / 8i64] & ~(255i64 << ((p & 7i64) * 8i64))) | (v3 << ((p & 7i64) * 8i64)); p += 1i64;
+        salt_64[p / 8i64] = (salt_64[p / 8i64] & ~(255i64 << ((p & 7i64) * 8i64))) | (v4 << ((p & 7i64) * 8i64));
+        
+        // U_1 = HMAC(P, S || INT(i))
+        string:u_hex = raw hmac_sha256(pass_ptr, pass_len, salt_block, salt_block_len);
+        drop raw hex_to_raw(u_hex, U_buf);
+        
+        // T_i = U_1
+        int64:k = 0i64;
+        while (k < hash_len) {
+            int64:ksh = (k & 7i64) * 8i64;
+            int64:uval = (U_64[k / 8i64] >> ksh) & 255i64;
+            T_64[k / 8i64] = (T_64[k / 8i64] & ~(255i64 << ksh)) | (uval << ksh);
+            k += 1i64;
+        }
+        
+        int64:iter = 2i64;
+        while (iter <= iterations) {
+            // U_c = HMAC(P, U_{c-1})
+            u_hex = raw hmac_sha256(pass_ptr, pass_len, U_buf, hash_len);
+            drop raw hex_to_raw(u_hex, U_buf);
+            
+            // T_i ^= U_c
+            k = 0i64;
+            while (k < hash_len) {
+                int64:ksh = (k & 7i64) * 8i64;
+                int64:uval = (U_64[k / 8i64] >> ksh) & 255i64;
+                int64:tval = (T_64[k / 8i64] >> ksh) & 255i64;
+                int64:xval = tval ^ uval;
+                T_64[k / 8i64] = (T_64[k / 8i64] & ~(255i64 << ksh)) | (xval << ksh);
+                k += 1i64;
+            }
+            iter += 1i64;
+        }
+        
+        // Copy T_i to out_ptr
+        k = 0i64;
+        while (k < hash_len) {
+            if (out_generated < out_len) {
+                int64:ksh = (k & 7i64) * 8i64;
+                int64:tval = (T_64[k / 8i64] >> ksh) & 255i64;
+                int64:osh = (out_generated & 7i64) * 8i64;
+                out_64[out_generated / 8i64] = (out_64[out_generated / 8i64] & ~(255i64 << osh)) | (tval << osh);
+                out_generated += 1i64;
+            }
+            k += 1i64;
+        }
+        
+        i += 1i64;
+    }
+    
+    drop raw sys!!(4i64, U_buf);
+    drop raw sys!!(4i64, T_buf);
+    drop raw sys!!(4i64, salt_block);
+    
+    pass 0i32;
+};
+
+// PBKDF2 with HMAC-SHA512
+pub func:pbkdf2_hmac_sha512 = int32(int64:pass_ptr, int64:pass_len, int64:salt_ptr, int64:salt_len, int64:iterations, int64:out_ptr, int64:out_len) {
+    int64:hash_len = 64i64;
+    
+    int64:l = out_len / hash_len;
+    if ((out_len % hash_len) != 0i64) {
+        l += 1i64;
+    }
+    
+    int64:U_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    int64:T_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    int64:salt_block_len = salt_len + 4i64;
+    int64:salt_block = cast_unchecked<int64>(alloc(salt_block_len + 8i64));
+    
+    int64->:U_64 = cast_unchecked<int64->>(U_buf);
+    int64->:T_64 = cast_unchecked<int64->>(T_buf);
+    int64->:salt_64 = cast_unchecked<int64->>(salt_block);
+    int64->:in_salt_64 = cast_unchecked<int64->>(salt_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    
+    // Copy salt to salt_block
+    int64:j = 0i64;
+    while (j < salt_len) {
+        int64:sh_in = (j & 7i64) * 8i64;
+        int64:val = (in_salt_64[j / 8i64] >> sh_in) & 255i64;
+        
+        int64:sh_out = (j & 7i64) * 8i64;
+        salt_64[j / 8i64] = (salt_64[j / 8i64] & ~(255i64 << sh_out)) | (val << sh_out);
+        j += 1i64;
+    }
+    
+    int64:out_generated = 0i64;
+    int64:i = 1i64;
+    while (i <= l) {
+        // Encode i as 32-bit big-endian and append to salt_block
+        int64:v1 = (i >> 24i64) & 255i64;
+        int64:v2 = (i >> 16i64) & 255i64;
+        int64:v3 = (i >> 8i64) & 255i64;
+        int64:v4 = i & 255i64;
+        
+        int64:p = salt_len;
+        salt_64[p / 8i64] = (salt_64[p / 8i64] & ~(255i64 << ((p & 7i64) * 8i64))) | (v1 << ((p & 7i64) * 8i64)); p += 1i64;
+        salt_64[p / 8i64] = (salt_64[p / 8i64] & ~(255i64 << ((p & 7i64) * 8i64))) | (v2 << ((p & 7i64) * 8i64)); p += 1i64;
+        salt_64[p / 8i64] = (salt_64[p / 8i64] & ~(255i64 << ((p & 7i64) * 8i64))) | (v3 << ((p & 7i64) * 8i64)); p += 1i64;
+        salt_64[p / 8i64] = (salt_64[p / 8i64] & ~(255i64 << ((p & 7i64) * 8i64))) | (v4 << ((p & 7i64) * 8i64));
+        
+        // U_1 = HMAC(P, S || INT(i))
+        string:u_hex = raw hmac_sha512(pass_ptr, pass_len, salt_block, salt_block_len);
+        drop raw hex_to_raw(u_hex, U_buf);
+        
+        // T_i = U_1
+        int64:k = 0i64;
+        while (k < hash_len) {
+            int64:ksh = (k & 7i64) * 8i64;
+            int64:uval = (U_64[k / 8i64] >> ksh) & 255i64;
+            T_64[k / 8i64] = (T_64[k / 8i64] & ~(255i64 << ksh)) | (uval << ksh);
+            k += 1i64;
+        }
+        
+        int64:iter = 2i64;
+        while (iter <= iterations) {
+            // U_c = HMAC(P, U_{c-1})
+            u_hex = raw hmac_sha512(pass_ptr, pass_len, U_buf, hash_len);
+            drop raw hex_to_raw(u_hex, U_buf);
+            
+            // T_i ^= U_c
+            k = 0i64;
+            while (k < hash_len) {
+                int64:ksh = (k & 7i64) * 8i64;
+                int64:uval = (U_64[k / 8i64] >> ksh) & 255i64;
+                int64:tval = (T_64[k / 8i64] >> ksh) & 255i64;
+                int64:xval = tval ^ uval;
+                T_64[k / 8i64] = (T_64[k / 8i64] & ~(255i64 << ksh)) | (xval << ksh);
+                k += 1i64;
+            }
+            iter += 1i64;
+        }
+        
+        // Copy T_i to out_ptr
+        k = 0i64;
+        while (k < hash_len) {
+            if (out_generated < out_len) {
+                int64:ksh = (k & 7i64) * 8i64;
+                int64:tval = (T_64[k / 8i64] >> ksh) & 255i64;
+                int64:osh = (out_generated & 7i64) * 8i64;
+                out_64[out_generated / 8i64] = (out_64[out_generated / 8i64] & ~(255i64 << osh)) | (tval << osh);
+                out_generated += 1i64;
+            }
+            k += 1i64;
+        }
+        
+        i += 1i64;
+    }
+    
+    drop raw sys!!(4i64, U_buf);
+    drop raw sys!!(4i64, T_buf);
+    drop raw sys!!(4i64, salt_block);
+    
+    pass 0i32;
+};

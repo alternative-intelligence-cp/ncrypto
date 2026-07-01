@@ -1,0 +1,356 @@
+// src/asymmetric/ecc.npk
+use "../math/bigint.npk".*;
+use "../util/hex.npk".*;
+
+pub struct:ECCPoint = {
+    int64:x;
+    int64:y;
+    int64:is_infinity;
+};
+
+pub func:set_inf = int32(ECCPoint:P, int64:val) {
+    int64->:p = cast_unchecked<int64->>(P.is_infinity);
+    p[0i64] = val;
+    pass 0i32;
+};
+
+pub func:get_inf = int64(ECCPoint:P) {
+    int64->:p = cast_unchecked<int64->>(P.is_infinity);
+    pass p[0i64];
+};
+
+pub func:ecc_point_alloc = ECCPoint() {
+    int64:inf_ptr = cast_unchecked<int64>(alloc(8i64));
+    int64->:inf = cast_unchecked<int64->>(inf_ptr);
+    inf[0i64] = 1i64;
+    pass ECCPoint {
+        x: raw bigint_alloc(10i64),
+        y: raw bigint_alloc(10i64),
+        is_infinity: inf_ptr
+    };
+};
+
+pub func:ecc_point_free = int32(ECCPoint:P) {
+    drop raw bigint_free(P.x);
+    drop raw bigint_free(P.y);
+    if (P.is_infinity != 0i64) {
+        free(cast_unchecked<int8->>(P.is_infinity));
+    }
+    pass 0i32;
+};
+
+pub func:ecc_point_copy = int32(ECCPoint:src, ECCPoint:dst) {
+    drop raw bigint_copy(src.x, dst.x);
+    drop raw bigint_copy(src.y, dst.y);
+    drop raw set_inf(dst, raw get_inf(src));
+    pass 0i32;
+};
+
+pub func:ecc_mod_add = int32(int64:a, int64:b, int64:p, int64:out) {
+    drop raw bigint_add(a, b, out);
+    if (raw bigint_ucmp(out, p) >= 0i32) {
+        drop raw bigint_sub(out, p, out);
+    }
+    pass 0i32;
+};
+
+pub func:ecc_mod_sub = int32(int64:a, int64:b, int64:p, int64:out) {
+    if (raw bigint_ucmp(a, b) < 0i32) {
+        drop raw bigint_add(a, p, out);
+        drop raw bigint_sub(out, b, out);
+    } else {
+        drop raw bigint_sub(a, b, out);
+    }
+    pass 0i32;
+};
+
+pub func:ecc_mod_mul = int32(int64:a, int64:b, int64:p, int64:out) {
+    int64:tmp = raw bigint_alloc(20i64);
+    drop raw bigint_mul(a, b, tmp);
+    int64:tmp_q = raw bigint_alloc(20i64);
+    drop raw bigint_div_mod(tmp, p, tmp_q, out);
+    drop raw bigint_free(tmp);
+    drop raw bigint_free(tmp_q);
+    pass 0i32;
+};
+
+pub func:ecc_mod_inv = int32(int64:a, int64:p, int64:out) {
+    drop raw bigint_modinv(a, p, out);
+    pass 0i32;
+};
+
+pub func:ecc_point_double = int32(ECCPoint:P, int64:p_mod, ECCPoint:out) {
+    if (raw get_inf(P) == 1i64) {
+        drop raw set_inf(out, 1i64);
+        pass 0i32;
+    }
+    
+    int64:zero = raw bigint_alloc(1i64);
+    int64->:zero_b = cast_unchecked<int64->>(zero);
+    zero_b[3i64] = 0i64;
+    zero_b[1i64] = 1i64;
+    zero_b[2i64] = 1i64;
+    
+    if (raw bigint_ucmp(P.y, zero) == 0i32) {
+        drop raw set_inf(out, 1i64);
+        drop raw bigint_free(zero);
+        pass 0i32;
+    }
+    
+    int64:tmp1 = raw bigint_alloc(10i64);
+    int64:tmp2 = raw bigint_alloc(10i64);
+    int64:lam = raw bigint_alloc(10i64);
+    
+    drop raw ecc_mod_mul(P.x, P.x, p_mod, tmp1);
+    
+    int64:three = raw bigint_alloc(1i64);
+    int64->:three_b = cast_unchecked<int64->>(three);
+    three_b[3i64] = 3i64;
+    three_b[1i64] = 1i64;
+    three_b[2i64] = 1i64;
+    
+    drop raw ecc_mod_mul(tmp1, three, p_mod, tmp2);
+    
+    int64:two = raw bigint_alloc(1i64);
+    int64->:two_b = cast_unchecked<int64->>(two);
+    two_b[3i64] = 2i64;
+    two_b[1i64] = 1i64;
+    two_b[2i64] = 1i64;
+    
+    drop raw ecc_mod_mul(P.y, two, p_mod, tmp1);
+    drop raw ecc_mod_inv(tmp1, p_mod, lam);
+    drop raw bigint_copy(lam, tmp1);
+    drop raw ecc_mod_mul(tmp2, tmp1, p_mod, lam);
+    
+    drop raw ecc_mod_mul(lam, lam, p_mod, tmp1);
+    drop raw ecc_mod_mul(P.x, two, p_mod, tmp2);
+    drop raw ecc_mod_sub(tmp1, tmp2, p_mod, out.x);
+    
+    drop raw ecc_mod_sub(P.x, out.x, p_mod, tmp1);
+    drop raw ecc_mod_mul(lam, tmp1, p_mod, tmp2);
+    drop raw ecc_mod_sub(tmp2, P.y, p_mod, out.y);
+    drop raw set_inf(out, 0i64);
+    
+    drop raw bigint_free(zero);
+    drop raw bigint_free(tmp1);
+    drop raw bigint_free(tmp2);
+    drop raw bigint_free(lam);
+    drop raw bigint_free(three);
+    drop raw bigint_free(two);
+    pass 0i32;
+};
+
+pub func:ecc_point_add = int32(ECCPoint:P, ECCPoint:Q, int64:p_mod, ECCPoint:out) {
+    if (raw get_inf(P) == 1i64) {
+        drop raw ecc_point_copy(Q, out);
+        pass 0i32;
+    }
+    if (raw get_inf(Q) == 1i64) {
+        drop raw ecc_point_copy(P, out);
+        pass 0i32;
+    }
+    
+    if (raw bigint_ucmp(P.x, Q.x) == 0i32) {
+        if (raw bigint_ucmp(P.y, Q.y) == 0i32) {
+            pass raw ecc_point_double(P, p_mod, out);
+        } else {
+            drop raw set_inf(out, 1i64);
+            pass 0i32;
+        }
+    }
+    
+    int64:tmp1 = raw bigint_alloc(10i64);
+    int64:tmp2 = raw bigint_alloc(10i64);
+    int64:lam = raw bigint_alloc(10i64);
+    
+    drop raw ecc_mod_sub(Q.y, P.y, p_mod, tmp1);
+    drop raw ecc_mod_sub(Q.x, P.x, p_mod, tmp2);
+    
+    drop raw ecc_mod_inv(tmp2, p_mod, lam);
+    drop raw bigint_copy(lam, tmp2);
+    
+    drop raw ecc_mod_mul(tmp1, tmp2, p_mod, lam);
+    
+    drop raw ecc_mod_mul(lam, lam, p_mod, tmp1);
+    drop raw ecc_mod_sub(tmp1, P.x, p_mod, tmp2);
+    drop raw ecc_mod_sub(tmp2, Q.x, p_mod, out.x);
+    
+    drop raw ecc_mod_sub(P.x, out.x, p_mod, tmp1);
+    drop raw ecc_mod_mul(lam, tmp1, p_mod, tmp2);
+    drop raw ecc_mod_sub(tmp2, P.y, p_mod, out.y);
+    drop raw set_inf(out, 0i64);
+    
+    drop raw bigint_free(tmp1);
+    drop raw bigint_free(tmp2);
+    drop raw bigint_free(lam);
+    pass 0i32;
+};
+
+func:ecc_point_cswap = int32(ECCPoint:P, ECCPoint:Q, int64:bit) {
+    int64->:px_buf = cast_unchecked<int64->>(P.x);
+    int64->:qx_buf = cast_unchecked<int64->>(Q.x);
+    int64->:py_buf = cast_unchecked<int64->>(P.y);
+    int64->:qy_buf = cast_unchecked<int64->>(Q.y);
+    
+    int64:i = 0i64;
+    while (i < 10i64) {
+        int64:px = px_buf[3i64 + i];
+        int64:qx = qx_buf[3i64 + i];
+        int64:mask = (0i64 - bit);
+        int64:swap_x = (px ^ qx) & mask;
+        px_buf[3i64 + i] = px ^ swap_x;
+        qx_buf[3i64 + i] = qx ^ swap_x;
+        
+        int64:py = py_buf[3i64 + i];
+        int64:qy = qy_buf[3i64 + i];
+        int64:swap_y = (py ^ qy) & mask;
+        py_buf[3i64 + i] = py ^ swap_y;
+        qy_buf[3i64 + i] = qy ^ swap_y;
+        
+        i += 1i64;
+    }
+    
+    int64:p_len = px_buf[1i64];
+    int64:q_len = qx_buf[1i64];
+    int64:swap_len = (p_len ^ q_len) & (0i64 - bit);
+    px_buf[1i64] = p_len ^ swap_len;
+    qx_buf[1i64] = q_len ^ swap_len;
+    
+    int64:p_sign = px_buf[2i64];
+    int64:q_sign = qx_buf[2i64];
+    int64:swap_sign = (p_sign ^ q_sign) & (0i64 - bit);
+    px_buf[2i64] = p_sign ^ swap_sign;
+    qx_buf[2i64] = q_sign ^ swap_sign;
+    
+    p_len = py_buf[1i64];
+    q_len = qy_buf[1i64];
+    swap_len = (p_len ^ q_len) & (0i64 - bit);
+    py_buf[1i64] = p_len ^ swap_len;
+    qy_buf[1i64] = q_len ^ swap_len;
+    
+    p_sign = py_buf[2i64];
+    q_sign = qy_buf[2i64];
+    swap_sign = (p_sign ^ q_sign) & (0i64 - bit);
+    py_buf[2i64] = p_sign ^ swap_sign;
+    qy_buf[2i64] = q_sign ^ swap_sign;
+    
+    int64:p_inf = raw get_inf(P);
+    int64:q_inf = raw get_inf(Q);
+    int64:swap_inf = (p_inf ^ q_inf) & (0i64 - bit);
+    drop raw set_inf(P, p_inf ^ swap_inf);
+    drop raw set_inf(Q, q_inf ^ swap_inf);
+    
+    pass 0i32;
+};
+
+pub func:ecc_scalar_mul_ct = int32(int64:k, ECCPoint:P, int64:p_mod, ECCPoint:out) {
+    ECCPoint:R0 = raw ecc_point_alloc();
+    ECCPoint:R1 = raw ecc_point_alloc();
+    
+    drop raw ecc_point_copy(P, R1);
+    
+    int64:bits = raw bigint_bit_len(k);
+    if (bits == 0i64) {
+        drop raw ecc_point_copy(R0, out);
+        drop raw ecc_point_free(R0);
+        drop raw ecc_point_free(R1);
+        pass 0i32;
+    }
+    
+    int64:i = 255i64;
+    while (i >= 0i64) {
+        int64:bit = raw bigint_get_bit(k, i);
+        
+        drop raw ecc_point_cswap(R0, R1, bit);
+        
+        ECCPoint:tmp_R1 = raw ecc_point_alloc();
+        drop raw ecc_point_add(R0, R1, p_mod, tmp_R1);
+        
+        ECCPoint:tmp_R0 = raw ecc_point_alloc();
+        drop raw ecc_point_double(R0, p_mod, tmp_R0);
+        
+        drop raw ecc_point_copy(tmp_R0, R0);
+        drop raw ecc_point_copy(tmp_R1, R1);
+        
+        drop raw ecc_point_free(tmp_R0);
+        drop raw ecc_point_free(tmp_R1);
+        
+        drop raw ecc_point_cswap(R0, R1, bit);
+        
+        i -= 1i64;
+    }
+    
+    drop raw ecc_point_copy(R0, out);
+    drop raw ecc_point_free(R0);
+    drop raw ecc_point_free(R1);
+    pass 0i32;
+};
+
+pub func:ecc_bigint_from_hex = int64(string:hex) {
+    int64:hex_len = string_length(hex);
+    int64:byte_len = hex_len / 2i64;
+    int64:bin_ptr = cast_unchecked<int64>(alloc(byte_len));
+    
+    drop raw hex_to_raw(hex, bin_ptr);
+    
+    int64:bi = raw bigint_alloc(byte_len / 4i64 + 2i64);
+    
+    int64:j = 0i64;
+    int64->:bin64 = cast_unchecked<int64->>(bin_ptr);
+    while (j < byte_len) {
+        int64:o_sh = (j & 7i64) * 8i64;
+        int64:b = (bin64[j / 8i64] >> o_sh) & 255i64;
+        
+        int64:le_idx = byte_len - 1i64 - j;
+        int64:limb_idx = le_idx / 4i64;
+        int64:byte_in_limb = le_idx & 3i64;
+        
+        int64->:B = cast_unchecked<int64->>(bi);
+        B[3i64 + limb_idx] = B[3i64 + limb_idx] | (b << (byte_in_limb * 8i64));
+        j += 1i64;
+    }
+    
+    int64:req_limbs = (byte_len + 3i64) / 4i64;
+    int64->:B2 = cast_unchecked<int64->>(bi);
+    B2[1i64] = req_limbs;
+    B2[2i64] = 1i64;
+    drop raw bigint_trim(bi);
+    
+    drop raw sys!!(4i64, bin_ptr);
+    pass bi;
+};
+
+pub struct:Secp256k1Params = {
+    int64:p;
+    int64:n;
+    ECCPoint:G;
+};
+
+pub func:secp256k1_get_params = Secp256k1Params() {
+    int64:p_val = raw ecc_bigint_from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+    int64:n_val = raw ecc_bigint_from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    int64:gx_val = raw ecc_bigint_from_hex("79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798");
+    int64:gy_val = raw ecc_bigint_from_hex("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
+    
+    int64:g_inf = cast_unchecked<int64>(alloc(8i64));
+    cast_unchecked<int64->>(g_inf)[0i64] = 0i64;
+    
+    ECCPoint:G_val = ECCPoint {
+        x: gx_val,
+        y: gy_val,
+        is_infinity: g_inf
+    };
+    
+    pass Secp256k1Params {
+        p: p_val,
+        n: n_val,
+        G: G_val
+    };
+};
+
+pub func:secp256k1_free_params = int32(Secp256k1Params:params) {
+    drop raw bigint_free(params.p);
+    drop raw bigint_free(params.n);
+    drop raw ecc_point_free(params.G);
+    pass 0i32;
+};

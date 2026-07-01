@@ -1,0 +1,403 @@
+// src/mac/poly1305.npk
+// RFC 8439 Poly1305 MAC
+
+use "stdlib/core.npk".*;
+
+// Unpack 17 bytes (or up to 16 bytes padded with 1 at byte_len) into 5 limbs of 26 bits
+// buf_ptr is a pointer to the bytes. len is the number of bytes (up to 17).
+// For Poly1305, a chunk is at most 16 bytes of message, plus the 1 bit.
+// We pass a 17-byte buffer internally.
+
+pub func:poly1305_unpack = int32(int64:buf_ptr, int64:len, int64:limbs_ptr) {
+    int64->:limbs = cast_unchecked<int64->>(limbs_ptr);
+    int8->:b = cast_unchecked<int8->>(buf_ptr);
+
+    // We need to read up to 17 bytes. Since int8-> non-zero index reads are broken,
+    // we use int64-> reading.
+    int64->:b64 = cast_unchecked<int64->>(buf_ptr);
+
+    int64:w0 = 0i64; int64:w1 = 0i64; int64:w2 = 0i64;
+    
+    // We can just safely read w0, w1, w2 if buf is guaranteed to be 24 bytes allocated.
+    // The caller must provide a 24-byte buffer.
+    w0 = b64[0i64];
+    w1 = b64[1i64];
+    w2 = b64[2i64];
+
+    // Extract 17 bytes into b0..b16
+    int64:b0 = w0 & 255i64;
+    int64:b1 = (w0 >> 8i64) & 255i64;
+    int64:b2 = (w0 >> 16i64) & 255i64;
+    int64:b3 = (w0 >> 24i64) & 255i64;
+    int64:b4 = (w0 >> 32i64) & 255i64;
+    int64:b5 = (w0 >> 40i64) & 255i64;
+    int64:b6 = (w0 >> 48i64) & 255i64;
+    int64:b7 = (w0 >> 56i64) & 255i64;
+    
+    int64:b8 = w1 & 255i64;
+    int64:b9 = (w1 >> 8i64) & 255i64;
+    int64:b10 = (w1 >> 16i64) & 255i64;
+    int64:b11 = (w1 >> 24i64) & 255i64;
+    int64:b12 = (w1 >> 32i64) & 255i64;
+    int64:b13 = (w1 >> 40i64) & 255i64;
+    int64:b14 = (w1 >> 48i64) & 255i64;
+    int64:b15 = (w1 >> 56i64) & 255i64;
+    
+    int64:b16 = w2 & 255i64;
+
+    uint64:c0 = cast_unchecked<uint64>(b0 | (b1 << 8i64) | (b2 << 16i64) | ((b3 & 3i64) << 24i64));
+    uint64:c1 = cast_unchecked<uint64>((b3 >> 2i64) | (b4 << 6i64) | (b5 << 14i64) | ((b6 & 15i64) << 22i64));
+    uint64:c2 = cast_unchecked<uint64>((b6 >> 4i64) | (b7 << 4i64) | (b8 << 12i64) | ((b9 & 63i64) << 20i64));
+    uint64:c3 = cast_unchecked<uint64>((b9 >> 6i64) | (b10 << 2i64) | (b11 << 10i64) | (b12 << 18i64));
+    uint64:c4 = cast_unchecked<uint64>(b13 | (b14 << 8i64) | (b15 << 16i64));
+    
+    if (len > 16i64) {
+        c4 = c4 | cast_unchecked<uint64>(b16 << 24i64);
+    }
+
+    limbs[0i64] = cast_unchecked<int64>(c0);
+    limbs[1i64] = cast_unchecked<int64>(c1);
+    limbs[2i64] = cast_unchecked<int64>(c2);
+    limbs[3i64] = cast_unchecked<int64>(c3);
+    limbs[4i64] = cast_unchecked<int64>(c4);
+
+    pass 0i32;
+};
+
+// state_ptr must be 24 * 8 = 192 bytes allocated buffer
+// [0..4] = r
+// [5..8] = s1..s4
+// [9..13] = h
+// [14..18] = s_key
+// [19..21] = block buffer (24 bytes)
+// [22] = buf_len
+
+pub func:poly1305_init = int32(int64:state_ptr, int64:key_ptr) {
+    int64->:state = cast_unchecked<int64->>(state_ptr);
+    int64->:key = cast_unchecked<int64->>(key_ptr);
+    
+    int64:w0 = key[0i64];
+    int64:w1 = key[1i64];
+    
+    // clamp r
+    // r[3], r[7], r[11], r[15] &= 15 (0x0f)
+    // r[4], r[8], r[12] &= 252 (0xfc)
+    // We can do this on w0 and w1 directly with masks
+    // w0 covers bytes 0..7. r[3] is at shift 24. r[4] is at shift 32. r[7] is at shift 56.
+    int64:mask0 = 0x0FFFFFFFFFFFFFFFi64 & ~(240i64 << 24i64) & ~(3i64 << 32i64) & ~(240i64 << 56i64);
+    int64:mask1 = 0x0FFFFFFFFFFFFFFFi64 & ~(3i64) & ~(240i64 << 24i64) & ~(3i64 << 32i64) & ~(240i64 << 56i64);
+    // Note: 240 is 0xf0. ~240 keeps the bottom 4 bits (0x0f).
+    // ~3 keeps the top 6 bits (0xfc).
+    // Let's just do it byte by byte in a temporary 24-byte buffer to be absolutely sure we don't mess up masks.
+
+    int64:tmp_ptr = cast_unchecked<int64>(alloc(24i64));
+    int64->:tmp = cast_unchecked<int64->>(tmp_ptr);
+    tmp[0i64] = key[0i64];
+    tmp[1i64] = key[1i64];
+    tmp[2i64] = 0i64;
+
+    // Apply clamps safely byte by byte
+    int64:sh = 0i64;
+    int64:wi = 0i64;
+    
+    // r[3] &= 15
+    wi = 3i64 / 8i64; sh = (3i64 & 7i64) * 8i64;
+    tmp[wi] = (tmp[wi] & ~(255i64 << sh)) | ((( (tmp[wi] >> sh) & 255i64) & 15i64) << sh);
+
+    // r[7] &= 15
+    wi = 7i64 / 8i64; sh = (7i64 & 7i64) * 8i64;
+    tmp[wi] = (tmp[wi] & ~(255i64 << sh)) | ((( (tmp[wi] >> sh) & 255i64) & 15i64) << sh);
+
+    // r[11] &= 15
+    wi = 11i64 / 8i64; sh = (11i64 & 7i64) * 8i64;
+    tmp[wi] = (tmp[wi] & ~(255i64 << sh)) | ((( (tmp[wi] >> sh) & 255i64) & 15i64) << sh);
+
+    // r[15] &= 15
+    wi = 15i64 / 8i64; sh = (15i64 & 7i64) * 8i64;
+    tmp[wi] = (tmp[wi] & ~(255i64 << sh)) | ((( (tmp[wi] >> sh) & 255i64) & 15i64) << sh);
+
+    // r[4] &= 252
+    wi = 4i64 / 8i64; sh = (4i64 & 7i64) * 8i64;
+    tmp[wi] = (tmp[wi] & ~(255i64 << sh)) | ((( (tmp[wi] >> sh) & 255i64) & 252i64) << sh);
+
+    // r[8] &= 252
+    wi = 8i64 / 8i64; sh = (8i64 & 7i64) * 8i64;
+    tmp[wi] = (tmp[wi] & ~(255i64 << sh)) | ((( (tmp[wi] >> sh) & 255i64) & 252i64) << sh);
+
+    // r[12] &= 252
+    wi = 12i64 / 8i64; sh = (12i64 & 7i64) * 8i64;
+    tmp[wi] = (tmp[wi] & ~(255i64 << sh)) | ((( (tmp[wi] >> sh) & 255i64) & 252i64) << sh);
+
+    int64:limbs_ptr = cast_unchecked<int64>(alloc(40i64));
+    int64->:limbs = cast_unchecked<int64->>(limbs_ptr);
+
+    drop raw poly1305_unpack(tmp_ptr, 16i64, limbs_ptr);
+    state[0i64] = limbs[0i64];
+    state[1i64] = limbs[1i64];
+    state[2i64] = limbs[2i64];
+    state[3i64] = limbs[3i64];
+    state[4i64] = limbs[4i64];
+
+    state[5i64] = state[1i64] * 5i64;
+    state[6i64] = state[2i64] * 5i64;
+    state[7i64] = state[3i64] * 5i64;
+    state[8i64] = state[4i64] * 5i64;
+
+    state[9i64] = 0i64;
+    state[10i64] = 0i64;
+    state[11i64] = 0i64;
+    state[12i64] = 0i64;
+    state[13i64] = 0i64;
+
+    tmp[0i64] = key[2i64];
+    tmp[1i64] = key[3i64];
+    tmp[2i64] = 0i64;
+
+    drop raw poly1305_unpack(tmp_ptr, 16i64, limbs_ptr);
+    state[14i64] = limbs[0i64];
+    state[15i64] = limbs[1i64];
+    state[16i64] = limbs[2i64];
+    state[17i64] = limbs[3i64];
+    state[18i64] = limbs[4i64];
+
+    state[19i64] = 0i64;
+    state[20i64] = 0i64;
+    state[21i64] = 0i64;
+    state[22i64] = 0i64; // buf_len
+
+    free(cast_unchecked<int8->>(tmp_ptr));
+    free(cast_unchecked<int8->>(limbs_ptr));
+
+    pass 0i32;
+};
+
+pub func:poly1305_blocks = int32(int64:state_ptr, int64:msg_ptr, int64:length) {
+    int64->:state = cast_unchecked<int64->>(state_ptr);
+    int64->:msg = cast_unchecked<int64->>(msg_ptr);
+    
+    int64:limbs_ptr = cast_unchecked<int64>(alloc(40i64));
+    int64->:limbs = cast_unchecked<int64->>(limbs_ptr);
+
+    int64:tmp_ptr = cast_unchecked<int64>(alloc(24i64));
+    int64->:tmp = cast_unchecked<int64->>(tmp_ptr);
+
+    uint64:r0 = cast_unchecked<uint64>(state[0i64]);
+    uint64:r1 = cast_unchecked<uint64>(state[1i64]);
+    uint64:r2 = cast_unchecked<uint64>(state[2i64]);
+    uint64:r3 = cast_unchecked<uint64>(state[3i64]);
+    uint64:r4 = cast_unchecked<uint64>(state[4i64]);
+
+    uint64:s1 = cast_unchecked<uint64>(state[5i64]);
+    uint64:s2 = cast_unchecked<uint64>(state[6i64]);
+    uint64:s3 = cast_unchecked<uint64>(state[7i64]);
+    uint64:s4 = cast_unchecked<uint64>(state[8i64]);
+
+    uint64:h0 = cast_unchecked<uint64>(state[9i64]);
+    uint64:h1 = cast_unchecked<uint64>(state[10i64]);
+    uint64:h2 = cast_unchecked<uint64>(state[11i64]);
+    uint64:h3 = cast_unchecked<uint64>(state[12i64]);
+    uint64:h4 = cast_unchecked<uint64>(state[13i64]);
+
+    int64:i = 0i64;
+    int64:j = 0i64;
+    int64:wi = 0i64;
+    int64:sh = 0i64;
+    int64:b_val = 0i64;
+
+    while (i < length) {
+        // We know we are processing exactly 16 bytes per block, except potentially the last one
+        // Wait, poly1305_blocks is only called internally with exactly 16 byte chunks, except 
+        // maybe the very last chunk.
+        // Actually, let's just do the unpacking byte by byte to tmp
+        int64:chunk = length - i;
+        if (chunk > 16i64) {
+            chunk = 16i64;
+        }
+
+        tmp[0i64] = 0i64;
+        tmp[1i64] = 0i64;
+        tmp[2i64] = 0i64;
+
+        j = 0i64;
+        while (j < chunk) {
+            wi = (i + j) / 8i64;
+            sh = ((i + j) & 7i64) * 8i64;
+            b_val = (msg[wi] >> sh) & 255i64;
+            
+            int64:t_wi = j / 8i64;
+            int64:t_sh = (j & 7i64) * 8i64;
+            tmp[t_wi] = (tmp[t_wi] & ~(255i64 << t_sh)) | (b_val << t_sh);
+            
+            j += 1i64;
+        }
+
+        // Add the padding byte (0x01)
+        int64:t_wi = chunk / 8i64;
+        int64:t_sh = (chunk & 7i64) * 8i64;
+        tmp[t_wi] = (tmp[t_wi] & ~(255i64 << t_sh)) | (1i64 << t_sh);
+
+        drop raw poly1305_unpack(tmp_ptr, chunk + 1i64, limbs_ptr);
+
+        h0 = h0 + cast_unchecked<uint64>(limbs[0i64]);
+        h1 = h1 + cast_unchecked<uint64>(limbs[1i64]);
+        h2 = h2 + cast_unchecked<uint64>(limbs[2i64]);
+        h3 = h3 + cast_unchecked<uint64>(limbs[3i64]);
+        h4 = h4 + cast_unchecked<uint64>(limbs[4i64]);
+
+        uint64:d0 = h0*r0 + h1*s4 + h2*s3 + h3*s2 + h4*s1;
+        uint64:d1 = h0*r1 + h1*r0 + h2*s4 + h3*s3 + h4*s2;
+        uint64:d2 = h0*r2 + h1*r1 + h2*r0 + h3*s4 + h4*s3;
+        uint64:d3 = h0*r3 + h1*r2 + h2*r1 + h3*r0 + h4*s4;
+        uint64:d4 = h0*r4 + h1*r3 + h2*r2 + h3*r1 + h4*r0;
+
+        h0 = d0 & 0x3FFFFFFu64;
+        d1 = d1 + (d0 >> 26u64);
+        h1 = d1 & 0x3FFFFFFu64;
+        d2 = d2 + (d1 >> 26u64);
+        h2 = d2 & 0x3FFFFFFu64;
+        d3 = d3 + (d2 >> 26u64);
+        h3 = d3 & 0x3FFFFFFu64;
+        d4 = d4 + (d3 >> 26u64);
+        h4 = d4 & 0x3FFFFFFu64;
+
+        h0 = h0 + (d4 >> 26u64) * 5u64;
+        h1 = h1 + (h0 >> 26u64);
+        h0 = h0 & 0x3FFFFFFu64;
+
+        i += chunk;
+    }
+
+    state[9i64] = cast_unchecked<int64>(h0);
+    state[10i64] = cast_unchecked<int64>(h1);
+    state[11i64] = cast_unchecked<int64>(h2);
+    state[12i64] = cast_unchecked<int64>(h3);
+    state[13i64] = cast_unchecked<int64>(h4);
+
+    free(cast_unchecked<int8->>(tmp_ptr));
+    free(cast_unchecked<int8->>(limbs_ptr));
+
+    pass 0i32;
+};
+
+pub func:poly1305_update = int32(int64:state_ptr, int64:msg_ptr, int64:length) {
+    int64->:state = cast_unchecked<int64->>(state_ptr);
+    int64->:msg = cast_unchecked<int64->>(msg_ptr);
+    
+    int64:buf_len = state[22i64];
+    int64:i = 0i64;
+
+    // We can copy to internal buffer and process 16 byte chunks
+    int64:block_ptr = state_ptr + 19i64 * 8i64;
+    int64->:block_buf = cast_unchecked<int64->>(block_ptr);
+
+    while (i < length) {
+        int64:rem = length - i;
+        if (buf_len == 0i64 && rem >= 16i64) {
+            // Process directly from msg_ptr
+            int64:blocks = rem / 16i64;
+            drop raw poly1305_blocks(state_ptr, msg_ptr + i, blocks * 16i64);
+            i += blocks * 16i64;
+        } else {
+            // Copy byte to block_buf
+            int64:wi = (i) / 8i64;
+            int64:sh = ((i) & 7i64) * 8i64;
+            int64:b_val = (msg[wi] >> sh) & 255i64;
+            
+            int64:t_wi = buf_len / 8i64;
+            int64:t_sh = (buf_len & 7i64) * 8i64;
+            block_buf[t_wi] = (block_buf[t_wi] & ~(255i64 << t_sh)) | (b_val << t_sh);
+            
+            buf_len += 1i64;
+            i += 1i64;
+
+            if (buf_len == 16i64) {
+                drop raw poly1305_blocks(state_ptr, block_ptr, 16i64);
+                buf_len = 0i64;
+            }
+        }
+    }
+
+    state[22i64] = buf_len;
+
+    pass 0i32;
+};
+
+pub func:poly1305_finish = int32(int64:state_ptr, int64:out_ptr) {
+    int64->:state = cast_unchecked<int64->>(state_ptr);
+    
+    int64:buf_len = state[22i64];
+    if (buf_len > 0i64) {
+        int64:block_ptr = state_ptr + 19i64 * 8i64;
+        drop raw poly1305_blocks(state_ptr, block_ptr, buf_len);
+    }
+
+    uint64:h0 = cast_unchecked<uint64>(state[9i64]);
+    uint64:h1 = cast_unchecked<uint64>(state[10i64]);
+    uint64:h2 = cast_unchecked<uint64>(state[11i64]);
+    uint64:h3 = cast_unchecked<uint64>(state[12i64]);
+    uint64:h4 = cast_unchecked<uint64>(state[13i64]);
+
+    h2 = h2 + (h1 >> 26u64);
+    h1 = h1 & 0x3FFFFFFu64;
+    h3 = h3 + (h2 >> 26u64);
+    h2 = h2 & 0x3FFFFFFu64;
+    h4 = h4 + (h3 >> 26u64);
+    h3 = h3 & 0x3FFFFFFu64;
+    h0 = h0 + (h4 >> 26u64) * 5u64;
+    h4 = h4 & 0x3FFFFFFu64;
+    h1 = h1 + (h0 >> 26u64);
+    h0 = h0 & 0x3FFFFFFu64;
+
+    uint64:g0 = h0 + 5u64;
+    uint64:g1 = h1 + (g0 >> 26u64);
+    g0 = g0 & 0x3FFFFFFu64;
+    uint64:g2 = h2 + (g1 >> 26u64);
+    g1 = g1 & 0x3FFFFFFu64;
+    uint64:g3 = h3 + (g2 >> 26u64);
+    g2 = g2 & 0x3FFFFFFu64;
+    uint64:g4 = h4 + (g3 >> 26u64);
+    g3 = g3 & 0x3FFFFFFu64;
+
+    uint64:mask = 0u64 - ((g4 >> 26u64) & 1u64);
+    uint64:nmask = ~mask;
+
+    h0 = (h0 & nmask) | (g0 & mask);
+    h1 = (h1 & nmask) | (g1 & mask);
+    h2 = (h2 & nmask) | (g2 & mask);
+    h3 = (h3 & nmask) | (g3 & mask);
+    h4 = (h4 & nmask) | ((g4 & 0x3FFFFFFu64) & mask);
+
+    uint64:s0 = cast_unchecked<uint64>(state[14i64]);
+    uint64:s1 = cast_unchecked<uint64>(state[15i64]);
+    uint64:s2 = cast_unchecked<uint64>(state[16i64]);
+    uint64:s3 = cast_unchecked<uint64>(state[17i64]);
+    uint64:s4 = cast_unchecked<uint64>(state[18i64]);
+
+    h0 = h0 + s0;
+    h1 = h1 + s1 + (h0 >> 26u64);
+    h0 = h0 & 0x3FFFFFFu64;
+    h2 = h2 + s2 + (h1 >> 26u64);
+    h1 = h1 & 0x3FFFFFFu64;
+    h3 = h3 + s3 + (h2 >> 26u64);
+    h2 = h2 & 0x3FFFFFFu64;
+    h4 = h4 + s4 + (h3 >> 26u64);
+    h3 = h3 & 0x3FFFFFFu64;
+
+    uint64:val0 = h0 | (h1 << 26u64) | (h2 << 52u64);
+    uint64:val1 = (h2 >> 12u64) | (h3 << 14u64) | (h4 << 40u64);
+
+    int64->:out = cast_unchecked<int64->>(out_ptr);
+    out[0i64] = cast_unchecked<int64>(val0);
+    out[1i64] = cast_unchecked<int64>(val1);
+
+    pass 0i32;
+};
+
+pub func:poly1305_mac = int32(int64:key_ptr, int64:msg_ptr, int64:length, int64:out_ptr) {
+    int64:state_ptr = cast_unchecked<int64>(alloc(192i64));
+    drop raw poly1305_init(state_ptr, key_ptr);
+    drop raw poly1305_update(state_ptr, msg_ptr, length);
+    drop raw poly1305_finish(state_ptr, out_ptr);
+    free(cast_unchecked<int8->>(state_ptr));
+    pass 0i32;
+};

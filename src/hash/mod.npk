@@ -1,0 +1,3 @@
+use "src/hash/sha256.npk".*;
+use "src/hash/sha512.npk".*;
+use "src/hash/sha3.npk".*;

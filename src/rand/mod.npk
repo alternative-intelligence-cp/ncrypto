@@ -1,0 +1,4 @@
+// src/rand/mod.npk
+
+use "sys_rand.npk".*;
+use "hmac_drbg.npk".*;

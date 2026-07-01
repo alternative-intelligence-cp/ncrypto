@@ -1,0 +1,67 @@
+// test_rsa.npk
+use "stdlib/core.npk".*;
+use "src/asymmetric/rsa.npk".*;
+
+pub func:failsafe = int32(tbb32:err) { exit(1i32); };
+
+pub func:main = int32() {
+    drop sys!!(1i64, 1i64, "Generating RSA-512 Keypair...\n", 30i64);
+    
+    RSAPrivateKey:priv = raw rsa_generate_key(512i64);
+    
+    RSAPublicKey:pub_key = RSAPublicKey {
+        n: priv.n,
+        e: cast_unchecked<int64>(alloc(40i64))
+    };
+    int64->:e_b = cast_unchecked<int64->>(pub_key.e);
+    e_b[0i64] = 3i64; // cap
+    e_b[1i64] = 1i64; // len
+    e_b[2i64] = 1i64; // sign
+    e_b[3i64] = 65537i64; // limbs
+    
+    drop sys!!(1i64, 1i64, "Keypair generated.\n", 19i64);
+    
+    int64:k_bytes = 64i64; // 512 bits = 64 bytes
+    int64:msg_ptr = cast_unchecked<int64>("Hello RSA padding test!");
+    int64:msg_len = 23i64;
+    
+    int64:ct_ptr = cast_unchecked<int64>(alloc(k_bytes));
+    int64:pt_ptr = cast_unchecked<int64>(alloc(k_bytes));
+    
+    drop sys!!(1i64, 1i64, "Encrypting...\n", 14i64);
+    int64:enc_len = raw rsa_encrypt_pkcs1v15(pub_key, msg_ptr, msg_len, ct_ptr, k_bytes);
+    if (enc_len != k_bytes) {
+        drop sys!!(1i64, 1i64, "Encryption failed!\n", 19i64);
+        exit(1i32);
+    }
+    
+    drop sys!!(1i64, 1i64, "Encryption successful. Decrypting...\n", 37i64);
+    
+    int64:dec_len = raw rsa_decrypt_pkcs1v15(priv, ct_ptr, k_bytes, pt_ptr, k_bytes);
+    if (dec_len != msg_len) {
+        drop sys!!(1i64, 1i64, "Decryption failed or length mismatch!\n", 38i64);
+        exit(1i32);
+    }
+    
+    drop sys!!(1i64, 1i64, "Decryption successful.\n", 23i64);
+    
+    int64->:orig_msg = cast_unchecked<int64->>(msg_ptr);
+    int64->:dec_msg = cast_unchecked<int64->>(pt_ptr);
+    
+    int64:i = 0i64;
+    while (i < msg_len) {
+        int64:o_sh = (i & 7i64) * 8i64;
+        int64:d_sh = (i & 7i64) * 8i64;
+        int64:o_val = (orig_msg[i / 8i64] >> o_sh) & 255i64;
+        int64:d_val = (dec_msg[i / 8i64] >> d_sh) & 255i64;
+        
+        if (o_val != d_val) {
+            drop sys!!(1i64, 1i64, "Message mismatch!\n", 18i64);
+            exit(1i32);
+        }
+        i += 1i64;
+    }
+    
+    drop sys!!(1i64, 1i64, "All tests passed.\n", 18i64);
+    exit(0i32);
+};

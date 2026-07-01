@@ -1,0 +1,23 @@
+// src/asymmetric/ecdh.npk
+use "stdlib/core.npk".*;
+use "../math/bigint.npk".*;
+use "ecc.npk".*;
+
+pub func:ecdh_derive = int64(int64:d, ECCPoint:Q_peer, Secp256k1Params:params) {
+    ECCPoint:S = raw ecc_point_alloc();
+    
+    // Constant-time scalar multiplication
+    drop raw ecc_scalar_mul_ct(d, Q_peer, params.p, S);
+    
+    if (raw get_inf(S) == 1i64) {
+        // If the resulting point is infinity, it's an invalid derived secret (e.g., if Q_peer was invalid).
+        drop raw ecc_point_free(S);
+        pass 0i64; // caller should check for 0
+    }
+    
+    int64:shared_secret = raw bigint_alloc(10i64);
+    drop raw bigint_copy(S.x, shared_secret);
+    
+    drop raw ecc_point_free(S);
+    pass shared_secret;
+};

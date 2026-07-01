@@ -1,0 +1,448 @@
+// sha512.npk - Native SHA-512 and SHA-384 Implementation
+
+pub func:string_data_ptr = int64(string:s) {
+    int64->:p_struct = cast_unchecked<int64->>(@s);
+    int64:struct_addr = <-p_struct;
+    int64->:struct_ptr = cast_unchecked<int64->>(struct_addr);
+    pass struct_ptr[0i64];
+};
+
+func:buf_get_u8 = int64(int64->:buf64, int64:offset) {
+    int64:word = buf64[offset / 8i64];
+    int64:shift = (offset & 7i64) * 8i64;
+    pass (word >> shift) & 255i64;
+};
+
+func:buf_get_u64_be = uint64(int64->:buf64, int64:byte_off) {
+    uint64:b0 = cast_unchecked<uint64>(raw buf_get_u8(buf64, byte_off));
+    uint64:b1 = cast_unchecked<uint64>(raw buf_get_u8(buf64, byte_off + 1i64));
+    uint64:b2 = cast_unchecked<uint64>(raw buf_get_u8(buf64, byte_off + 2i64));
+    uint64:b3 = cast_unchecked<uint64>(raw buf_get_u8(buf64, byte_off + 3i64));
+    uint64:b4 = cast_unchecked<uint64>(raw buf_get_u8(buf64, byte_off + 4i64));
+    uint64:b5 = cast_unchecked<uint64>(raw buf_get_u8(buf64, byte_off + 5i64));
+    uint64:b6 = cast_unchecked<uint64>(raw buf_get_u8(buf64, byte_off + 6i64));
+    uint64:b7 = cast_unchecked<uint64>(raw buf_get_u8(buf64, byte_off + 7i64));
+    pass (b0 << 56u64) | (b1 << 48u64) | (b2 << 40u64) | (b3 << 32u64) | (b4 << 24u64) | (b5 << 16u64) | (b6 << 8u64) | b7;
+};
+
+func:buf_set_u8 = int32(int64->:buf64, int64:byte_off, int64:val) {
+    int64:wi = byte_off / 8i64;
+    int64:shift = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << shift);
+    w = (w & mask) | ((val & 255i64) << shift);
+    buf64[wi] = w;
+    pass 0i32;
+};
+
+func:buf_set_u64_be = int32(int64->:buf64, int64:byte_off, uint64:val) {
+    int64:v = cast_unchecked<int64>(val);
+    drop raw buf_set_u8(buf64, byte_off, (v >> 56i64) & 255i64);
+    drop raw buf_set_u8(buf64, byte_off + 1i64, (v >> 48i64) & 255i64);
+    drop raw buf_set_u8(buf64, byte_off + 2i64, (v >> 40i64) & 255i64);
+    drop raw buf_set_u8(buf64, byte_off + 3i64, (v >> 32i64) & 255i64);
+    drop raw buf_set_u8(buf64, byte_off + 4i64, (v >> 24i64) & 255i64);
+    drop raw buf_set_u8(buf64, byte_off + 5i64, (v >> 16i64) & 255i64);
+    drop raw buf_set_u8(buf64, byte_off + 6i64, (v >> 8i64) & 255i64);
+    drop raw buf_set_u8(buf64, byte_off + 7i64, v & 255i64);
+    pass 0i32;
+};
+
+func:local_memcpy = int64(int64->:d, int64:dst_off, int64:src, int64:len) {
+    int64->:s = cast_unchecked<int64->>(src);
+    int64:i = 0i64;
+    while (i < len) {
+        int64:val = raw buf_get_u8(s, i);
+        drop raw buf_set_u8(d, dst_off + i, val);
+        i += 1i64;
+    }
+    pass 0i64;
+};
+
+func:local_memset = int64(int64->:d, int64:dst_off, int64:val, int64:len) {
+    int64:i = 0i64;
+    while (i < len) {
+        drop raw buf_set_u8(d, dst_off + i, val);
+        i += 1i64;
+    }
+    pass 0i64;
+};
+
+func:sha512_rotr = uint64(uint64:bits, uint64:word) {
+    pass (word >> bits) | (word << (64u64 - bits));
+};
+
+func:sha512_ch = uint64(uint64:x, uint64:y, uint64:z) {
+    pass (x & y) ^ ((~x) & z);
+};
+
+func:sha512_maj = uint64(uint64:x, uint64:y, uint64:z) {
+    pass (x & y) ^ (x & z) ^ (y & z);
+};
+
+func:sha512_ep0 = uint64(uint64:x) {
+    pass raw sha512_rotr(28u64, x) ^ raw sha512_rotr(34u64, x) ^ raw sha512_rotr(39u64, x);
+};
+
+func:sha512_ep1 = uint64(uint64:x) {
+    pass raw sha512_rotr(14u64, x) ^ raw sha512_rotr(18u64, x) ^ raw sha512_rotr(41u64, x);
+};
+
+func:sha512_sig0 = uint64(uint64:x) {
+    pass raw sha512_rotr(1u64, x) ^ raw sha512_rotr(8u64, x) ^ (x >> 7u64);
+};
+
+func:sha512_sig1 = uint64(uint64:x) {
+    pass raw sha512_rotr(19u64, x) ^ raw sha512_rotr(61u64, x) ^ (x >> 6u64);
+};
+
+func:sha512_k = uint64(int64:i) {
+    pick(i) {
+        (0i64) { pass 4794697086780616226u64; },
+        (1i64) { pass 8158064640168781261u64; },
+        (2i64) { pass 13096744586834688815u64; },
+        (3i64) { pass 16840607885511220156u64; },
+        (4i64) { pass 4131703408338449720u64; },
+        (5i64) { pass 6480981068601479193u64; },
+        (6i64) { pass 10538285296894168987u64; },
+        (7i64) { pass 12329834152419229976u64; },
+        (8i64) { pass 15566598209576043074u64; },
+        (9i64) { pass 1334009975649890238u64; },
+        (10i64) { pass 2608012711638119052u64; },
+        (11i64) { pass 6128411473006802146u64; },
+        (12i64) { pass 8268148722764581231u64; },
+        (13i64) { pass 9286055187155687089u64; },
+        (14i64) { pass 11230858885718282805u64; },
+        (15i64) { pass 13951009754708518548u64; },
+        (16i64) { pass 16472876342353939154u64; },
+        (17i64) { pass 17275323862435702243u64; },
+        (18i64) { pass 1135362057144423861u64; },
+        (19i64) { pass 2597628984639134821u64; },
+        (20i64) { pass 3308224258029322869u64; },
+        (21i64) { pass 5365058923640841347u64; },
+        (22i64) { pass 6679025012923562964u64; },
+        (23i64) { pass 8573033837759648693u64; },
+        (24i64) { pass 10970295158949994411u64; },
+        (25i64) { pass 12119686244451234320u64; },
+        (26i64) { pass 12683024718118986047u64; },
+        (27i64) { pass 13788192230050041572u64; },
+        (28i64) { pass 14330467153632333762u64; },
+        (29i64) { pass 15395433587784984357u64; },
+        (30i64) { pass 489312712824947311u64; },
+        (31i64) { pass 1452737877330783856u64; },
+        (32i64) { pass 2861767655752347644u64; },
+        (33i64) { pass 3322285676063803686u64; },
+        (34i64) { pass 5560940570517711597u64; },
+        (35i64) { pass 5996557281743188959u64; },
+        (36i64) { pass 7280758554555802590u64; },
+        (37i64) { pass 8532644243296465576u64; },
+        (38i64) { pass 9350256976987008742u64; },
+        (39i64) { pass 10552545826968843579u64; },
+        (40i64) { pass 11727347734174303076u64; },
+        (41i64) { pass 12113106623233404929u64; },
+        (42i64) { pass 14000437183269869457u64; },
+        (43i64) { pass 14369950271660146224u64; },
+        (44i64) { pass 15101387698204529176u64; },
+        (45i64) { pass 15463397548674623760u64; },
+        (46i64) { pass 17586052441742319658u64; },
+        (47i64) { pass 1182934255886127544u64; },
+        (48i64) { pass 1847814050463011016u64; },
+        (49i64) { pass 2177327727835720531u64; },
+        (50i64) { pass 2830643537854262169u64; },
+        (51i64) { pass 3796741975233480872u64; },
+        (52i64) { pass 4115178125766777443u64; },
+        (53i64) { pass 5681478168544905931u64; },
+        (54i64) { pass 6601373596472566643u64; },
+        (55i64) { pass 7507060721942968483u64; },
+        (56i64) { pass 8399075790359081724u64; },
+        (57i64) { pass 8693463985226723168u64; },
+        (58i64) { pass 9568029438360202098u64; },
+        (59i64) { pass 10144078919501101548u64; },
+        (60i64) { pass 10430055236837252648u64; },
+        (61i64) { pass 11840083180663258601u64; },
+        (62i64) { pass 13761210420658862357u64; },
+        (63i64) { pass 14299343276471374635u64; },
+        (64i64) { pass 14566680578165727644u64; },
+        (65i64) { pass 15097957966210449927u64; },
+        (66i64) { pass 16922976911328602910u64; },
+        (67i64) { pass 17689382322260857208u64; },
+        (68i64) { pass 500013540394364858u64; },
+        (69i64) { pass 748580250866718886u64; },
+        (70i64) { pass 1242879168328830382u64; },
+        (71i64) { pass 1977374033974150939u64; },
+        (72i64) { pass 2944078676154940804u64; },
+        (73i64) { pass 3659926193048069267u64; },
+        (74i64) { pass 4368137639120453308u64; },
+        (75i64) { pass 4836135668995329356u64; },
+        (76i64) { pass 5532061633213252278u64; },
+        (77i64) { pass 6448918945643986474u64; },
+        (78i64) { pass 6902733635092675308u64; },
+        (79i64) { pass 7801388544844847127u64; },
+        (*) { pass 0u64; }
+    }
+};
+
+func:sha512_transform = int32(int64:state_ptr, int64->:block, int64:block_off) {
+    int64->:state = cast_unchecked<int64->>(state_ptr);
+
+    int64:w_ptr_raw = cast_unchecked<int64>(alloc(1024i64)); // 80 * 8 bytes
+    int64->:w = cast_unchecked<int64->>(w_ptr_raw);
+
+    int64:i = 0i64;
+    while (i < 16i64) {
+        uint64:val = raw buf_get_u64_be(block, block_off + i * 8i64);
+        w[i] = cast_unchecked<int64>(val);
+        i += 1i64;
+    }
+
+    while (i < 80i64) {
+        uint64:wi15 = cast_unchecked<uint64>(w[i - 15i64]);
+        uint64:wi2 = cast_unchecked<uint64>(w[i - 2i64]);
+        uint64:wi16 = cast_unchecked<uint64>(w[i - 16i64]);
+        uint64:wi7 = cast_unchecked<uint64>(w[i - 7i64]);
+        
+        uint64:s0 = raw sha512_sig0(wi15);
+        uint64:s1 = raw sha512_sig1(wi2);
+        w[i] = cast_unchecked<int64>(wi16 + s0 + wi7 + s1);
+        i += 1i64;
+    }
+
+    uint64:a = raw buf_get_u64_be(state, 0i64);
+    uint64:b = raw buf_get_u64_be(state, 8i64);
+    uint64:c = raw buf_get_u64_be(state, 16i64);
+    uint64:d = raw buf_get_u64_be(state, 24i64);
+    uint64:e = raw buf_get_u64_be(state, 32i64);
+    uint64:f = raw buf_get_u64_be(state, 40i64);
+    uint64:g = raw buf_get_u64_be(state, 48i64);
+    uint64:h = raw buf_get_u64_be(state, 56i64);
+
+    i = 0i64;
+    while (i < 80i64) {
+        uint64:ep1 = raw sha512_ep1(e);
+        uint64:ch = raw sha512_ch(e, f, g);
+        uint64:k_val = raw sha512_k(i);
+        uint64:wi = cast_unchecked<uint64>(w[i]);
+        uint64:t1 = h + ep1 + ch + k_val + wi;
+        
+        uint64:ep0 = raw sha512_ep0(a);
+        uint64:maj = raw sha512_maj(a, b, c);
+        uint64:t2 = ep0 + maj;
+
+        h = g;
+        g = f;
+        f = e;
+        e = d + t1;
+        d = c;
+        c = b;
+        b = a;
+        a = t1 + t2;
+
+        i += 1i64;
+    }
+
+    uint64:sa = raw buf_get_u64_be(state, 0i64);
+    uint64:sb = raw buf_get_u64_be(state, 8i64);
+    uint64:sc = raw buf_get_u64_be(state, 16i64);
+    uint64:sd = raw buf_get_u64_be(state, 24i64);
+    uint64:se = raw buf_get_u64_be(state, 32i64);
+    uint64:sf = raw buf_get_u64_be(state, 40i64);
+    uint64:sg = raw buf_get_u64_be(state, 48i64);
+    uint64:sh = raw buf_get_u64_be(state, 56i64);
+
+    drop raw buf_set_u64_be(state, 0i64, sa + a);
+    drop raw buf_set_u64_be(state, 8i64, sb + b);
+    drop raw buf_set_u64_be(state, 16i64, sc + c);
+    drop raw buf_set_u64_be(state, 24i64, sd + d);
+    drop raw buf_set_u64_be(state, 32i64, se + e);
+    drop raw buf_set_u64_be(state, 40i64, sf + f);
+    drop raw buf_set_u64_be(state, 48i64, sg + g);
+    drop raw buf_set_u64_be(state, 56i64, sh + h);
+
+    drop dalloc(cast_unchecked<int8->>(w_ptr_raw));
+    pass 0i32;
+};
+
+pub func:sha512_init = int64() {
+    int64:ctx = cast_unchecked<int64>(alloc(224i64)); 
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    drop raw buf_set_u64_be(ctx_64, 0i64, 7640891576956012808u64);
+    drop raw buf_set_u64_be(ctx_64, 8i64, 13503953896175478587u64);
+    drop raw buf_set_u64_be(ctx_64, 16i64, 4354685564936845355u64);
+    drop raw buf_set_u64_be(ctx_64, 24i64, 11912009170470909681u64);
+    drop raw buf_set_u64_be(ctx_64, 32i64, 5840696475078001361u64);
+    drop raw buf_set_u64_be(ctx_64, 40i64, 11170449401992604703u64);
+    drop raw buf_set_u64_be(ctx_64, 48i64, 2270897969802886507u64);
+    drop raw buf_set_u64_be(ctx_64, 56i64, 6620516959819538809u64);
+    
+    drop raw buf_set_u64_be(ctx_64, 64i64, 0u64); // count high
+    drop raw buf_set_u64_be(ctx_64, 72i64, 0u64); // count low
+    ctx_64[10i64] = 0i64; // buflen at offset 80
+    ctx_64[27i64] = 0i64; // is384 at offset 216
+    pass ctx;
+};
+
+pub func:sha384_init = int64() {
+    int64:ctx = cast_unchecked<int64>(alloc(224i64)); 
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    drop raw buf_set_u64_be(ctx_64, 0i64, 14680500436340154072u64);
+    drop raw buf_set_u64_be(ctx_64, 8i64, 7105036623409894663u64);
+    drop raw buf_set_u64_be(ctx_64, 16i64, 10473403895298186519u64);
+    drop raw buf_set_u64_be(ctx_64, 24i64, 1526699215303891257u64);
+    drop raw buf_set_u64_be(ctx_64, 32i64, 7436329637833083697u64);
+    drop raw buf_set_u64_be(ctx_64, 40i64, 10282925794625328401u64);
+    drop raw buf_set_u64_be(ctx_64, 48i64, 15784041429090275239u64);
+    drop raw buf_set_u64_be(ctx_64, 56i64, 5167115440072839076u64);
+    
+    drop raw buf_set_u64_be(ctx_64, 64i64, 0u64); // count high
+    drop raw buf_set_u64_be(ctx_64, 72i64, 0u64); // count low
+    ctx_64[10i64] = 0i64; // buflen at offset 80
+    ctx_64[27i64] = 1i64; // is384 at offset 216
+    pass ctx;
+};
+
+pub func:sha512_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
+    if (ctx == 0i64) { pass -1i32; }
+    if (buf_ptr == 0i64) { pass -1i32; }
+    if (length == 0i64) { pass 0i32; } 
+
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    
+    uint64:len_bits = cast_unchecked<uint64>(length * 8i64);
+    uint64:clow = raw buf_get_u64_be(ctx_64, 72i64);
+    uint64:chigh = raw buf_get_u64_be(ctx_64, 64i64);
+    
+    uint64:new_clow = clow + len_bits;
+    if (new_clow < clow) {
+        chigh = chigh + 1u64;
+    }
+    
+    drop raw buf_set_u64_be(ctx_64, 72i64, new_clow);
+    drop raw buf_set_u64_be(ctx_64, 64i64, chigh);
+    
+    int64:buflen = ctx_64[10i64];
+    int64:i = 0i64;
+
+    if (buflen > 0i64) {
+        int64:need = 128i64 - buflen;
+        int64:copy = length;
+        if (length >= need) { copy = need; }
+
+        drop raw local_memcpy(ctx_64, 88i64 + buflen, buf_ptr, copy);
+        buflen += copy;
+        ctx_64[10i64] = buflen;
+        i += copy;
+
+        if (buflen == 128i64) {
+            drop raw sha512_transform(ctx, ctx_64, 88i64);
+            ctx_64[10i64] = 0i64;
+        }
+    }
+
+    int64->:src_buf = cast_unchecked<int64->>(buf_ptr);
+    while ((i + 128i64) <= length) {
+        drop raw sha512_transform(ctx, src_buf, i);
+        i += 128i64;
+    }
+
+    if (i < length) {
+        int64:rem = length - i;
+        ctx_64[10i64] = rem;
+        int64:src_ptr = buf_ptr + i;
+        drop raw local_memcpy(ctx_64, 88i64, src_ptr, rem);
+    }
+    
+    pass 0i32;
+};
+
+pub func:sha512_finalize = string(int64:ctx) {
+    if (ctx == 0i64) { pass ""; }
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+
+    int64:fbuf = cast_unchecked<int64>(alloc(256i64));
+    int64->:fbuf_64 = cast_unchecked<int64->>(fbuf);
+    
+    int64:rem = ctx_64[10i64];
+    int64->:s_buf = cast_unchecked<int64->>(ctx + 88i64);
+    drop raw local_memcpy(fbuf_64, 0i64, ctx + 88i64, rem);
+    drop raw buf_set_u8(fbuf_64, rem, 128i64); // 0x80
+    rem += 1i64;
+
+    if (rem > 112i64) {
+        drop raw local_memset(fbuf_64, rem, 0i64, 128i64 - rem);
+        drop raw sha512_transform(ctx, fbuf_64, 0i64);
+        rem = 0i64;
+    }
+
+    drop raw local_memset(fbuf_64, rem, 0i64, 112i64 - rem);
+
+    uint64:chigh = raw buf_get_u64_be(ctx_64, 64i64);
+    uint64:clow = raw buf_get_u64_be(ctx_64, 72i64);
+    
+    drop raw buf_set_u64_be(fbuf_64, 112i64, chigh);
+    drop raw buf_set_u64_be(fbuf_64, 120i64, clow);
+
+    drop raw sha512_transform(ctx, fbuf_64, 0i64);
+
+    int64:is384 = ctx_64[27i64];
+    int64:words_to_output = 8i64;
+    if (is384 == 1i64) {
+        words_to_output = 6i64;
+    }
+
+    string:out_hex = "";
+    int64:n = 0i64;
+    while (n < words_to_output) {
+        uint64:val = raw buf_get_u64_be(ctx_64, n * 8i64);
+        int64:v = cast_unchecked<int64>(val);
+        int64:b0 = (v >> 56i64) & 255i64;
+        int64:b1 = (v >> 48i64) & 255i64;
+        int64:b2 = (v >> 40i64) & 255i64;
+        int64:b3 = (v >> 32i64) & 255i64;
+        int64:b4 = (v >> 24i64) & 255i64;
+        int64:b5 = (v >> 16i64) & 255i64;
+        int64:b6 = (v >> 8i64) & 255i64;
+        int64:b7 = v & 255i64;
+        
+        string:h0 = string_to_hex(string_from_char(cast_unchecked<int8>(b0)));
+        string:h1 = string_to_hex(string_from_char(cast_unchecked<int8>(b1)));
+        string:h2 = string_to_hex(string_from_char(cast_unchecked<int8>(b2)));
+        string:h3 = string_to_hex(string_from_char(cast_unchecked<int8>(b3)));
+        string:h4 = string_to_hex(string_from_char(cast_unchecked<int8>(b4)));
+        string:h5 = string_to_hex(string_from_char(cast_unchecked<int8>(b5)));
+        string:h6 = string_to_hex(string_from_char(cast_unchecked<int8>(b6)));
+        string:h7 = string_to_hex(string_from_char(cast_unchecked<int8>(b7)));
+        
+        out_hex = out_hex + h0 + h1 + h2 + h3 + h4 + h5 + h6 + h7;
+        n += 1i64;
+    }
+
+    drop dalloc(cast_unchecked<int8->>(fbuf));
+    pass out_hex;
+};
+
+pub func:sha512_free = int32(int64:ctx) {
+    if (ctx != 0i64) {
+        drop dalloc(cast_unchecked<int8->>(ctx));
+    }
+    pass 0i32;
+};
+
+pub func:sha512 = string(string:data) {
+    int64:ctx = raw sha512_init();
+    int64:data_ptr = raw string_data_ptr(data);
+    int64:data_len = string_length(data);
+    drop raw sha512_update(ctx, data_ptr, data_len);
+    string:res = raw sha512_finalize(ctx);
+    drop raw sha512_free(ctx);
+    pass res;
+};
+
+pub func:sha384 = string(string:data) {
+    int64:ctx = raw sha384_init();
+    int64:data_ptr = raw string_data_ptr(data);
+    int64:data_len = string_length(data);
+    drop raw sha512_update(ctx, data_ptr, data_len);
+    string:res = raw sha512_finalize(ctx);
+    drop raw sha512_free(ctx);
+    pass res;
+};

@@ -1,0 +1,20 @@
+use "bigint.npk";
+
+// Export BigInt allocation and math routines
+pub func:math_bigint_alloc = int64(int64:capacity) { pass raw bigint_alloc(capacity); };
+pub func:math_bigint_free = int32(int64:ptr) { pass raw bigint_free(ptr); };
+pub func:math_bigint_copy = int32(int64:src, int64:dst) { pass raw bigint_copy(src, dst); };
+pub func:math_bigint_trim = int32(int64:ptr) { pass raw bigint_trim(ptr); };
+
+pub func:math_bigint_add = int32(int64:a, int64:b, int64:out) { pass raw bigint_add(a, b, out); };
+pub func:math_bigint_sub = int32(int64:a, int64:b, int64:out) { pass raw bigint_sub(a, b, out); };
+pub func:math_bigint_mul = int32(int64:a, int64:b, int64:out) { pass raw bigint_mul(a, b, out); };
+pub func:math_bigint_div_mod = int32(int64:a, int64:b, int64:q, int64:r) { pass raw bigint_div_mod(a, b, q, r); };
+
+pub func:math_bigint_modexp = int32(int64:base, int64:exp, int64:m, int64:out) { pass raw bigint_modexp(base, exp, m, out); };
+pub func:math_bigint_modinv = int32(int64:a, int64:m, int64:out) { pass raw bigint_modinv(a, m, out); };
+
+pub func:math_bigint_cmp = int32(int64:a, int64:b) { pass raw bigint_cmp(a, b); };
+pub func:math_bigint_get_bit = int64(int64:a, int64:bit_idx) { pass raw bigint_get_bit(a, bit_idx); };
+pub func:math_bigint_set_bit = int32(int64:a, int64:bit_idx) { pass raw bigint_set_bit(a, bit_idx); };
+pub func:math_bigint_bit_len = int64(int64:a) { pass raw bigint_bit_len(a); };

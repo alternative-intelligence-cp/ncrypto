@@ -1,0 +1,67 @@
+// test_ecc.npk
+use "stdlib/core.npk".*;
+use "src/asymmetric/ecc.npk".*;
+use "src/math/bigint.npk".*;
+
+pub func:failsafe = int32(tbb32:err) { exit(1i32); };
+
+pub func:main = int32() {
+    drop sys!!(1i64, 1i64, "Testing ECC Secp256k1...\n", 25i64);
+    
+    Secp256k1Params:params = raw secp256k1_get_params();
+    
+    // Test: 2G = G + G
+    ECCPoint:double_G = raw ecc_point_alloc();
+    drop raw ecc_point_double(params.G, params.p, double_G);
+    
+    ECCPoint:add_G = raw ecc_point_alloc();
+    drop raw ecc_point_add(params.G, params.G, params.p, add_G);
+    
+    if (raw bigint_ucmp(double_G.x, add_G.x) != 0i32) {
+        drop sys!!(1i64, 1i64, "Error: double(G) != add(G, G) (x)\n", 34i64);
+        exit(1i32);
+    }
+    if (raw bigint_ucmp(double_G.y, add_G.y) != 0i32) {
+        drop sys!!(1i64, 1i64, "Error: double(G) != add(G, G) (y)\n", 34i64);
+        exit(1i32);
+    }
+    
+    // Test: scalar_mul_ct(2, G) == 2G
+    int64:two = raw bigint_alloc(1i64);
+    int64->:two_b = cast_unchecked<int64->>(two);
+    two_b[3i64] = 2i64;
+    two_b[1i64] = 1i64;
+    two_b[2i64] = 1i64;
+    
+    ECCPoint:mul_2G = raw ecc_point_alloc();
+    drop raw ecc_scalar_mul_ct(two, params.G, params.p, mul_2G);
+    
+    if (raw bigint_ucmp(double_G.x, mul_2G.x) != 0i32) {
+        drop sys!!(1i64, 1i64, "Error: scalar_mul(2, G) != 2G (x)\n", 34i64);
+        exit(1i32);
+    }
+    if (raw bigint_ucmp(double_G.y, mul_2G.y) != 0i32) {
+        drop sys!!(1i64, 1i64, "Error: scalar_mul(2, G) != 2G (y)\n", 34i64);
+        exit(1i32);
+    }
+    
+    // Test: scalar_mul_ct(n, G) == Infinity
+    ECCPoint:mul_nG = raw ecc_point_alloc();
+    drop raw ecc_scalar_mul_ct(params.n, params.G, params.p, mul_nG);
+    
+    if (raw get_inf(mul_nG) != 1i64) {
+        drop sys!!(1i64, 1i64, "Error: scalar_mul(n, G) != Infinity\n", 36i64);
+        exit(1i32);
+    }
+    
+    drop sys!!(1i64, 1i64, "All ECC tests passed!\n", 22i64);
+    
+    drop raw ecc_point_free(double_G);
+    drop raw ecc_point_free(add_G);
+    drop raw ecc_point_free(mul_2G);
+    drop raw ecc_point_free(mul_nG);
+    drop raw bigint_free(two);
+    drop raw secp256k1_free_params(params);
+    
+    exit(0i32);
+};
