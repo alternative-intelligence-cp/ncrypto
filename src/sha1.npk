@@ -1,9 +1,5 @@
 // sha1.npk - Native SHA1 Implementation
 
-extern "nitpick_alloc" {
-    func:npk_core_alloc = int64(int64:size);
-    func:npk_core_dalloc = int32(int64:ptr);
-}
 
 pub func:string_data_ptr = int64(string:s) {
     int64->:p_struct = cast_unchecked<int64->>(@s);
@@ -74,7 +70,7 @@ func:sha1_transform = int32(int64:state_ptr, int64:block_ptr) {
     int64->:state = cast_unchecked<int64->>(state_ptr);
     int64->:block = cast_unchecked<int64->>(block_ptr);
 
-    int64:w_ptr_raw = npk_core_alloc(640i64); // 80 * 8 bytes
+    int64:w_ptr_raw = cast_unchecked<int64>(alloc(640i64)); // 80 * 8 bytes
     int64->:w = cast_unchecked<int64->>(w_ptr_raw);
 
     int64:i = 0i64;
@@ -136,12 +132,12 @@ func:sha1_transform = int32(int64:state_ptr, int64:block_ptr) {
     drop raw buf_set_u32_be(state, 12i64, (sd + d) & 4294967295i64);
     drop raw buf_set_u32_be(state, 16i64, (se + e) & 4294967295i64);
 
-    drop npk_core_dalloc(w_ptr_raw);
+    dalloc(cast_unchecked<int8->>(w_ptr_raw));
     pass 0i32;
 };
 
 pub func:sha1_init = int64() {
-    int64:ctx = npk_core_alloc(104i64); // 5 * 4 (state) + 8 (count) + 8 (buflen) + 64 (buf) = 100 bytes, padding to 104
+    int64:ctx = cast_unchecked<int64>(alloc(104i64)); // 5 * 4 (state) + 8 (count) + 8 (buflen) + 64 (buf) = 100 bytes, padding to 104
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
     drop raw buf_set_u32_be(ctx_64, 0i64, 0x67452301i64);
     drop raw buf_set_u32_be(ctx_64, 4i64, 0xEFCDAB89i64);
@@ -202,7 +198,7 @@ pub func:sha1_finalize = string(int64:ctx) {
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
     int64:ctx_buf = ctx + 40i64;
 
-    int64:fbuf = npk_core_alloc(128i64);
+    int64:fbuf = cast_unchecked<int64>(alloc(128i64));
     int64->:fbuf_64 = cast_unchecked<int64->>(fbuf);
     
     int64:rem = ctx_64[4i64];
@@ -246,13 +242,13 @@ pub func:sha1_finalize = string(int64:ctx) {
         n += 1i64;
     }
 
-    drop npk_core_dalloc(fbuf);
+    dalloc(cast_unchecked<int8->>(fbuf));
     pass out_hex;
 };
 
 pub func:sha1_free = int32(int64:ctx) {
     if (ctx != 0i64) {
-        drop npk_core_dalloc(ctx);
+        dalloc(cast_unchecked<int8->>(ctx));
     }
     pass 0i32;
 };

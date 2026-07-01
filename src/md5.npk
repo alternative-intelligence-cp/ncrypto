@@ -1,9 +1,5 @@
 // md5.npk - Native MD5 Implementation
 
-extern "nitpick_alloc" {
-    func:npk_core_alloc = int64(int64:size);
-    func:npk_core_dalloc = int32(int64:ptr);
-}
 
 pub func:string_data_ptr = int64(string:s) {
     int64->:p_struct = cast_unchecked<int64->>(@s);
@@ -106,7 +102,7 @@ func:md5_transform = int32(int64:state_ptr, int64:block_ptr) {
     int64:s_ptr_raw = raw _get_md5_s_ptr();
     int64->:s_ptr = cast_unchecked<int64->>(s_ptr_raw);
 
-    int64:m_ptr_raw = npk_core_alloc(64i64);
+    int64:m_ptr_raw = cast_unchecked<int64>(alloc(64i64));
     int64->:m_ptr = cast_unchecked<int64->>(m_ptr_raw);
 
     int64:i = 0i64;
@@ -168,12 +164,12 @@ func:md5_transform = int32(int64:state_ptr, int64:block_ptr) {
     drop raw buf_set_u32(state, 8i64, cast_unchecked<int64>(sc + c));
     drop raw buf_set_u32(state, 12i64, cast_unchecked<int64>(sd + d));
 
-    drop npk_core_dalloc(m_ptr_raw);
+    dalloc(cast_unchecked<int8->>(m_ptr_raw));
     pass 0i32;
 };
 
 pub func:md5_init = int64() {
-    int64:ctx = npk_core_alloc(104i64); // 4 * 4 (state) + 8 (count) + 8 (buflen) + 64 (buf) = 96, padding to 104
+    int64:ctx = cast_unchecked<int64>(alloc(104i64)); // 4 * 4 (state) + 8 (count) + 8 (buflen) + 64 (buf) = 96, padding to 104
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
     drop raw buf_set_u32(ctx_64, 0i64, 0x67452301i64);
     drop raw buf_set_u32(ctx_64, 4i64, 0xefcdab89i64);
@@ -233,7 +229,7 @@ pub func:md5_finalize = string(int64:ctx) {
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
     int64:ctx_buf = ctx + 32i64;
 
-    int64:fbuf = npk_core_alloc(128i64);
+    int64:fbuf = cast_unchecked<int64>(alloc(128i64));
     int64->:fbuf_64 = cast_unchecked<int64->>(fbuf);
     
     int64:rem = ctx_64[3i64];
@@ -277,13 +273,13 @@ pub func:md5_finalize = string(int64:ctx) {
         n += 1i64;
     }
 
-    drop npk_core_dalloc(fbuf);
+    dalloc(cast_unchecked<int8->>(fbuf));
     pass out_hex;
 };
 
 pub func:md5_free = int32(int64:ctx) {
     if (ctx != 0i64) {
-        drop npk_core_dalloc(ctx);
+        dalloc(cast_unchecked<int8->>(ctx));
     }
     pass 0i32;
 };
