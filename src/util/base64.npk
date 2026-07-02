@@ -61,7 +61,7 @@ func:b64_decode_char = int64(int64:c) {
 
 pub func:base64_encode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
     int64:out_len = 4i64 * ((in_len + 2i64) / 3i64);
-    if (out_len > out_cap) { pass -1i64; }
+    if (out_len > out_cap) { fail(-1i64); }
     
     int64->:in_64 = cast_unchecked<int64->>(in_ptr);
     int64->:out_64 = cast_unchecked<int64->>(out_ptr);
@@ -104,7 +104,7 @@ pub func:base64_encode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:
 };
 
 pub func:base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
-    if ((in_len & 3i64) != 0i64) { pass -1i64; } // Must be multiple of 4
+    if ((in_len & 3i64) != 0i64) { fail(-1i64); } // Must be multiple of 4
     if (in_len == 0i64) { pass 0i64; }
     
     int64->:in_64 = cast_unchecked<int64->>(in_ptr);
@@ -117,7 +117,7 @@ pub func:base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:
     }
     
     int64:out_len = ((in_len / 4i64) * 3i64) - pad_count;
-    if (out_len > out_cap) { pass -1i64; }
+    if (out_len > out_cap) { fail(-1i64); }
     
     int64:i = 0i64;
     int64:o = 0i64;
@@ -136,7 +136,7 @@ pub func:base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:
         int64:v3 = raw b64_decode_char(c3);
         
         if ((v0 < 0i64) || (v1 < 0i64) || (v2 < 0i64) || (v3 < 0i64)) {
-            pass -1i64;
+            fail(-1i64);
         }
         
         int64:b0 = (v0 << 2i64) | (v1 >> 4i64);

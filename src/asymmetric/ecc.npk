@@ -316,7 +316,7 @@ pub func:ecc_bigint_from_hex = int64(string:hex) {
     B2[2i64] = 1i64;
     drop raw bigint_trim(bi);
     
-    drop raw sys!!(4i64, bin_ptr);
+    drop dalloc(cast_unchecked<wild any->>(bin_ptr));
     pass bi;
 };
 

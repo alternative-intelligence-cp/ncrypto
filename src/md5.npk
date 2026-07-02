@@ -182,9 +182,9 @@ pub func:md5_init = int64() {
 };
 
 pub func:md5_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
-    if (ctx == 0i64) { pass -1i32; }
-    if (buf_ptr == 0i64) { pass -1i32; }
-    if (length == 0i64) { pass -1i32; }
+    if (ctx == 0i64) { fail(-1i32); }
+    if (buf_ptr == 0i64) { fail(-1i32); }
+    if (length == 0i64) { fail(-1i32); }
 
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
     int64:ctx_buf = ctx + 32i64; // buf starts at offset 32

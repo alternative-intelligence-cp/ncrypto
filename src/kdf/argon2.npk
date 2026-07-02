@@ -356,7 +356,7 @@ func:argon2_index_alpha = int64(int64:pass_no, int64:lane, int64:slice, int64:in
 
 pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int64:salt_len, int64:out_ptr, int64:out_len, int64:t_cost, int64:m_cost, int64:lanes) {
     // Validate bounds
-    if (m_cost < 8i64 * lanes) { pass -1i32; }
+    if (m_cost < 8i64 * lanes) { fail(-1i32); }
     
     int64:lane_length = m_cost / lanes;
     int64:segment_length = lane_length / 4i64;

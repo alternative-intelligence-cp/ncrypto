@@ -37,7 +37,10 @@ pub func:bigint_from_random = int64(int64:n) {
     
     int64:done = 0i64;
     while (done == 0i64) {
-        drop sys!!(318i64, buf, n_bytes, 0i64);
+        int64:sys_ret = raw sys!!(318i64, buf, n_bytes, 0i64);
+        if (sys_ret < n_bytes) {
+            !!! 1i32;
+        }
         
         int64:excess = (n_bytes * 8i64) - n_bits;
         if (excess > 0i64) {

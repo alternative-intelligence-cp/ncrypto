@@ -42,7 +42,7 @@ pub func:bigint_copy = int32(int64:src, int64:dst) {
     int64:len = s[1i64];
     if (len > d[0i64]) {
         // Destination capacity too small
-        pass -1i32;
+        fail(-1i32);
     }
     d[1i64] = len;
     d[2i64] = s[2i64];
@@ -127,14 +127,14 @@ pub func:bigint_ucmp = int32(int64:a, int64:b) {
     int64:lenA = A[1i64];
     int64:lenB = B[1i64];
     if (lenA > lenB) { pass 1i32; }
-    if (lenA < lenB) { pass -1i32; }
+    if (lenA < lenB) { fail(-1i32); }
     
     int64:i = lenA - 1i64;
     while (i >= 0i64) {
         int64:va = A[3i64 + i];
         int64:vb = B[3i64 + i];
         if (va > vb) { pass 1i32; }
-        if (va < vb) { pass -1i32; }
+        if (va < vb) { fail(-1i32); }
         i -= 1i64;
     }
     pass 0i32;
@@ -347,7 +347,7 @@ pub func:bigint_div_mod = int32(int64:a, int64:b, int64:q_out, int64:r_out) {
     int64->:B = cast_unchecked<int64->>(b);
     if (B[1i64] == 0i64) {
         // Division by zero
-        pass -1i32;
+        fail(-1i32);
     }
 
     int64->:Q = cast_unchecked<int64->>(q_out);
@@ -396,40 +396,84 @@ pub func:bigint_div_mod = int32(int64:a, int64:b, int64:q_out, int64:r_out) {
     pass 0i32;
 };
 
-// out = (base ^ exp) % m
-pub func:bigint_modexp = int32(int64:base, int64:exp, int64:m, int64:out) {
-    int64->:M = cast_unchecked<int64->>(m);
-    if (M[1i64] == 0i64) { pass -1i32; }
-
-    int64:res = raw bigint_alloc(M[1i64] * 2i64);
-    int64->:R = cast_unchecked<int64->>(res);
-    R[1i64] = 1i64; R[2i64] = 1i64; R[3i64] = 1i64; // res = 1
+func:bigint_cswap = int32(int64:a, int64:b, int64:bit) {
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
     
-    int64:cur_base = raw bigint_alloc(M[1i64] * 2i64);
-    int64:q = raw bigint_alloc(M[1i64] * 2i64);
+    int64:cap_a = A[0i64];
+    int64:cap_b = B[0i64];
+    int64:cap = cap_a;
+    if (cap_b > cap) { cap = cap_b; }
     
-    // cur_base = base % m
-    drop raw bigint_div_mod(base, m, q, cur_base);
+    int64:mask = 0i64 - bit;
     
-    int64:tmp1 = raw bigint_alloc(M[1i64] * 4i64);
+    int64:a_len = A[1i64];
+    int64:b_len = B[1i64];
+    int64:swap_len = (a_len ^ b_len) & mask;
+    A[1i64] = a_len ^ swap_len;
+    B[1i64] = b_len ^ swap_len;
     
-    int64:bits = raw bigint_bit_len(exp);
+    int64:a_sign = A[2i64];
+    int64:b_sign = B[2i64];
+    int64:swap_sign = (a_sign ^ b_sign) & mask;
+    A[2i64] = a_sign ^ swap_sign;
+    B[2i64] = b_sign ^ swap_sign;
+    
     int64:i = 0i64;
-    while (i < bits) {
-        if (raw bigint_get_bit(exp, i) == 1i64) {
-            // res = (res * cur_base) % m
-            drop raw bigint_mul(res, cur_base, tmp1);
-            drop raw bigint_div_mod(tmp1, m, q, res);
-        }
-        // cur_base = (cur_base * cur_base) % m
-        drop raw bigint_mul(cur_base, cur_base, tmp1);
-        drop raw bigint_div_mod(tmp1, m, q, cur_base);
+    while (i < cap) {
+        int64:a_val = A[3i64 + i];
+        int64:b_val = B[3i64 + i];
+        int64:swap_val = (a_val ^ b_val) & mask;
+        A[3i64 + i] = a_val ^ swap_val;
+        B[3i64 + i] = b_val ^ swap_val;
         i += 1i64;
     }
     
-    drop raw bigint_copy(res, out);
-    drop raw bigint_free(res);
-    drop raw bigint_free(cur_base);
+    pass 0i32;
+};
+
+// out = (base ^ exp) % m
+pub func:bigint_modexp = int32(int64:base, int64:exp, int64:m, int64:out) {
+    int64->:M = cast_unchecked<int64->>(m);
+    if (M[1i64] == 0i64) { fail(-1i32); }
+
+    int64:cap = M[1i64] * 2i64;
+    
+    int64:R0 = raw bigint_alloc(cap);
+    int64->:R0_ptr = cast_unchecked<int64->>(R0);
+    R0_ptr[1i64] = 1i64; R0_ptr[2i64] = 1i64; R0_ptr[3i64] = 1i64; // R0 = 1
+    
+    int64:R1 = raw bigint_alloc(cap);
+    int64:q = raw bigint_alloc(cap);
+    
+    // R1 = base % m
+    drop raw bigint_div_mod(base, m, q, R1);
+    
+    int64:tmp1 = raw bigint_alloc(cap * 4i64);
+    
+    int64:bits = raw bigint_bit_len(exp);
+    int64:i = bits - 1i64;
+    while (i >= 0i64) {
+        int64:bit = raw bigint_get_bit(exp, i);
+        
+        drop raw bigint_cswap(R0, R1, bit);
+        
+        // R1 = (R0 * R1) % m
+        drop raw bigint_mul(R0, R1, tmp1);
+        drop raw bigint_div_mod(tmp1, m, q, R1);
+        
+        // R0 = (R0 * R0) % m
+        drop raw bigint_mul(R0, R0, tmp1);
+        drop raw bigint_div_mod(tmp1, m, q, R0);
+        
+        drop raw bigint_cswap(R0, R1, bit);
+        
+        i -= 1i64;
+    }
+    
+    drop raw bigint_copy(R0, out);
+    drop raw bigint_free(R0);
+    drop raw bigint_free(R1);
     drop raw bigint_free(q);
     drop raw bigint_free(tmp1);
     pass 0i32;
@@ -479,7 +523,7 @@ pub func:bigint_modinv = int32(int64:a, int64:m, int64:out) {
             drop raw bigint_free(M0); drop raw bigint_free(Y); drop raw bigint_free(X);
             drop raw bigint_free(A); drop raw bigint_free(M); drop raw bigint_free(q);
             drop raw bigint_free(t); drop raw bigint_free(qy);
-            pass -1i32;
+            fail(-1i32);
         }
 
         // q = a / m, a_new = a % m

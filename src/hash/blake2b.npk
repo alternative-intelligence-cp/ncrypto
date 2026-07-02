@@ -1058,8 +1058,8 @@ pub func:blake2b_compress = int32(int64:h_ptr, int64:m_ptr, int64:t0, int64:t1, 
 };
 
 pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len, int64:key_ptr, int64:key_len) {
-    if (out_len <= 0i64) { pass -1i32; }
-    if (out_len > 64i64) { pass -1i32; }
+    if (out_len <= 0i64) { fail(-1i32); }
+    if (out_len > 64i64) { fail(-1i32); }
     
     int64:h_ptr = cast_unchecked<int64>(alloc(64i64));
     int64->:H = cast_unchecked<int64->>(h_ptr);

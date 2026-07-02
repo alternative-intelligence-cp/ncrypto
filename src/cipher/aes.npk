@@ -822,7 +822,7 @@ pub func:aes_encrypt_block = int32(int64:exp_key_ptr, int64:key_len, int64:in_pt
         i += 1i64;
     }
     
-    drop raw sys!!(4i64, state);
+    drop dalloc(cast_unchecked<wild any->>(state));
     pass 0i32;
 };
 
@@ -996,6 +996,6 @@ pub func:aes_decrypt_block = int32(int64:exp_key_ptr, int64:key_len, int64:in_pt
         i += 1i64;
     }
     
-    drop raw sys!!(4i64, state);
+    drop dalloc(cast_unchecked<wild any->>(state));
     pass 0i32;
 };

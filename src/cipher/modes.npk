@@ -27,7 +27,7 @@ func:inc_counter = int32(int64:ctr_ptr) {
 };
 
 pub func:aes_ecb_encrypt = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr, int64:in_len, int64:out_ptr) {
-    if ((in_len % 16i64) != 0i64) { pass -1i32; }
+    if ((in_len % 16i64) != 0i64) { fail(-1i32); }
     int64:i = 0i64;
     while (i < in_len) {
         drop raw aes_encrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
@@ -37,7 +37,7 @@ pub func:aes_ecb_encrypt = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr,
 };
 
 pub func:aes_ecb_decrypt = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr, int64:in_len, int64:out_ptr) {
-    if ((in_len % 16i64) != 0i64) { pass -1i32; }
+    if ((in_len % 16i64) != 0i64) { fail(-1i32); }
     int64:i = 0i64;
     while (i < in_len) {
         drop raw aes_decrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
@@ -47,7 +47,7 @@ pub func:aes_ecb_decrypt = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr,
 };
 
 pub func:aes_cbc_encrypt = int32(int64:exp_key_ptr, int64:key_len, int64:iv_ptr, int64:in_ptr, int64:in_len, int64:out_ptr) {
-    if ((in_len % 16i64) != 0i64) { pass -1i32; }
+    if ((in_len % 16i64) != 0i64) { fail(-1i32); }
     
     int64:tmp_iv = cast_unchecked<int64>(alloc(16i64));
     int64->:tmp_iv_64 = cast_unchecked<int64->>(tmp_iv);
@@ -93,12 +93,12 @@ pub func:aes_cbc_encrypt = int32(int64:exp_key_ptr, int64:key_len, int64:iv_ptr,
         i += 16i64;
     }
     
-    drop raw sys!!(4i64, tmp_iv);
+    drop dalloc(cast_unchecked<wild any->>(tmp_iv));
     pass 0i32;
 };
 
 pub func:aes_cbc_decrypt = int32(int64:exp_key_ptr, int64:key_len, int64:iv_ptr, int64:in_ptr, int64:in_len, int64:out_ptr) {
-    if ((in_len % 16i64) != 0i64) { pass -1i32; }
+    if ((in_len % 16i64) != 0i64) { fail(-1i32); }
     
     int64:tmp_iv = cast_unchecked<int64>(alloc(16i64));
     int64:next_iv = cast_unchecked<int64>(alloc(16i64));
@@ -153,8 +153,8 @@ pub func:aes_cbc_decrypt = int32(int64:exp_key_ptr, int64:key_len, int64:iv_ptr,
         i += 16i64;
     }
     
-    drop raw sys!!(4i64, tmp_iv);
-    drop raw sys!!(4i64, next_iv);
+    drop dalloc(cast_unchecked<wild any->>(tmp_iv));
+    drop dalloc(cast_unchecked<wild any->>(next_iv));
     pass 0i32;
 };
 
@@ -205,7 +205,7 @@ pub func:aes_ctr_process = int32(int64:exp_key_ptr, int64:key_len, int64:nonce_p
         i += chunk;
     }
     
-    drop raw sys!!(4i64, tmp_ctr);
-    drop raw sys!!(4i64, enc_ctr);
+    drop dalloc(cast_unchecked<wild any->>(tmp_ctr));
+    drop dalloc(cast_unchecked<wild any->>(enc_ctr));
     pass 0i32;
 };

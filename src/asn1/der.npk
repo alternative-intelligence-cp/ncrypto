@@ -58,7 +58,7 @@ pub func:asn1_node_free = int32(int64:ptr) {
 
 pub func:asn1_node_add_child = int32(int64:parent, int64:child) {
     int64->:p = cast_unchecked<int64->>(parent);
-    if (p[1i64] == 0i64) { pass -1i32; } // not constructed
+    if (p[1i64] == 0i64) { fail(-1i32); } // not constructed
     
     int64:capacity = p[6i64];
     int64:num_children = p[5i64];
@@ -90,7 +90,7 @@ pub func:asn1_node_add_child = int32(int64:parent, int64:child) {
 
 pub func:asn1_node_set_data = int32(int64:node, int64:data_ptr, int64:data_len) {
     int64->:p = cast_unchecked<int64->>(node);
-    if (p[1i64] == 1i64) { pass -1i32; } // constructed
+    if (p[1i64] == 1i64) { fail(-1i32); } // constructed
     
     int64:new_data = cast_unchecked<int64>(alloc(data_len + 8i64));
     int64->:nd_64 = cast_unchecked<int64->>(new_data);
@@ -252,10 +252,8 @@ pub func:asn1_encode = int64(int64:node, int64:buf_ptr, int64:offset) {
     pass cur_off - offset;
 };
 
-pub func:asn1_parse = int64(int64:buf_ptr, int64:buf_len) {
-    int64:parsed_len = cast_unchecked<int64>(alloc(8i64));
-    int64:node = raw asn1_parse_internal(buf_ptr, buf_len, 0i64, parsed_len);
-    free(cast_unchecked<int8->>(parsed_len));
+pub func:asn1_parse = int64(int64:buf_ptr, int64:buf_len, int64:parsed_len_out) {
+    int64:node = raw asn1_parse_internal(buf_ptr, buf_len, 0i64, parsed_len_out);
     pass node;
 };
 

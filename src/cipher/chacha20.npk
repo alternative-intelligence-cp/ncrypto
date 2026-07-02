@@ -776,5 +776,6 @@ pub func:chacha20_process = int32(int64:key_ptr, int64:counter, int64:nonce_ptr,
         counter = (counter + 1i64) & 0xFFFFFFFFi64;
     }
 
+    drop dalloc(cast_unchecked<wild any->>(block_ptr));
     pass 0i32;
 };

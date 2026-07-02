@@ -19,10 +19,10 @@ func:bigint_rand_odd = int32(int64:bits, int64:out) {
     int64:bytes_len = limbs * 4i64; 
     int64:words = (bytes_len + 7i64) / 8i64;
     
-    int64:buf = raw bigint_alloc(words + 1i64);
-    drop raw sys_rand_bytes(buf, bytes_len);
+    int64:flat = cast_unchecked<int64>(alloc(bytes_len + 8i64));
+    drop raw sys_rand_bytes(flat, bytes_len);
     
-    int64->:B = cast_unchecked<int64->>(buf);
+    int64->:B = cast_unchecked<int64->>(flat);
     int64->:O = cast_unchecked<int64->>(out);
     
     O[1i64] = limbs;
@@ -55,7 +55,7 @@ func:bigint_rand_odd = int32(int64:bits, int64:out) {
     }
     
     drop raw bigint_trim(out);
-    drop raw bigint_free(buf);
+    drop dalloc(cast_unchecked<wild any->>(flat));
     pass 0i32;
 };
 
@@ -288,8 +288,8 @@ pub func:rsa_encrypt_pkcs1v15 = int64(RSAPublicKey:pub_key, int64:msg_ptr, int64
     int64:k = raw bigint_bit_len(pub_key.n);
     int64:k_bytes = (k + 7i64) / 8i64;
     
-    if (out_len < k_bytes) { pass -1i64; }
-    if (msg_len > (k_bytes - 11i64)) { pass -2i64; } // Message too long
+    if (out_len < k_bytes) { fail(-1i64); }
+    if (msg_len > (k_bytes - 11i64)) { fail(-2i64); } // Message too long
     
     int64:em_buf = cast_unchecked<int64>(alloc(k_bytes + 8i64));
     int64->:em_64 = cast_unchecked<int64->>(em_buf);
@@ -312,7 +312,7 @@ pub func:rsa_encrypt_pkcs1v15 = int64(RSAPublicKey:pub_key, int64:msg_ptr, int64
             ps_idx += 1i64;
         }
     }
-    drop raw sys!!(4i64, ps_buf); // free
+    drop dalloc(cast_unchecked<wild any->>(ps_buf)); // free
     
     drop raw buf_put_u8(em_64, 2i64 + ps_len, 0i64);
     
@@ -332,7 +332,7 @@ pub func:rsa_encrypt_pkcs1v15 = int64(RSAPublicKey:pub_key, int64:msg_ptr, int64
     
     drop raw bigint_to_bytes(c_bi, out_ptr, k_bytes);
     
-    drop raw sys!!(4i64, em_buf);
+    drop dalloc(cast_unchecked<wild any->>(em_buf));
     drop raw bigint_free(m_bi);
     drop raw bigint_free(c_bi);
     
@@ -348,7 +348,7 @@ pub func:rsa_decrypt_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:msg_ptr, int
     int64:k = raw bigint_bit_len(priv_key.n);
     int64:k_bytes = (k + 7i64) / 8i64;
     
-    if (msg_len != k_bytes) { pass -1i64; }
+    if (msg_len != k_bytes) { fail(-1i64); }
     
     int64:c_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
     drop raw bigint_from_bytes(msg_ptr, msg_len, c_bi);
@@ -414,7 +414,7 @@ pub func:rsa_decrypt_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:msg_ptr, int
     
     int64:actual_len = (msg_len_out * valid) + (-1i64 * (valid ^ 1i64));
     
-    drop raw sys!!(4i64, em_buf);
+    drop dalloc(cast_unchecked<wild any->>(em_buf));
     drop raw bigint_free(c_bi);
     drop raw bigint_free(m_bi);
     

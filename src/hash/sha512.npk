@@ -301,8 +301,8 @@ pub func:sha384_init = int64() {
 };
 
 pub func:sha512_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
-    if (ctx == 0i64) { pass -1i32; }
-    if (buf_ptr == 0i64) { pass -1i32; }
+    if (ctx == 0i64) { fail(-1i32); }
+    if (buf_ptr == 0i64) { fail(-1i32); }
     if (length == 0i64) { pass 0i32; } 
 
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
@@ -355,7 +355,7 @@ pub func:sha512_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
 };
 
 pub func:sha512_finalize_raw = int32(int64:ctx, int64:out_ptr) {
-    if (ctx == 0i64) { pass -1i32; }
+    if (ctx == 0i64) { fail(-1i32); }
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
     int64->:out_buf = cast_unchecked<int64->>(out_ptr);
 

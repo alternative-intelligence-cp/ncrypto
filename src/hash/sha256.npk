@@ -268,8 +268,8 @@ pub func:sha224_init = int64() {
 };
 
 pub func:sha256_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
-    if (ctx == 0i64) { pass -1i32; }
-    if (buf_ptr == 0i64) { pass -1i32; }
+    if (ctx == 0i64) { fail(-1i32); }
+    if (buf_ptr == 0i64) { fail(-1i32); }
     if (length == 0i64) { pass 0i32; } // length 0 is a no-op
 
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
@@ -308,6 +308,57 @@ pub func:sha256_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
         drop raw local_memcpy(ctx_64, 48i64, src_ptr, rem);
     }
     
+    pass 0i32;
+};
+
+pub func:sha256_finalize_raw = int32(int64:ctx, int64:out_ptr) {
+    if (ctx == 0i64) { fail(-1i32); }
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    int64->:out_buf = cast_unchecked<int64->>(out_ptr);
+
+    int64:fbuf = cast_unchecked<int64>(alloc(128i64));
+    int64->:fbuf_64 = cast_unchecked<int64->>(fbuf);
+    
+    int64:rem = ctx_64[5i64];
+    drop raw local_memcpy(fbuf_64, 0i64, ctx + 48i64, rem);
+    drop raw buf_set_u8(fbuf_64, rem, 128i64); // 0x80
+    rem += 1i64;
+
+    if (rem > 56i64) {
+        drop raw local_memset(fbuf_64, rem, 0i64, 64i64 - rem);
+        drop raw sha256_transform(ctx, fbuf_64, 0i64);
+        rem = 0i64;
+    }
+
+    drop raw local_memset(fbuf_64, rem, 0i64, 56i64 - rem);
+
+    int64:bits = ctx_64[4i64] * 8i64;
+    int64:j = 7i64;
+    while (j >= 0i64) {
+        int64:b = (bits >> (j * 8i64)) & 255i64;
+        drop raw buf_set_u8(fbuf_64, 56i64 + (7i64 - j), b);
+        j -= 1i64;
+    }
+
+    drop raw sha256_transform(ctx, fbuf_64, 0i64);
+
+    int64:is224 = ctx_64[14i64];
+    int64:words_to_output = 8i64;
+    if (is224 == 1i64) {
+        words_to_output = 7i64; // SHA-224 outputs 7 words (28 bytes)
+    }
+
+    int64:n = 0i64;
+    while (n < words_to_output) {
+        int64:val = raw buf_get_u32_be(ctx_64, n * 4i64);
+        drop raw buf_set_u8(out_buf, n * 4i64, (val >> 24i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 4i64 + 1i64, (val >> 16i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 4i64 + 2i64, (val >> 8i64) & 255i64);
+        drop raw buf_set_u8(out_buf, n * 4i64 + 3i64, val & 255i64);
+        n += 1i64;
+    }
+
+    drop dalloc(cast_unchecked<int8->>(fbuf));
     pass 0i32;
 };
 

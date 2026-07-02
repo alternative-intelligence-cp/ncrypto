@@ -30,7 +30,7 @@ pub func:hkdf_extract_sha256 = int32(int64:salt_ptr, int64:salt_len, int64:ikm_p
     drop raw hex_to_raw(prk_hex, prk_out_ptr);
     
     if (salt_len == 0i64) {
-        drop raw sys!!(4i64, zero_salt);
+        drop dalloc(cast_unchecked<wild any->>(zero_salt));
     }
     
     pass 0i32;
@@ -47,7 +47,7 @@ pub func:hkdf_expand_sha256 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
     
     if (N > 255i64) {
         // Output too long
-        pass -1i32;
+        fail(-1i32);
     }
     
     int64:T_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
@@ -100,8 +100,7 @@ pub func:hkdf_expand_sha256 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
         msg_len += 1i64;
         
         // T(i) = HMAC(PRK, msg)
-        string:t_hex = raw hmac_sha256(prk_ptr, prk_len, msg_buf, msg_len);
-        drop raw hex_to_raw(t_hex, T_buf);
+        drop raw hmac_sha256_raw(prk_ptr, prk_len, msg_buf, msg_len, T_buf);
         
         // Copy T(i) to output
         int64:k = 0i64;
@@ -121,8 +120,8 @@ pub func:hkdf_expand_sha256 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
         i += 1i64;
     }
     
-    drop raw sys!!(4i64, T_buf);
-    drop raw sys!!(4i64, msg_buf);
+    drop dalloc(cast_unchecked<wild any->>(T_buf));
+    drop dalloc(cast_unchecked<wild any->>(msg_buf));
     
     pass 0i32;
 };
@@ -154,7 +153,7 @@ pub func:hkdf_extract_sha512 = int32(int64:salt_ptr, int64:salt_len, int64:ikm_p
     drop raw hex_to_raw(prk_hex, prk_out_ptr);
     
     if (salt_len == 0i64) {
-        drop raw sys!!(4i64, zero_salt);
+        drop dalloc(cast_unchecked<wild any->>(zero_salt));
     }
     
     pass 0i32;
@@ -171,7 +170,7 @@ pub func:hkdf_expand_sha512 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
     
     if (N > 255i64) {
         // Output too long
-        pass -1i32;
+        fail(-1i32);
     }
     
     int64:T_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
@@ -224,8 +223,7 @@ pub func:hkdf_expand_sha512 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
         msg_len += 1i64;
         
         // T(i) = HMAC(PRK, msg)
-        string:t_hex = raw hmac_sha512(prk_ptr, prk_len, msg_buf, msg_len);
-        drop raw hex_to_raw(t_hex, T_buf);
+        drop raw hmac_sha512_raw(prk_ptr, prk_len, msg_buf, msg_len, T_buf);
         
         // Copy T(i) to output
         int64:k = 0i64;
@@ -245,8 +243,8 @@ pub func:hkdf_expand_sha512 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
         i += 1i64;
     }
     
-    drop raw sys!!(4i64, T_buf);
-    drop raw sys!!(4i64, msg_buf);
+    drop dalloc(cast_unchecked<wild any->>(T_buf));
+    drop dalloc(cast_unchecked<wild any->>(msg_buf));
     
     pass 0i32;
 };

@@ -32,7 +32,7 @@ func:hash_update_dispatch = int32(int32:hash_type, int64:ctx, int64:data_ptr, in
     if (hash_type == HASH_SHA512) { pass raw sha512_update(ctx, data_ptr, data_len); }
     if (hash_type == HASH_SHA384) { pass raw sha512_update(ctx, data_ptr, data_len); }
     if (hash_type == HASH_SHA224) { pass raw sha256_update(ctx, data_ptr, data_len); }
-    pass -1i32;
+    fail(-1i32);
 };
 
 func:hash_finalize_dispatch = string(int32:hash_type, int64:ctx) {
@@ -59,6 +59,22 @@ func:hash_full_dispatch = string(int32:hash_type, int64:data_ptr, int64:data_len
     pass res;
 };
 
+func:hash_finalize_raw_dispatch = int32(int32:hash_type, int64:ctx, int64:out_ptr) {
+    if (hash_type == HASH_SHA256) { pass raw sha256_finalize_raw(ctx, out_ptr); }
+    if (hash_type == HASH_SHA512) { pass raw sha512_finalize_raw(ctx, out_ptr); }
+    if (hash_type == HASH_SHA384) { pass raw sha512_finalize_raw(ctx, out_ptr); }
+    if (hash_type == HASH_SHA224) { pass raw sha256_finalize_raw(ctx, out_ptr); }
+    fail(-1i32);
+};
+
+func:hash_full_raw_dispatch = int32(int32:hash_type, int64:data_ptr, int64:data_len, int64:out_ptr) {
+    int64:ctx = raw hash_init_dispatch(hash_type);
+    drop raw hash_update_dispatch(hash_type, ctx, data_ptr, data_len);
+    drop raw hash_finalize_raw_dispatch(hash_type, ctx, out_ptr);
+    drop raw hash_free_dispatch(hash_type, ctx);
+    pass 0i32;
+};
+
 // HMACCtx Layout: 
 // 0: hash_type
 // 1: inner_ctx
@@ -76,10 +92,13 @@ pub func:hmac_init = int64(int32:hash_type, int64:key_ptr, int64:key_len) {
     int64:hashed_k_ptr = 0i64;
     
     if (key_len > block_size) {
-        string:hashed_key_hex = raw hash_full_dispatch(hash_type, key_ptr, key_len);
-        int64:hashed_len = string_length(hashed_key_hex) / 2i64;
+        int64:hashed_len = 32i64;
+        if (hash_type == HASH_SHA256) { hashed_len = 32i64; }
+        if (hash_type == HASH_SHA512) { hashed_len = 64i64; }
+        if (hash_type == HASH_SHA384) { hashed_len = 48i64; }
+        if (hash_type == HASH_SHA224) { hashed_len = 28i64; }
         hashed_k_ptr = cast_unchecked<int64>(alloc(hashed_len + 8i64));
-        drop raw hex_to_raw(hashed_key_hex, hashed_k_ptr);
+        drop raw hash_full_raw_dispatch(hash_type, key_ptr, key_len, hashed_k_ptr);
         real_k_ptr = hashed_k_ptr;
         real_k_len = hashed_len;
     }
@@ -127,7 +146,7 @@ pub func:hmac_init = int64(int32:hash_type, int64:key_ptr, int64:key_len) {
 };
 
 pub func:hmac_update = int32(int64:ctx, int64:data_ptr, int64:data_len) {
-    if (ctx == 0i64) { pass -1i32; }
+    if (ctx == 0i64) { fail(-1i32); }
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
     int32:hash_type = cast_unchecked<int32>(ctx_64[0i64]);
     int64:inner_ctx = ctx_64[1i64];
@@ -143,11 +162,13 @@ pub func:hmac_finalize = string(int64:ctx) {
     int64:inner_ctx = ctx_64[1i64];
     int64:outer_ctx = ctx_64[2i64];
     
-    string:inner_hex = raw hash_finalize_dispatch(hash_type, inner_ctx);
-    int64:inner_raw_len = string_length(inner_hex) / 2i64;
+    int64:inner_raw_len = 32i64;
+    if (hash_type == HASH_SHA256) { inner_raw_len = 32i64; }
+    if (hash_type == HASH_SHA512) { inner_raw_len = 64i64; }
+    if (hash_type == HASH_SHA384) { inner_raw_len = 48i64; }
+    if (hash_type == HASH_SHA224) { inner_raw_len = 28i64; }
     int64:inner_raw_ptr = cast_unchecked<int64>(alloc(inner_raw_len + 8i64));
-    
-    drop raw hex_to_raw(inner_hex, inner_raw_ptr);
+    drop raw hash_finalize_raw_dispatch(hash_type, inner_ctx, inner_raw_ptr);
     
     drop raw hash_update_dispatch(hash_type, outer_ctx, inner_raw_ptr, inner_raw_len);
     
@@ -202,4 +223,60 @@ pub func:hmac_sha224 = string(int64:key_ptr, int64:key_len, int64:data_ptr, int6
     string:res = raw hmac_finalize(ctx);
     drop raw hmac_free(ctx);
     pass res;
+};
+
+pub func:hmac_finalize_raw = int32(int64:ctx, int64:out_ptr) {
+    if (ctx == 0i64) { fail(-1i32); }
+    int64->:ctx_64 = cast_unchecked<int64->>(ctx);
+    int32:hash_type = cast_unchecked<int32>(ctx_64[0i64]);
+    int64:inner_ctx = ctx_64[1i64];
+    int64:outer_ctx = ctx_64[2i64];
+    
+    int64:inner_raw_len = 32i64;
+    if (hash_type == HASH_SHA256) { inner_raw_len = 32i64; }
+    if (hash_type == HASH_SHA512) { inner_raw_len = 64i64; }
+    if (hash_type == HASH_SHA384) { inner_raw_len = 48i64; }
+    if (hash_type == HASH_SHA224) { inner_raw_len = 28i64; }
+    
+    int64:inner_raw_ptr = cast_unchecked<int64>(alloc(inner_raw_len + 8i64));
+    drop raw hash_finalize_raw_dispatch(hash_type, inner_ctx, inner_raw_ptr);
+    
+    drop raw hash_update_dispatch(hash_type, outer_ctx, inner_raw_ptr, inner_raw_len);
+    
+    drop raw hash_finalize_raw_dispatch(hash_type, outer_ctx, out_ptr);
+    
+    dalloc(cast_unchecked<int8->>(inner_raw_ptr));
+    pass 0i32;
+};
+
+pub func:hmac_sha256_raw = int32(int64:key_ptr, int64:key_len, int64:data_ptr, int64:data_len, int64:out_ptr) {
+    int64:ctx = raw hmac_init(HASH_SHA256, key_ptr, key_len);
+    drop raw hmac_update(ctx, data_ptr, data_len);
+    drop raw hmac_finalize_raw(ctx, out_ptr);
+    drop raw hmac_free(ctx);
+    pass 0i32;
+};
+
+pub func:hmac_sha512_raw = int32(int64:key_ptr, int64:key_len, int64:data_ptr, int64:data_len, int64:out_ptr) {
+    int64:ctx = raw hmac_init(HASH_SHA512, key_ptr, key_len);
+    drop raw hmac_update(ctx, data_ptr, data_len);
+    drop raw hmac_finalize_raw(ctx, out_ptr);
+    drop raw hmac_free(ctx);
+    pass 0i32;
+};
+
+pub func:hmac_sha384_raw = int32(int64:key_ptr, int64:key_len, int64:data_ptr, int64:data_len, int64:out_ptr) {
+    int64:ctx = raw hmac_init(HASH_SHA384, key_ptr, key_len);
+    drop raw hmac_update(ctx, data_ptr, data_len);
+    drop raw hmac_finalize_raw(ctx, out_ptr);
+    drop raw hmac_free(ctx);
+    pass 0i32;
+};
+
+pub func:hmac_sha224_raw = int32(int64:key_ptr, int64:key_len, int64:data_ptr, int64:data_len, int64:out_ptr) {
+    int64:ctx = raw hmac_init(HASH_SHA224, key_ptr, key_len);
+    drop raw hmac_update(ctx, data_ptr, data_len);
+    drop raw hmac_finalize_raw(ctx, out_ptr);
+    drop raw hmac_free(ctx);
+    pass 0i32;
 };

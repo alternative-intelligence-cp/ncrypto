@@ -25,8 +25,8 @@ pub func:pad_pkcs7 = int64(int64:buf_ptr, int64:in_len, int64:block_size) {
 // Validates and returns the unpadded length of the input buffer.
 // Returns -1i64 if the padding is invalid.
 pub func:unpad_pkcs7 = int64(int64:buf_ptr, int64:in_len, int64:block_size) {
-    if (in_len == 0i64) { pass -1i64; }
-    if ((in_len % block_size) != 0i64) { pass -1i64; }
+    if (in_len == 0i64) { fail(-1i64); }
+    if ((in_len % block_size) != 0i64) { fail(-1i64); }
     
     int64->:buf_64 = cast_unchecked<int64->>(buf_ptr);
     
@@ -34,24 +34,31 @@ pub func:unpad_pkcs7 = int64(int64:buf_ptr, int64:in_len, int64:block_size) {
     int64:last_sh = (last_idx & 7i64) * 8i64;
     int64:pad_val = (buf_64[last_idx / 8i64] >> last_sh) & 255i64;
     
-    if (pad_val == 0i64) { pass -1i64; }
-    if (pad_val > block_size) { pass -1i64; }
-    if (pad_val > in_len) { pass -1i64; }
+    int64:bad_pad = 0i64;
+    if (pad_val == 0i64) { bad_pad = 1i64; }
+    if (pad_val > block_size) { bad_pad = 1i64; }
+    if (pad_val > in_len) { bad_pad = 1i64; }
     
     int64:i = 0i64;
     int64:check_idx = 0i64;
     int64:csh = 0i64;
     int64:check_val = 0i64;
-    while (i < pad_val) {
+    
+    while (i < block_size) {
         check_idx = in_len - 1i64 - i;
         csh = (check_idx & 7i64) * 8i64;
         check_val = (buf_64[check_idx / 8i64] >> csh) & 255i64;
         
-        if (check_val != pad_val) {
-            pass -1i64;
-        }
+        int64:diff = i - pad_val;
+        int64:is_pad_byte = cast_unchecked<int64>(cast_unchecked<uint64>(diff) >> 63u64);
+        
+        int64:mismatch = 0i64;
+        if (check_val != pad_val) { mismatch = 1i64; }
+        
+        bad_pad = bad_pad | (is_pad_byte & mismatch);
         i += 1i64;
     }
     
+    if (bad_pad != 0i64) { fail(-1i64); }
     pass in_len - pad_val;
 };

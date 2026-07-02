@@ -37,7 +37,7 @@ pub func:pem_decode = int64(int64:pem_ptr, int64:pem_len, int64:out_ptr, int64:o
         if (found == 0i32) { i += 1i64; }
     }
     
-    if (found == 0i32) { pass -1i64; }
+    if (found == 0i32) { fail(-1i64); }
     
     i = start_idx;
     int32:nl_found = 0i32;
@@ -51,7 +51,7 @@ pub func:pem_decode = int64(int64:pem_ptr, int64:pem_len, int64:out_ptr, int64:o
         }
     }
     
-    if (nl_found == 0i32) { pass -1i64; }
+    if (nl_found == 0i32) { fail(-1i64); }
     
     int64:tmp_b64 = cast_unchecked<int64>(alloc(pem_len + 8i64));
     int64->:tmp_64 = cast_unchecked<int64->>(tmp_b64);
@@ -81,7 +81,7 @@ pub func:pem_decode = int64(int64:pem_ptr, int64:pem_len, int64:out_ptr, int64:o
     
     if (ended == 0i32) {
         free(cast_unchecked<int8->>(tmp_b64));
-        pass -1i64;
+        fail(-1i64);
     }
     
     int64:dec_len = raw base64_decode(tmp_b64, tmp_len, out_ptr, out_cap);

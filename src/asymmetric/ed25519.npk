@@ -494,7 +494,7 @@ func:unpackneg = int64(int64:r, int64:p_ptr, int64:D, int64:I) {
     if (raw neq25519(chk, num) == 1i64) {
         drop raw gf_free(t); drop raw gf_free(chk); drop raw gf_free(num);
         drop raw gf_free(den); drop raw gf_free(den2); drop raw gf_free(den4); drop raw gf_free(den6);
-        pass -1i64;
+        fail(-1i64);
     }
     
     int64->:Pbuf = cast_unchecked<int64->>(p_ptr);
@@ -527,7 +527,7 @@ func:crypto_verify_32 = int64(int64:x_ptr, int64:y_ptr) {
         diff = diff | (raw buf_get_u8(X, i) ^ raw buf_get_u8(Y, i));
         i += 1i64;
     }
-    if (diff != 0i64) { pass -1i64; }
+    if (diff != 0i64) { fail(-1i64); }
     pass 0i64;
 };
 
@@ -544,14 +544,14 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
     
     if (n < 64i64) { 
         drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
-        pass -1i32; 
+        fail(-1i32); 
     }
     
     int64:q = raw gf4_alloc();
     if (raw unpackneg(q, pk_ptr, D, I) != 0i64) {
         drop raw gf4_free(q);
         drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
-        pass -2i32;
+        fail(-2i32);
     }
     
     int64:m_buf = cast_unchecked<int64>(alloc(n + 128i64));
@@ -595,7 +595,7 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
         free(cast_unchecked<int8->>(m_buf)); free(cast_unchecked<int8->>(h)); free(cast_unchecked<int8->>(t));
         drop raw gf4_free(p); drop raw gf4_free(q);
         drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
-        pass -3i32;
+        fail(-3i32);
     }
     
     int64->:Mout2 = cast_unchecked<int64->>(m_ptr);
