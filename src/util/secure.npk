@@ -1,0 +1,28 @@
+// src/util/secure.npk
+use "stdlib/core.npk".*;
+
+pub func:secure_zero = int32(int64:ptr, int64:len) {
+    int64:i = 0i64;
+    while ((i + 4i64) <= len) {
+        atomic<int32>:a = atomic_from_ptr<int32>(ptr + i);
+        a.store(0i32);
+        i = i + 4i64;
+    }
+    
+    // For trailing unaligned bytes, we must ensure memory accesses stay within
+    // 8-byte boundaries allocated by the heap to avoid invalid reads.
+    // Memory blocks in Nitpick are at least 8-byte aligned and size padded.
+    if (i < len) {
+        int64:base = (ptr + i) & ~7i64;
+        int64->:buf64 = cast_unchecked<int64->>(base);
+        while (i < len) {
+            int64:byte_off = (ptr + i) - base;
+            int64:wi = byte_off / 8i64;
+            int64:sh = (byte_off & 7i64) * 8i64;
+            int64:mask = ~(255i64 << sh);
+            buf64[wi] = buf64[wi] & mask;
+            i = i + 1i64;
+        }
+    }
+    pass 0i32;
+};

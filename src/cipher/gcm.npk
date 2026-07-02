@@ -1,5 +1,6 @@
 use "stdlib/core.npk".*;
 use "src/cipher/aes.npk".*;
+use "src/util/secure.npk".*;
 
 func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
     int64:wi = byte_off / 8i64;
@@ -227,6 +228,10 @@ pub func:gcm_encrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:i
         i += 1i64;
     }
     
+    drop raw secure_zero(exp_key, 240i64);
+    drop raw secure_zero(zero_block, 16i64);
+    drop raw secure_zero(h_ptr, 16i64);
+    
     free(cast_unchecked<int8->>(exp_key));
     free(cast_unchecked<int8->>(h_ptr));
     free(cast_unchecked<int8->>(zero_block));
@@ -354,6 +359,10 @@ pub func:gcm_decrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:i
         free(cast_unchecked<int8->>(cb_ptr));
         free(cast_unchecked<int8->>(enc_cb));
     }
+    
+    drop raw secure_zero(exp_key, 240i64);
+    drop raw secure_zero(zero_block, 16i64);
+    drop raw secure_zero(h_ptr, 16i64);
     
     free(cast_unchecked<int8->>(exp_key));
     free(cast_unchecked<int8->>(h_ptr));

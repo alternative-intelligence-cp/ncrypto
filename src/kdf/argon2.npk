@@ -1,4 +1,5 @@
 use "stdlib/core.npk".*;
+use "src/util/secure.npk".*;
 use "src/hash/blake2b.npk".*;
 
 
@@ -548,6 +549,9 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
     }
     
     drop raw H_prime(final_block_ptr, 1024i64, out_ptr, out_len);
+    
+    drop raw secure_zero(B_ptr, memory_blocks * 1024i64);
+    drop raw secure_zero(h0_ptr, 72i64);
     
     free(cast_unchecked<int8->>(h0_ptr));
     free(cast_unchecked<int8->>(B_ptr));

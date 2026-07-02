@@ -1,4 +1,5 @@
 use "stdlib/core.npk".*;
+use "src/util/secure.npk".*;
 
 // BigInt structure over int64->
 // [0] = capacity
