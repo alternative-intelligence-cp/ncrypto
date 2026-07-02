@@ -11,14 +11,14 @@ This repository provides pure Nitpick implementations for standard cryptographic
 - **SHA-256**
 - **SHA-512**
 - **SHA-3 (Keccak)**
-- **BLAKE2b (v0.9+)**
+- **BLAKE2b (v0.8+)**
 
 ### Encoding & Formats
 - **Base64**: Encoder and Decoder with constant-time decoding paths.
 - **PEM**: Certificate and Key parser.
 - **ASN.1 DER Layer**: Embedded native parser and encoder for AST creation (Sequences, OIDs, Octet Strings), utilized for formatting `DigestInfo` in RSA signatures and PKCS#8/SPKI payloads.
 
-### Symmetric Cryptography (v0.9+)
+### Symmetric Cryptography (v0.8+)
 - **AES-GCM**: Advanced Encryption Standard with Galois/Counter Mode for Authenticated Encryption with Associated Data (AEAD). Contains native constant-time `gf128_mul` multiplication for GHASH.
 
 ### Asymmetric Cryptography (v0.7+)
@@ -35,14 +35,17 @@ This repository provides pure Nitpick implementations for standard cryptographic
 - **Curve25519 (v0.8+)**:
   - Full constant-time finite field arithmetic (`gf_add`, `gf_sub`, `gf_mul`, `gf_sqr`, `gf_inv`).
   - **X25519 ECDH**: Montgomery ladder implementation mapped natively from TweetNaCl design.
-- **Ed25519 (v0.9+)**:
+- **Ed25519 (v0.8+)**:
   - Twisted Edwards curve point addition, doubling, and scaling.
   - EdDSA signature generation and verification.
 
-### Key Derivation Functions (v0.9+)
+### Key Derivation Functions (v0.8+)
 - **Argon2id**: Memory-hard password hashing function compliant with RFC 9106. Highly optimized fully unrolled inner BLAKE2b `G` compression blocks and memory filling bounds securely constrained on the heap.
 - **PBKDF2**: HMAC-based key derivation.
 - **HKDF**: HMAC-based Extract-and-Expand Key Derivation.
 
 ## Security
 All cryptographic structures relying on private keys or mathematical permutations have been rigorously designed and tested for constant-time branchless execution natively in Nitpick. This project explicitly relies on LLVM scalar lowering configurations to emit specific instructions (e.g., `cmov`, `atomicrmw`) mitigating observable timing differences. Memory leaks and large-stack issues have been strictly audited and managed safely on the heap to conform to Nitpick constraints.
+
+### Continuous Fuzzing
+Starting in v0.8, all core API boundaries are hardened via differential fuzzing engines running in a C-ABI compatible test harness. Extensive multi-hour property testing against standard Python `cryptography`, `pynacl`, and `argon2-cffi` implementations ensure exact memory safety and math boundary handling for arbitrary pseudo-random sequences.

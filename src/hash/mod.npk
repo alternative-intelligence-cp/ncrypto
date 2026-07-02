@@ -1,4 +1,4 @@
-export "src/hash/sha256.npk".*;
-export "src/hash/sha512.npk".*;
-export "src/hash/sha3.npk".*;
-export "src/hash/blake2b.npk".*;
+use "src/hash/sha256.npk".*;
+use "src/hash/sha512.npk".*;
+use "src/hash/sha3.npk".*;
+use "src/hash/blake2b.npk".*;

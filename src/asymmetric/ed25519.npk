@@ -254,10 +254,8 @@ func:modL = int32(int64:r_ptr, int64:x_ptr) {
         while (j < (i - 12i64)) {
             X[j] = X[j] + carry - 16i64 * X[i] * L[j - (i - 32i64)];
             carry = (X[j] + 128i64) >> 8i64;
-            // simulate arithmetic shift right if negative? 
-            if (X[j] + 128i64 < 0i64) {
-                carry = carry | (-1i64 << 56i64);
-            }
+            int64:sign = ((X[j] + 128i64) >> 63i64) & 1i64;
+            carry = carry | (sign * (-1i64 << 56i64));
             X[j] = X[j] - (carry << 8i64);
             j += 1i64;
         }
@@ -269,10 +267,12 @@ func:modL = int32(int64:r_ptr, int64:x_ptr) {
     j = 0i64;
     while (j < 32i64) {
         int64:s31 = X[31i64] >> 4i64;
-        if (X[31i64] < 0i64) { s31 = s31 | (-1i64 << 60i64); }
+        int64:sign31 = (X[31i64] >> 63i64) & 1i64;
+        s31 = s31 | (sign31 * (-1i64 << 60i64));
         X[j] = X[j] + carry - s31 * L[j];
         carry = X[j] >> 8i64;
-        if (X[j] < 0i64) { carry = carry | (-1i64 << 56i64); }
+        int64:sign_j = (X[j] >> 63i64) & 1i64;
+        carry = carry | (sign_j * (-1i64 << 56i64));
         X[j] = X[j] & 255i64;
         j += 1i64;
     }
@@ -284,7 +284,8 @@ func:modL = int32(int64:r_ptr, int64:x_ptr) {
     i = 0i64;
     while (i < 32i64) {
         int64:sh8 = X[i] >> 8i64;
-        if (X[i] < 0i64) { sh8 = sh8 | (-1i64 << 56i64); }
+        int64:sign_i = (X[i] >> 63i64) & 1i64;
+        sh8 = sh8 | (sign_i * (-1i64 << 56i64));
         X[i + 1i64] = X[i + 1i64] + sh8;
         drop raw buf_put_u8(R, i, X[i] & 255i64);
         i += 1i64;
@@ -481,9 +482,12 @@ func:unpackneg = int64(int64:r, int64:p_ptr, int64:D, int64:I) {
     
     drop raw gf_sqr(chk, r0);
     drop raw gf_mul(chk, chk, den);
-    if (raw neq25519(chk, num) == 1i64) {
-        drop raw gf_mul(r0, r0, I);
-    }
+    
+    int64:r0_I = raw gf_alloc();
+    drop raw gf_mul(r0_I, r0, I);
+    int64:neq = raw neq25519(chk, num);
+    drop raw sel25519(r0, r0_I, neq);
+    drop raw gf_free(r0_I);
     
     drop raw gf_sqr(chk, r0);
     drop raw gf_mul(chk, chk, den);
@@ -495,12 +499,17 @@ func:unpackneg = int64(int64:r, int64:p_ptr, int64:D, int64:I) {
     
     int64->:Pbuf = cast_unchecked<int64->>(p_ptr);
     int64:p31_7 = raw buf_get_u8(Pbuf, 31i64) >> 7i64;
-    if (raw par25519(r0) == p31_7) {
-        int64:gf0_val = raw gf_alloc();
-        drop raw gf_set0(gf0_val);
-        drop raw gf_sub(r0, gf0_val, r0);
-        drop raw gf_free(gf0_val);
-    }
+    
+    int64:neg_r0 = raw gf_alloc();
+    int64:gf0_val = raw gf_alloc();
+    drop raw gf_set0(gf0_val);
+    drop raw gf_sub(neg_r0, gf0_val, r0);
+    
+    int64:parity_match = 1i64 - ((raw par25519(r0) ^ p31_7) & 1i64);
+    drop raw sel25519(r0, neg_r0, parity_match);
+    
+    drop raw gf_free(neg_r0);
+    drop raw gf_free(gf0_val);
     
     drop raw gf_mul(r3, r0, r1);
     
