@@ -2,6 +2,7 @@
 // RFC 8439 Poly1305 MAC
 
 use "stdlib/core.npk".*;
+use "src/util/bytes.npk".*;
 
 // Unpack 17 bytes (or up to 16 bytes padded with 1 at byte_len) into 5 limbs of 26 bits
 // buf_ptr is a pointer to the bytes. len is the number of bytes (up to 17).
@@ -165,8 +166,8 @@ pub func:poly1305_init = int32(int64:state_ptr, int64:key_ptr) {
     state[21i64] = 0i64;
     state[22i64] = 0i64; // buf_len
 
-    free(cast_unchecked<int8->>(tmp_ptr));
-    free(cast_unchecked<int8->>(limbs_ptr));
+    drop dalloc(cast_unchecked<int8->>(tmp_ptr));
+    drop dalloc(cast_unchecked<int8->>(limbs_ptr));
 
     pass 0i32;
 };
@@ -273,8 +274,8 @@ pub func:poly1305_blocks = int32(int64:state_ptr, int64:msg_ptr, int64:length) {
     state[12i64] = cast_unchecked<int64>(h3);
     state[13i64] = cast_unchecked<int64>(h4);
 
-    free(cast_unchecked<int8->>(tmp_ptr));
-    free(cast_unchecked<int8->>(limbs_ptr));
+    drop dalloc(cast_unchecked<int8->>(tmp_ptr));
+    drop dalloc(cast_unchecked<int8->>(limbs_ptr));
 
     pass 0i32;
 };
@@ -398,6 +399,6 @@ pub func:poly1305_mac = int32(int64:key_ptr, int64:msg_ptr, int64:length, int64:
     drop raw poly1305_init(state_ptr, key_ptr);
     drop raw poly1305_update(state_ptr, msg_ptr, length);
     drop raw poly1305_finish(state_ptr, out_ptr);
-    free(cast_unchecked<int8->>(state_ptr));
+    drop dalloc(cast_unchecked<int8->>(state_ptr));
     pass 0i32;
 };

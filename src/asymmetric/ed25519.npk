@@ -1,31 +1,13 @@
 // src/asymmetric/ed25519.npk
 use "stdlib/core.npk".*;
+use "../util/bytes.npk".*;
 use "src/asymmetric/curve25519.npk".*;
 use "src/hash/sha512.npk".*;
 
-func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    pass (w >> sh) & 255i64;
-};
 
-func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    int64:mask = ~(255i64 << sh);
-    w = (w & mask) | ((byte_val & 255i64) << sh);
-    buf64[wi] = w;
-    pass 0i32;
-};
-
-func:gf4_alloc = int64() {
-    pass cast_unchecked<int64>(alloc(512i64));
-};
 
 func:gf4_free = int32(int64:p) {
-    if (p != 0i64) { free(cast_unchecked<int8->>(p)); }
+    if (p != 0i64) { drop dalloc(cast_unchecked<int8->>(p)); }
     pass 0i32;
 };
 
@@ -131,8 +113,8 @@ func:par25519 = int64(int64:a) {
     int64:t_ptr = cast_unchecked<int64>(alloc(32i64));
     drop raw gf_pack(t_ptr, a);
     int64->:T = cast_unchecked<int64->>(t_ptr);
-    int64:res = raw buf_get_u8(T, 0i64) & 1i64;
-    free(cast_unchecked<int8->>(t_ptr));
+    int64:res = (buf_get_u8(T, 0i64) ?! 1i32) & 1i64;
+    drop dalloc(cast_unchecked<int8->>(t_ptr));
     pass res;
 };
 
@@ -149,8 +131,8 @@ func:ed25519_pack = int32(int64:r_ptr, int64:p) {
     
     int64:parity = raw par25519(tx);
     int64->:R = cast_unchecked<int64->>(r_ptr);
-    int64:r31 = raw buf_get_u8(R, 31i64);
-    drop raw buf_put_u8(R, 31i64, r31 ^ (parity << 7i64));
+    int64:r31 = (buf_get_u8(R, 31i64) ?! 1i32);
+    drop (buf_put_u8(R, 31i64, r31 ^ (parity << 7i64)) ?! 1i32);
     
     drop raw gf_free(tx); drop raw gf_free(ty); drop raw gf_free(zi);
     pass 0i32;
@@ -166,7 +148,7 @@ func:ed25519_scalarmult = int32(int64:p, int64:q, int64:s_ptr, int64:D2) {
     int64:i = 255i64;
     int64:b = 0i64;
     while (i >= 0i64) {
-        b = (raw buf_get_u8(S, i / 8i64) >> (i & 7i64)) & 1i64;
+        b = ((buf_get_u8(S, i / 8i64) ?! 1i32) >> (i & 7i64)) & 1i64;
         drop raw ed25519_cswap(p, q, b);
         drop raw ed25519_add(q, p, D2);
         drop raw ed25519_add(p, p, D2);
@@ -201,14 +183,14 @@ pub func:ed25519_sign_keypair = int32(int64:pk_ptr, int64:sk_ptr) {
     
     // Hash first 32 bytes of sk
     int64:ctx = raw sha512_init();
-    drop raw sha512_update(ctx, sk_ptr, 32i64);
-    drop raw sha512_finalize_raw(ctx, d_hash);
-    drop raw sha512_free(ctx);
+    drop (sha512_update(ctx, sk_ptr, 32i64) ?! 1i32);
+    drop (sha512_finalize_raw(ctx, d_hash) ?! 1i32);
+    drop (sha512_free(ctx) ?! 1i32);
     
     int64->:Dbuf = cast_unchecked<int64->>(d_hash);
-    drop raw buf_put_u8(Dbuf, 0i64, raw buf_get_u8(Dbuf, 0i64) & 248i64);
-    drop raw buf_put_u8(Dbuf, 31i64, raw buf_get_u8(Dbuf, 31i64) & 127i64);
-    drop raw buf_put_u8(Dbuf, 31i64, raw buf_get_u8(Dbuf, 31i64) | 64i64);
+    drop (buf_put_u8(Dbuf, 0i64, (buf_get_u8(Dbuf, 0i64) ?! 1i32) & 248i64) ?! 1i32);
+    drop (buf_put_u8(Dbuf, 31i64, (buf_get_u8(Dbuf, 31i64) ?! 1i32) & 127i64) ?! 1i32);
+    drop (buf_put_u8(Dbuf, 31i64, (buf_get_u8(Dbuf, 31i64) ?! 1i32) | 64i64) ?! 1i32);
     
     int64:p = raw gf4_alloc();
     drop raw ed25519_scalarbase(p, d_hash, X, Y, D2);
@@ -219,11 +201,11 @@ pub func:ed25519_sign_keypair = int32(int64:pk_ptr, int64:sk_ptr) {
     int64->:PK = cast_unchecked<int64->>(pk_ptr);
     int64:i = 0i64;
     while (i < 32i64) {
-        drop raw buf_put_u8(SK, 32i64 + i, raw buf_get_u8(PK, i));
+        drop (buf_put_u8(SK, 32i64 + i, (buf_get_u8(PK, i) ?! 1i32)) ?! 1i32);
         i += 1i64;
     }
     
-    free(cast_unchecked<int8->>(d_hash));
+    drop dalloc(cast_unchecked<int8->>(d_hash));
     drop raw gf4_free(p);
     drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
     pass 0i32;
@@ -287,11 +269,11 @@ func:modL = int32(int64:r_ptr, int64:x_ptr) {
         int64:sign_i = (X[i] >> 63i64) & 1i64;
         sh8 = sh8 | (sign_i * (-1i64 << 56i64));
         X[i + 1i64] = X[i + 1i64] + sh8;
-        drop raw buf_put_u8(R, i, X[i] & 255i64);
+        drop (buf_put_u8(R, i, X[i] & 255i64) ?! 1i32);
         i += 1i64;
     }
     
-    free(cast_unchecked<int8->>(L_arr));
+    drop dalloc(cast_unchecked<int8->>(L_arr));
     pass 0i32;
 };
 
@@ -301,12 +283,12 @@ func:reduce = int32(int64:r_ptr) {
     int64->:R = cast_unchecked<int64->>(r_ptr);
     int64:i = 0i64;
     while (i < 64i64) {
-        X[i] = raw buf_get_u8(R, i);
-        drop raw buf_put_u8(R, i, 0i64);
+        X[i] = (buf_get_u8(R, i) ?! 1i32);
+        drop (buf_put_u8(R, i, 0i64) ?! 1i32);
         i += 1i64;
     }
     drop raw modL(r_ptr, x_arr);
-    free(cast_unchecked<int8->>(x_arr));
+    drop dalloc(cast_unchecked<int8->>(x_arr));
     pass 0i32;
 };
 
@@ -326,14 +308,14 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
     int64:p = raw gf4_alloc();
     
     int64:ctx = raw sha512_init();
-    drop raw sha512_update(ctx, sk_ptr, 32i64);
-    drop raw sha512_finalize_raw(ctx, d);
-    drop raw sha512_free(ctx);
+    drop (sha512_update(ctx, sk_ptr, 32i64) ?! 1i32);
+    drop (sha512_finalize_raw(ctx, d) ?! 1i32);
+    drop (sha512_free(ctx) ?! 1i32);
     
     int64->:Dbuf = cast_unchecked<int64->>(d);
-    drop raw buf_put_u8(Dbuf, 0i64, raw buf_get_u8(Dbuf, 0i64) & 248i64);
-    drop raw buf_put_u8(Dbuf, 31i64, raw buf_get_u8(Dbuf, 31i64) & 127i64);
-    drop raw buf_put_u8(Dbuf, 31i64, raw buf_get_u8(Dbuf, 31i64) | 64i64);
+    drop (buf_put_u8(Dbuf, 0i64, (buf_get_u8(Dbuf, 0i64) ?! 1i32) & 248i64) ?! 1i32);
+    drop (buf_put_u8(Dbuf, 31i64, (buf_get_u8(Dbuf, 31i64) ?! 1i32) & 127i64) ?! 1i32);
+    drop (buf_put_u8(Dbuf, 31i64, (buf_get_u8(Dbuf, 31i64) ?! 1i32) | 64i64) ?! 1i32);
     
     int64->:SMlen = cast_unchecked<int64->>(smlen_ptr);
     SMlen[0i64] = n + 64i64;
@@ -344,19 +326,19 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
     
     int64:i = 0i64;
     while (i < n) {
-        drop raw buf_put_u8(SM, 64i64 + i, raw buf_get_u8(M, i));
+        drop (buf_put_u8(SM, 64i64 + i, (buf_get_u8(M, i) ?! 1i32)) ?! 1i32);
         i += 1i64;
     }
     i = 0i64;
     while (i < 32i64) {
-        drop raw buf_put_u8(SM, 32i64 + i, raw buf_get_u8(Dbuf, 32i64 + i));
+        drop (buf_put_u8(SM, 32i64 + i, (buf_get_u8(Dbuf, 32i64 + i) ?! 1i32)) ?! 1i32);
         i += 1i64;
     }
     
     ctx = raw sha512_init();
-    drop raw sha512_update(ctx, sm_ptr + 32i64, n + 32i64);
-    drop raw sha512_finalize_raw(ctx, r);
-    drop raw sha512_free(ctx);
+    drop (sha512_update(ctx, sm_ptr + 32i64, n + 32i64) ?! 1i32);
+    drop (sha512_finalize_raw(ctx, r) ?! 1i32);
+    drop (sha512_free(ctx) ?! 1i32);
     
     drop raw reduce(r);
     drop raw ed25519_scalarbase(p, r, X, Y, D2);
@@ -364,14 +346,14 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
     
     i = 0i64;
     while (i < 32i64) {
-        drop raw buf_put_u8(SM, 32i64 + i, raw buf_get_u8(SK, 32i64 + i));
+        drop (buf_put_u8(SM, 32i64 + i, (buf_get_u8(SK, 32i64 + i) ?! 1i32)) ?! 1i32);
         i += 1i64;
     }
     
     ctx = raw sha512_init();
-    drop raw sha512_update(ctx, sm_ptr, n + 64i64);
-    drop raw sha512_finalize_raw(ctx, h);
-    drop raw sha512_free(ctx);
+    drop (sha512_update(ctx, sm_ptr, n + 64i64) ?! 1i32);
+    drop (sha512_finalize_raw(ctx, h) ?! 1i32);
+    drop (sha512_free(ctx) ?! 1i32);
     
     drop raw reduce(h);
     
@@ -383,14 +365,14 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
     
     int64->:Rbuf = cast_unchecked<int64->>(r);
     i = 0i64;
-    while (i < 32i64) { Xbuf[i] = raw buf_get_u8(Rbuf, i); i += 1i64; }
+    while (i < 32i64) { Xbuf[i] = (buf_get_u8(Rbuf, i) ?! 1i32); i += 1i64; }
     
     i = 0i64;
     int64:j = 0i64;
     while (i < 32i64) {
         j = 0i64;
         while (j < 32i64) {
-            Xbuf[i + j] = Xbuf[i + j] + raw buf_get_u8(Hbuf, i) * raw buf_get_u8(Dbuf, j);
+            Xbuf[i + j] = Xbuf[i + j] + (buf_get_u8(Hbuf, i) ?! 1i32) * (buf_get_u8(Dbuf, j) ?! 1i32);
             j += 1i64;
         }
         i += 1i64;
@@ -398,8 +380,8 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
     
     drop raw modL(sm_ptr + 32i64, x);
     
-    free(cast_unchecked<int8->>(d)); free(cast_unchecked<int8->>(h));
-    free(cast_unchecked<int8->>(r)); free(cast_unchecked<int8->>(x));
+    drop dalloc(cast_unchecked<int8->>(d)); drop dalloc(cast_unchecked<int8->>(h));
+    drop dalloc(cast_unchecked<int8->>(r)); drop dalloc(cast_unchecked<int8->>(x));
     drop raw gf4_free(p);
     drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
     
@@ -420,14 +402,14 @@ func:neq25519 = int64(int64:a, int64:b) {
     int64:i = 0i64;
     int64:res = 0i64;
     while (i < 32i64) {
-        if (raw buf_get_u8(C, i) != raw buf_get_u8(Dbuf, i)) {
+        if ((buf_get_u8(C, i) ?! 1i32) != (buf_get_u8(Dbuf, i) ?! 1i32)) {
             res = 1i64;
         }
         i += 1i64;
     }
     
-    free(cast_unchecked<int8->>(c_ptr));
-    free(cast_unchecked<int8->>(d_ptr));
+    drop dalloc(cast_unchecked<int8->>(c_ptr));
+    drop dalloc(cast_unchecked<int8->>(d_ptr));
     pass res;
 };
 
@@ -498,7 +480,7 @@ func:unpackneg = int64(int64:r, int64:p_ptr, int64:D, int64:I) {
     }
     
     int64->:Pbuf = cast_unchecked<int64->>(p_ptr);
-    int64:p31_7 = raw buf_get_u8(Pbuf, 31i64) >> 7i64;
+    int64:p31_7 = (buf_get_u8(Pbuf, 31i64) ?! 1i32) >> 7i64;
     
     int64:neg_r0 = raw gf_alloc();
     int64:gf0_val = raw gf_alloc();
@@ -524,7 +506,7 @@ func:crypto_verify_32 = int64(int64:x_ptr, int64:y_ptr) {
     int64:i = 0i64;
     int64:diff = 0i64;
     while (i < 32i64) {
-        diff = diff | (raw buf_get_u8(X, i) ^ raw buf_get_u8(Y, i));
+        diff = diff | ((buf_get_u8(X, i) ?! 1i32) ^ (buf_get_u8(Y, i) ?! 1i32));
         i += 1i64;
     }
     if (diff != 0i64) { fail(-1i64); }
@@ -561,20 +543,20 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
     
     int64:i = 0i64;
     while (i < n) {
-        drop raw buf_put_u8(Mbuf, i, raw buf_get_u8(SM, i));
+        drop (buf_put_u8(Mbuf, i, (buf_get_u8(SM, i) ?! 1i32)) ?! 1i32);
         i += 1i64;
     }
     i = 0i64;
     while (i < 32i64) {
-        drop raw buf_put_u8(Mbuf, i + 32i64, raw buf_get_u8(PK, i));
+        drop (buf_put_u8(Mbuf, i + 32i64, (buf_get_u8(PK, i) ?! 1i32)) ?! 1i32);
         i += 1i64;
     }
     
     int64:h = cast_unchecked<int64>(alloc(64i64));
     int64:ctx = raw sha512_init();
-    drop raw sha512_update(ctx, m_buf, n);
-    drop raw sha512_finalize_raw(ctx, h);
-    drop raw sha512_free(ctx);
+    drop (sha512_update(ctx, m_buf, n) ?! 1i32);
+    drop (sha512_finalize_raw(ctx, h) ?! 1i32);
+    drop (sha512_free(ctx) ?! 1i32);
     
     drop raw reduce(h);
     
@@ -590,9 +572,9 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
     if (raw crypto_verify_32(sm_ptr, t) != 0i64) {
         int64->:Mout = cast_unchecked<int64->>(m_ptr);
         i = 0i64;
-        while (i < n_new) { drop raw buf_put_u8(Mout, i, 0i64); i += 1i64; }
+        while (i < n_new) { drop (buf_put_u8(Mout, i, 0i64) ?! 1i32); i += 1i64; }
         
-        free(cast_unchecked<int8->>(m_buf)); free(cast_unchecked<int8->>(h)); free(cast_unchecked<int8->>(t));
+        drop dalloc(cast_unchecked<int8->>(m_buf)); drop dalloc(cast_unchecked<int8->>(h)); drop dalloc(cast_unchecked<int8->>(t));
         drop raw gf4_free(p); drop raw gf4_free(q);
         drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
         fail(-3i32);
@@ -601,12 +583,12 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
     int64->:Mout2 = cast_unchecked<int64->>(m_ptr);
     i = 0i64;
     while (i < n_new) {
-        drop raw buf_put_u8(Mout2, i, raw buf_get_u8(SM, i + 64i64));
+        drop (buf_put_u8(Mout2, i, (buf_get_u8(SM, i + 64i64) ?! 1i32)) ?! 1i32);
         i += 1i64;
     }
     Mlen[0i64] = n_new;
     
-    free(cast_unchecked<int8->>(m_buf)); free(cast_unchecked<int8->>(h)); free(cast_unchecked<int8->>(t));
+    drop dalloc(cast_unchecked<int8->>(m_buf)); drop dalloc(cast_unchecked<int8->>(h)); drop dalloc(cast_unchecked<int8->>(t));
     drop raw gf4_free(p); drop raw gf4_free(q);
     drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
     

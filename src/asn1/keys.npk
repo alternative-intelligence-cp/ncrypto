@@ -1,5 +1,6 @@
 // src/asn1/keys.npk
 use "stdlib/core.npk".*;
+use "src/util/bytes.npk".*;
 use "src/asn1/der.npk".*;
 
 func:buf_put_u8_local = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
@@ -23,7 +24,7 @@ func:buf_get_u8_local = int64(int64->:buf64, int64:byte_off) {
 pub func:asn1_extract_pkcs8 = int64(int64:der_ptr, int64:der_len, int64:out_ptr, int64:out_cap) {
     int64:parsed_len_buf = cast_unchecked<int64>(alloc(8i64));
     int64:root = raw asn1_parse(der_ptr, der_len, parsed_len_buf);
-    free(cast_unchecked<int8->>(parsed_len_buf));
+    drop dalloc(cast_unchecked<int8->>(parsed_len_buf));
     if (root == 0i64) { fail(-1i64); }
     
     int64->:root_p = cast_unchecked<int64->>(root);
@@ -64,7 +65,7 @@ pub func:asn1_extract_pkcs8 = int64(int64:der_ptr, int64:der_len, int64:out_ptr,
 pub func:asn1_extract_spki = int64(int64:der_ptr, int64:der_len, int64:out_ptr, int64:out_cap) {
     int64:parsed_len_buf = cast_unchecked<int64>(alloc(8i64));
     int64:root = raw asn1_parse(der_ptr, der_len, parsed_len_buf);
-    free(cast_unchecked<int8->>(parsed_len_buf));
+    drop dalloc(cast_unchecked<int8->>(parsed_len_buf));
     if (root == 0i64) { fail(-1i64); }
     
     int64->:root_p = cast_unchecked<int64->>(root);

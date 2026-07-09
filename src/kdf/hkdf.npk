@@ -1,4 +1,5 @@
 use "src/hash/sha256.npk".*;
+use "src/util/bytes.npk".*;
 use "src/hash/sha512.npk".*;
 use "src/mac/hmac.npk".*;
 use "src/util/hex.npk".*;
@@ -24,17 +25,19 @@ pub func:hkdf_extract_sha256 = int32(int64:salt_ptr, int64:salt_len, int64:ikm_p
         actual_salt = zero_salt;
         actual_salt_len = hash_len;
     }
+    defer {
+        if (zero_salt != 0i64) {
+            drop dalloc(cast_unchecked<int8->>(zero_salt));
+        }
+    }
     
     // PRK = HMAC-Hash(salt, IKM)
     string:prk_hex = raw hmac_sha256(actual_salt, actual_salt_len, ikm_ptr, ikm_len);
-    drop raw hex_to_raw(prk_hex, prk_out_ptr);
-    
-    if (salt_len == 0i64) {
-        drop dalloc(cast_unchecked<wild any->>(zero_salt));
-    }
+    drop (hex_to_raw(prk_hex, prk_out_ptr) ?! 1i32);
     
     pass 0i32;
 };
+
 
 // HKDF-Expand SHA-256
 pub func:hkdf_expand_sha256 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr, int64:info_len, int64:out_ptr, int64:out_len) {
@@ -51,8 +54,10 @@ pub func:hkdf_expand_sha256 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
     }
     
     int64:T_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(T_buf)); }
     int64:msg_buf_len = hash_len + info_len + 1i64;
     int64:msg_buf = cast_unchecked<int64>(alloc(msg_buf_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(msg_buf)); }
     
     int64->:T_64 = cast_unchecked<int64->>(T_buf);
     int64->:msg_64 = cast_unchecked<int64->>(msg_buf);
@@ -120,11 +125,9 @@ pub func:hkdf_expand_sha256 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
         i += 1i64;
     }
     
-    drop dalloc(cast_unchecked<wild any->>(T_buf));
-    drop dalloc(cast_unchecked<wild any->>(msg_buf));
-    
     pass 0i32;
 };
+
 
 // HKDF-Extract SHA-512
 pub func:hkdf_extract_sha512 = int32(int64:salt_ptr, int64:salt_len, int64:ikm_ptr, int64:ikm_len, int64:prk_out_ptr) {
@@ -147,17 +150,19 @@ pub func:hkdf_extract_sha512 = int32(int64:salt_ptr, int64:salt_len, int64:ikm_p
         actual_salt = zero_salt;
         actual_salt_len = hash_len;
     }
+    defer {
+        if (zero_salt != 0i64) {
+            drop dalloc(cast_unchecked<int8->>(zero_salt));
+        }
+    }
     
     // PRK = HMAC-Hash(salt, IKM)
     string:prk_hex = raw hmac_sha512(actual_salt, actual_salt_len, ikm_ptr, ikm_len);
-    drop raw hex_to_raw(prk_hex, prk_out_ptr);
-    
-    if (salt_len == 0i64) {
-        drop dalloc(cast_unchecked<wild any->>(zero_salt));
-    }
+    drop (hex_to_raw(prk_hex, prk_out_ptr) ?! 1i32);
     
     pass 0i32;
 };
+
 
 // HKDF-Expand SHA-512
 pub func:hkdf_expand_sha512 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr, int64:info_len, int64:out_ptr, int64:out_len) {
@@ -174,8 +179,10 @@ pub func:hkdf_expand_sha512 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
     }
     
     int64:T_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(T_buf)); }
     int64:msg_buf_len = hash_len + info_len + 1i64;
     int64:msg_buf = cast_unchecked<int64>(alloc(msg_buf_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(msg_buf)); }
     
     int64->:T_64 = cast_unchecked<int64->>(T_buf);
     int64->:msg_64 = cast_unchecked<int64->>(msg_buf);
@@ -243,8 +250,6 @@ pub func:hkdf_expand_sha512 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
         i += 1i64;
     }
     
-    drop dalloc(cast_unchecked<wild any->>(T_buf));
-    drop dalloc(cast_unchecked<wild any->>(msg_buf));
-    
     pass 0i32;
 };
+

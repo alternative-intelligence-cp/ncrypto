@@ -4,41 +4,41 @@
 
 // getrandom syscall is 318 on x86_64
 pub func:sys_getrandom = int64(int64:buf_ptr, int64:buf_len) {
-    pass raw sys!!(318i64, buf_ptr, buf_len, 0i64);
+    pass raw sys!!!(318i64, buf_ptr, buf_len, 0i64);
 };
 
 // open syscall is 2, read is 0, close is 3
 pub func:sys_urandom = int64(int64:buf_ptr, int64:buf_len) {
-    int64:fd = raw sys!!(2i64, "/dev/urandom", 0i64, 0i64);
+    int64:fd = raw sys!!!(2i64, "/dev/urandom", 0i64, 0i64);
     if (fd < 0i64) {
         fail(-1i64);
     }
     
     int64:total_read = 0i64;
     while (total_read < buf_len) {
-        int64:read_res = raw sys!!(0i64, fd, buf_ptr + total_read, buf_len - total_read);
+        int64:read_res = raw sys!!!(0i64, fd, buf_ptr + total_read, buf_len - total_read);
         if (read_res <= 0i64) {
-            drop raw sys!!(3i64, fd);
+            drop raw sys!!!(3i64, fd);
             fail(-1i64);
         }
         total_read += read_res;
     }
     
-    drop raw sys!!(3i64, fd);
+    drop raw sys!!!(3i64, fd);
     pass buf_len;
 };
 
 // sys_rand_bytes attempts getrandom first, then falls back to /dev/urandom
-pub extern func:sys_rand_bytes = int64(int64:buf_ptr, int64:buf_len) {
+pub func:sys_rand_bytes = int64(int64:buf_ptr, int64:buf_len) {
     int64:gr_res = raw sys_getrandom(buf_ptr, buf_len);
     if (gr_res == buf_len) {
-        return buf_len;
+        pass buf_len;
     }
     
     int64:ur_res = raw sys_urandom(buf_ptr, buf_len);
     if (ur_res == buf_len) {
-        return buf_len;
+        pass buf_len;
     }
     
-    return -1i64;
+    fail(-1i64);
 };

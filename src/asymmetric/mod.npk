@@ -1,5 +1,6 @@
 // src/asymmetric/mod.npk
 use "rsa.npk".*;
+use "../util/bytes.npk".*;
 use "ecc.npk".*;
 use "ecdsa.npk".*;
 use "ecdh.npk".*;

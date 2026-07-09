@@ -1,5 +1,6 @@
 // src/util/pem.npk
 use "stdlib/core.npk".*;
+use "bytes.npk".*;
 use "src/util/base64.npk".*;
 
 func:pem_buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
@@ -80,12 +81,12 @@ pub func:pem_decode = int64(int64:pem_ptr, int64:pem_len, int64:out_ptr, int64:o
     }
     
     if (ended == 0i32) {
-        free(cast_unchecked<int8->>(tmp_b64));
+        drop dalloc(cast_unchecked<int8->>(tmp_b64));
         fail(-1i64);
     }
     
     int64:dec_len = raw base64_decode(tmp_b64, tmp_len, out_ptr, out_cap);
-    free(cast_unchecked<int8->>(tmp_b64));
+    drop dalloc(cast_unchecked<int8->>(tmp_b64));
     
     pass dec_len;
 };

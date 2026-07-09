@@ -1,48 +1,6 @@
 // src/cipher/chacha20.npk
 // RFC 8439 ChaCha20 stream cipher
 
-pub func:read_u32_le = int64(int64->:buf64, int64:byte_off) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    int64:b0 = (w >> sh) & 255i64;
-    int64:b1 = (w >> (sh + 8i64)) & 255i64;
-    int64:b2 = (w >> (sh + 16i64)) & 255i64;
-    int64:b3 = (w >> (sh + 24i64)) & 255i64;
-    pass b0 | (b1 << 8i64) | (b2 << 16i64) | (b3 << 24i64);
-};
-
-pub func:write_u32_le = int32(int64:buf_ptr, int64:byte_off, int64:val) {
-    int64:b0 = val & 255i64;
-    int64:b1 = (val >> 8i64) & 255i64;
-    int64:b2 = (val >> 16i64) & 255i64;
-    int64:b3 = (val >> 24i64) & 255i64;
-    int64:wi = 0i64;
-    int64:sh = 0i64;
-
-    wi = byte_off / 8i64;
-    sh = (byte_off & 7i64) * 8i64;
-    int64->:w_ptr1 = cast_unchecked<int64->>(buf_ptr + wi * 8i64);
-    w_ptr1[0i64] = (w_ptr1[0i64] & ~(255i64 << sh)) | (b0 << sh);
-
-    wi = (byte_off + 1i64) / 8i64;
-    sh = ((byte_off + 1i64) & 7i64) * 8i64;
-    int64->:w_ptr2 = cast_unchecked<int64->>(buf_ptr + wi * 8i64);
-    w_ptr2[0i64] = (w_ptr2[0i64] & ~(255i64 << sh)) | (b1 << sh);
-
-    wi = (byte_off + 2i64) / 8i64;
-    sh = ((byte_off + 2i64) & 7i64) * 8i64;
-    int64->:w_ptr3 = cast_unchecked<int64->>(buf_ptr + wi * 8i64);
-    w_ptr3[0i64] = (w_ptr3[0i64] & ~(255i64 << sh)) | (b2 << sh);
-
-    wi = (byte_off + 3i64) / 8i64;
-    sh = ((byte_off + 3i64) & 7i64) * 8i64;
-    int64->:w_ptr4 = cast_unchecked<int64->>(buf_ptr + wi * 8i64);
-    w_ptr4[0i64] = (w_ptr4[0i64] & ~(255i64 << sh)) | (b3 << sh);
-
-    pass 0i32;
-};
-
 pub func:chacha20_block = int32(int64:key_ptr, int64:counter, int64:nonce_ptr, int64:out_ptr) {
     int64->:key64 = cast_unchecked<int64->>(key_ptr);
     int64->:nonce64 = cast_unchecked<int64->>(nonce_ptr);
@@ -51,18 +9,18 @@ pub func:chacha20_block = int32(int64:key_ptr, int64:counter, int64:nonce_ptr, i
     int64:x1 = 0x3320646ei64;
     int64:x2 = 0x79622d32i64;
     int64:x3 = 0x6b206574i64;
-    int64:x4 = raw read_u32_le(key64, 0i64);
-    int64:x5 = raw read_u32_le(key64, 4i64);
-    int64:x6 = raw read_u32_le(key64, 8i64);
-    int64:x7 = raw read_u32_le(key64, 12i64);
-    int64:x8 = raw read_u32_le(key64, 16i64);
-    int64:x9 = raw read_u32_le(key64, 20i64);
-    int64:x10 = raw read_u32_le(key64, 24i64);
-    int64:x11 = raw read_u32_le(key64, 28i64);
+    int64:x4 = (read_u32_le(key64, 0i64) ?! 1i32);
+    int64:x5 = (read_u32_le(key64, 4i64) ?! 1i32);
+    int64:x6 = (read_u32_le(key64, 8i64) ?! 1i32);
+    int64:x7 = (read_u32_le(key64, 12i64) ?! 1i32);
+    int64:x8 = (read_u32_le(key64, 16i64) ?! 1i32);
+    int64:x9 = (read_u32_le(key64, 20i64) ?! 1i32);
+    int64:x10 = (read_u32_le(key64, 24i64) ?! 1i32);
+    int64:x11 = (read_u32_le(key64, 28i64) ?! 1i32);
     int64:x12 = counter & 0xFFFFFFFFi64;
-    int64:x13 = raw read_u32_le(nonce64, 0i64);
-    int64:x14 = raw read_u32_le(nonce64, 4i64);
-    int64:x15 = raw read_u32_le(nonce64, 8i64);
+    int64:x13 = (read_u32_le(nonce64, 0i64) ?! 1i32);
+    int64:x14 = (read_u32_le(nonce64, 4i64) ?! 1i32);
+    int64:x15 = (read_u32_le(nonce64, 8i64) ?! 1i32);
 
     int64:j0 = x0; int64:j1 = x1; int64:j2 = x2; int64:j3 = x3;
     int64:j4 = x4; int64:j5 = x5; int64:j6 = x6; int64:j7 = x7;
@@ -710,22 +668,22 @@ pub func:chacha20_block = int32(int64:key_ptr, int64:counter, int64:nonce_ptr, i
         x9 = (x9 + x14) & 0xFFFFFFFFi64;
         x4 = ((x4 ^ x9) << 7i64) | ((x4 ^ x9) >> 25i64); x4 &= 0xFFFFFFFFi64;
 
-    drop raw write_u32_le(out_ptr, 0i64, (x0 + j0) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 4i64, (x1 + j1) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 8i64, (x2 + j2) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 12i64, (x3 + j3) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 16i64, (x4 + j4) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 20i64, (x5 + j5) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 24i64, (x6 + j6) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 28i64, (x7 + j7) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 32i64, (x8 + j8) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 36i64, (x9 + j9) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 40i64, (x10 + j10) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 44i64, (x11 + j11) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 48i64, (x12 + j12) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 52i64, (x13 + j13) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 56i64, (x14 + j14) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(out_ptr, 60i64, (x15 + j15) & 0xFFFFFFFFi64);
+    drop (write_u32_le(out_ptr, 0i64, (x0 + j0) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 4i64, (x1 + j1) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 8i64, (x2 + j2) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 12i64, (x3 + j3) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 16i64, (x4 + j4) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 20i64, (x5 + j5) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 24i64, (x6 + j6) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 28i64, (x7 + j7) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 32i64, (x8 + j8) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 36i64, (x9 + j9) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 40i64, (x10 + j10) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 44i64, (x11 + j11) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 48i64, (x12 + j12) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 52i64, (x13 + j13) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 56i64, (x14 + j14) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(out_ptr, 60i64, (x15 + j15) & 0xFFFFFFFFi64) ?! 1i32);
 
     pass 0i32;
 };
@@ -776,6 +734,6 @@ pub func:chacha20_process = int32(int64:key_ptr, int64:counter, int64:nonce_ptr,
         counter = (counter + 1i64) & 0xFFFFFFFFi64;
     }
 
-    drop dalloc(cast_unchecked<wild any->>(block_ptr));
+    drop dalloc(cast_unchecked<int8->>(block_ptr));
     pass 0i32;
 };

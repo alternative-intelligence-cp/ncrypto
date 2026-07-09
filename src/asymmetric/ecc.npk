@@ -1,265 +1,303 @@
 // src/asymmetric/ecc.npk
-use "../math/bigint.npk".*;
+use "../math/int4096_bridge.npk".*;
+use "../util/bytes.npk".*;
+use "../math/int4096_bytes.npk".*;
 use "../util/hex.npk".*;
+use "../util/secure.npk".*;
+use "stdlib/core.npk".*;
 
 pub struct:ECCPoint = {
-    int64:x;
-    int64:y;
+    int4096:x;
+    int4096:y;
+    int4096:z; // Jacobian Z coordinate
     int64:is_infinity;
 };
 
 pub func:set_inf = int32(ECCPoint:P, int64:val) {
-    int64->:p = cast_unchecked<int64->>(P.is_infinity);
-    p[0i64] = val;
+    P.is_infinity = val;
     pass 0i32;
 };
 
 pub func:get_inf = int64(ECCPoint:P) {
-    int64->:p = cast_unchecked<int64->>(P.is_infinity);
-    pass p[0i64];
+    pass P.is_infinity;
 };
 
 pub func:ecc_point_alloc = ECCPoint() {
-    int64:inf_ptr = cast_unchecked<int64>(alloc(8i64));
-    int64->:inf = cast_unchecked<int64->>(inf_ptr);
-    inf[0i64] = 1i64;
     pass ECCPoint {
-        x: raw bigint_alloc(10i64),
-        y: raw bigint_alloc(10i64),
-        is_infinity: inf_ptr
+        x: cast_unchecked<int4096>(0i64),
+        y: cast_unchecked<int4096>(0i64),
+        z: cast_unchecked<int4096>(1i64), // Z=1 by default
+        is_infinity: 1i64
     };
 };
 
 pub func:ecc_point_free = int32(ECCPoint:P) {
-    drop raw bigint_free(P.x);
-    drop raw bigint_free(P.y);
-    if (P.is_infinity != 0i64) {
-        free(cast_unchecked<int8->>(P.is_infinity));
+    pass 0i32; // Nothing to free
+};
+
+pub func:ecc_point_copy = int32(ECCPoint:dst, ECCPoint:src) {
+    dst.x = src.x;
+    dst.y = src.y;
+    dst.z = src.z;
+    dst.is_infinity = src.is_infinity;
+    pass 0i32;
+};
+
+pub func:ecc_mod_add = int4096(int4096:a, int4096:b, int4096:p) {
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    if (raw int4096_eq(p, zero) == 1i32) { pass a; }
+    int4096:res = (a + b);
+    pass (res % p);
+};
+
+pub func:ecc_mod_sub = int4096(int4096:a, int4096:b, int4096:p) {
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    if (raw int4096_eq(p, zero) == 1i32) { pass a; }
+    int4096:b_mod = (b % p);
+    int4096:res = (a - b_mod);
+    if (res < cast_unchecked<int4096>(0i64)) {
+        res = (res + p);
     }
-    pass 0i32;
+    pass res;
 };
 
-pub func:ecc_point_copy = int32(ECCPoint:src, ECCPoint:dst) {
-    drop raw bigint_copy(src.x, dst.x);
-    drop raw bigint_copy(src.y, dst.y);
-    drop raw set_inf(dst, raw get_inf(src));
-    pass 0i32;
+pub func:ecc_mod_mul = int4096(int4096:a, int4096:b, int4096:p) {
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    if (raw int4096_eq(p, zero) == 1i32) { pass a; }
+    int4096:res = (a * b);
+    pass (res % p);
 };
 
-pub func:ecc_mod_add = int32(int64:a, int64:b, int64:p, int64:out) {
-    drop raw bigint_add(a, b, out);
-    if (raw bigint_ucmp(out, p) >= 0i32) {
-        drop raw bigint_sub(out, p, out);
+// ecc_mod_inv: modular inverse of a mod p.
+// Requires p to be prime. Uses Fermat's Little Theorem: a^(p-2) mod p.
+// This is constant-time via the fixed-iteration int4096_modexp.
+pub func:ecc_mod_inv = int4096(int4096:a, int4096:m) {
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    int4096:two = cast_unchecked<int4096>(2i64);
+    int4096:exp = (m - two); // p - 2
+    pass raw int4096_modexp(a, exp, m);
+};
+
+pub func:ecc_point_double = int32(ECCPoint:P, int4096:p_mod, ECCPoint:out) {
+    if (P.is_infinity == 1i64) {
+        out.is_infinity = 1i64;
+        pass 0i32;
     }
-    pass 0i32;
-};
-
-pub func:ecc_mod_sub = int32(int64:a, int64:b, int64:p, int64:out) {
-    if (raw bigint_ucmp(a, b) < 0i32) {
-        drop raw bigint_add(a, p, out);
-        drop raw bigint_sub(out, b, out);
-    } else {
-        drop raw bigint_sub(a, b, out);
-    }
-    pass 0i32;
-};
-
-pub func:ecc_mod_mul = int32(int64:a, int64:b, int64:p, int64:out) {
-    int64:tmp = raw bigint_alloc(20i64);
-    drop raw bigint_mul(a, b, tmp);
-    int64:tmp_q = raw bigint_alloc(20i64);
-    drop raw bigint_div_mod(tmp, p, tmp_q, out);
-    drop raw bigint_free(tmp);
-    drop raw bigint_free(tmp_q);
-    pass 0i32;
-};
-
-pub func:ecc_mod_inv = int32(int64:a, int64:p, int64:out) {
-    drop raw bigint_modinv(a, p, out);
-    pass 0i32;
-};
-
-pub func:ecc_point_double = int32(ECCPoint:P, int64:p_mod, ECCPoint:out) {
-    if (raw get_inf(P) == 1i64) {
-        drop raw set_inf(out, 1i64);
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    int4096:py = P.y;
+    if (raw int4096_eq(py, zero) == 1i32) {
+        out.is_infinity = 1i64;
         pass 0i32;
     }
     
-    int64:zero = raw bigint_alloc(1i64);
-    int64->:zero_b = cast_unchecked<int64->>(zero);
-    zero_b[3i64] = 0i64;
-    zero_b[1i64] = 1i64;
-    zero_b[2i64] = 1i64;
+    int4096:two = cast_unchecked<int4096>(2i64);
+    int4096:three = cast_unchecked<int4096>(3i64);
+    int4096:four = cast_unchecked<int4096>(4i64);
+    int4096:eight = cast_unchecked<int4096>(8i64);
     
-    if (raw bigint_ucmp(P.y, zero) == 0i32) {
-        drop raw set_inf(out, 1i64);
-        drop raw bigint_free(zero);
-        pass 0i32;
-    }
+    int4096:px = P.x;
+    int4096:py = P.y;
+    int4096:pz = P.z;
+
+    // Jacobian Doubling (a=0)
+    // M = 3 * X^2
+    int4096:X2 = raw ecc_mod_mul(px, px, p_mod);
+    int4096:M = raw ecc_mod_mul(three, X2, p_mod);
     
-    int64:tmp1 = raw bigint_alloc(10i64);
-    int64:tmp2 = raw bigint_alloc(10i64);
-    int64:lam = raw bigint_alloc(10i64);
+    // Y2 = Y^2
+    int4096:Y2_val = raw ecc_mod_mul(py, py, p_mod);
     
-    drop raw ecc_mod_mul(P.x, P.x, p_mod, tmp1);
+    // S = 4 * X * Y^2
+    int4096:XY2 = raw ecc_mod_mul(px, Y2_val, p_mod);
+    int4096:S = raw ecc_mod_mul(four, XY2, p_mod);
     
-    int64:three = raw bigint_alloc(1i64);
-    int64->:three_b = cast_unchecked<int64->>(three);
-    three_b[3i64] = 3i64;
-    three_b[1i64] = 1i64;
-    three_b[2i64] = 1i64;
+    // M2 = M^2
+    int4096:M2 = raw ecc_mod_mul(M, M, p_mod);
     
-    drop raw ecc_mod_mul(tmp1, three, p_mod, tmp2);
+    // X3 = M^2 - 2*S
+    int4096:twoS = raw ecc_mod_mul(two, S, p_mod);
     
-    int64:two = raw bigint_alloc(1i64);
-    int64->:two_b = cast_unchecked<int64->>(two);
-    two_b[3i64] = 2i64;
-    two_b[1i64] = 1i64;
-    two_b[2i64] = 1i64;
+    // Z3 = 2 * Y * Z
+    int4096:YZ = raw ecc_mod_mul(py, pz, p_mod);
+    out.z = raw ecc_mod_mul(two, YZ, p_mod);
     
-    drop raw ecc_mod_mul(P.y, two, p_mod, tmp1);
-    drop raw ecc_mod_inv(tmp1, p_mod, lam);
-    drop raw bigint_copy(lam, tmp1);
-    drop raw ecc_mod_mul(tmp2, tmp1, p_mod, lam);
+    int4096:out_x = raw ecc_mod_sub(M2, twoS, p_mod);
+    out.x = out_x;
     
-    drop raw ecc_mod_mul(lam, lam, p_mod, tmp1);
-    drop raw ecc_mod_mul(P.x, two, p_mod, tmp2);
-    drop raw ecc_mod_sub(tmp1, tmp2, p_mod, out.x);
+    // Y3 = M * (S - X3) - 8 * Y^4
+    int4096:S_minus_X3 = raw ecc_mod_sub(S, out_x, p_mod);
+    int4096:M_S_X3 = raw ecc_mod_mul(M, S_minus_X3, p_mod);
     
-    drop raw ecc_mod_sub(P.x, out.x, p_mod, tmp1);
-    drop raw ecc_mod_mul(lam, tmp1, p_mod, tmp2);
-    drop raw ecc_mod_sub(tmp2, P.y, p_mod, out.y);
-    drop raw set_inf(out, 0i64);
+    int4096:Y4 = raw ecc_mod_mul(Y2_val, Y2_val, p_mod);
+    int4096:eightY4 = raw ecc_mod_mul(eight, Y4, p_mod);
+    out.y = raw ecc_mod_sub(M_S_X3, eightY4, p_mod);
     
-    drop raw bigint_free(zero);
-    drop raw bigint_free(tmp1);
-    drop raw bigint_free(tmp2);
-    drop raw bigint_free(lam);
-    drop raw bigint_free(three);
-    drop raw bigint_free(two);
+    out.is_infinity = 0i64;
     pass 0i32;
 };
 
-pub func:ecc_point_add = int32(ECCPoint:P, ECCPoint:Q, int64:p_mod, ECCPoint:out) {
-    if (raw get_inf(P) == 1i64) {
+pub func:ecc_point_add = int32(ECCPoint:P, ECCPoint:Q, int4096:p_mod, ECCPoint:out) {
+    if (P.is_infinity == 1i64) {
         drop raw ecc_point_copy(Q, out);
         pass 0i32;
     }
-    if (raw get_inf(Q) == 1i64) {
+    if (Q.is_infinity == 1i64) {
         drop raw ecc_point_copy(P, out);
         pass 0i32;
     }
     
-    if (raw bigint_ucmp(P.x, Q.x) == 0i32) {
-        if (raw bigint_ucmp(P.y, Q.y) == 0i32) {
+    // Jacobian Addition
+    // U1 = X1 * Z2^2
+    int4096:px = P.x;
+    int4096:py = P.y;
+    int4096:pz = P.z;
+    int4096:qx = Q.x;
+    int4096:qy = Q.y;
+    int4096:qz = Q.z;
+    
+    int4096:Z2_2 = raw ecc_mod_mul(qz, qz, p_mod);
+    int4096:U1 = raw ecc_mod_mul(px, Z2_2, p_mod);
+    
+    // U2 = X2 * Z1^2
+    int4096:Z1_2 = raw ecc_mod_mul(pz, pz, p_mod);
+    int4096:U2 = raw ecc_mod_mul(qx, Z1_2, p_mod);
+    
+    // S1 = Y1 * Z2^3
+    int4096:Z2_3 = raw ecc_mod_mul(Z2_2, qz, p_mod);
+    int4096:S1 = raw ecc_mod_mul(py, Z2_3, p_mod);
+    
+    // S2 = Y2 * Z1^3
+    int4096:Z1_3 = raw ecc_mod_mul(Z1_2, pz, p_mod);
+    int4096:S2 = raw ecc_mod_mul(qy, Z1_3, p_mod);
+    
+    if (raw int4096_eq(U1, U2) == 1i32) {
+        if (raw int4096_eq(S1, S2) == 1i32) {
             pass raw ecc_point_double(P, p_mod, out);
         } else {
-            drop raw set_inf(out, 1i64);
+            out.is_infinity = 1i64;
             pass 0i32;
         }
     }
     
-    int64:tmp1 = raw bigint_alloc(10i64);
-    int64:tmp2 = raw bigint_alloc(10i64);
-    int64:lam = raw bigint_alloc(10i64);
+    // H = U2 - U1
+    int4096:H = raw ecc_mod_sub(U2, U1, p_mod);
     
-    drop raw ecc_mod_sub(Q.y, P.y, p_mod, tmp1);
-    drop raw ecc_mod_sub(Q.x, P.x, p_mod, tmp2);
+    // R = S2 - S1
+    int4096:R = raw ecc_mod_sub(S2, S1, p_mod);
     
-    drop raw ecc_mod_inv(tmp2, p_mod, lam);
-    drop raw bigint_copy(lam, tmp2);
+    // H2 = H^2
+    int4096:H2 = raw ecc_mod_mul(H, H, p_mod);
     
-    drop raw ecc_mod_mul(tmp1, tmp2, p_mod, lam);
+    // H3 = H^3
+    int4096:H3 = raw ecc_mod_mul(H2, H, p_mod);
     
-    drop raw ecc_mod_mul(lam, lam, p_mod, tmp1);
-    drop raw ecc_mod_sub(tmp1, P.x, p_mod, tmp2);
-    drop raw ecc_mod_sub(tmp2, Q.x, p_mod, out.x);
+    // U1_H2 = U1 * H^2
+    int4096:U1_H2 = raw ecc_mod_mul(U1, H2, p_mod);
     
-    drop raw ecc_mod_sub(P.x, out.x, p_mod, tmp1);
-    drop raw ecc_mod_mul(lam, tmp1, p_mod, tmp2);
-    drop raw ecc_mod_sub(tmp2, P.y, p_mod, out.y);
-    drop raw set_inf(out, 0i64);
+    // X3 = R^2 - H^3 - 2*U1*H^2
+    int4096:R2 = raw ecc_mod_mul(R, R, p_mod);
+    int4096:two = cast_unchecked<int4096>(2i64);
+    int4096:two_U1_H2 = raw ecc_mod_mul(two, U1_H2, p_mod);
+    int4096:R2_minus_H3 = raw ecc_mod_sub(R2, H3, p_mod);
+    int4096:out_x = raw ecc_mod_sub(R2_minus_H3, two_U1_H2, p_mod);
+    out.x = out_x;
     
-    drop raw bigint_free(tmp1);
-    drop raw bigint_free(tmp2);
-    drop raw bigint_free(lam);
+    // Y3 = R * (U1_H2 - X3) - S1*H3
+    int4096:U1_H2_minus_X3 = raw ecc_mod_sub(U1_H2, out_x, p_mod);
+    int4096:R_mul = raw ecc_mod_mul(R, U1_H2_minus_X3, p_mod);
+    int4096:S1_H3 = raw ecc_mod_mul(S1, H3, p_mod);
+    out.y = raw ecc_mod_sub(R_mul, S1_H3, p_mod);
+    
+    // Z3 = H*Z1*Z2
+    int4096:Z1Z2 = raw ecc_mod_mul(pz, qz, p_mod);
+    out.z = raw ecc_mod_mul(H, Z1Z2, p_mod);
+    out.is_infinity = 0i64;
+    
     pass 0i32;
 };
 
-func:ecc_point_cswap = int32(ECCPoint:P, ECCPoint:Q, int64:bit) {
-    int64->:px_buf = cast_unchecked<int64->>(P.x);
-    int64->:qx_buf = cast_unchecked<int64->>(Q.x);
-    int64->:py_buf = cast_unchecked<int64->>(P.y);
-    int64->:qy_buf = cast_unchecked<int64->>(Q.y);
+// Converts Jacobian (X, Y, Z) to Affine (X, Y, 1)
+pub func:ecc_to_affine = int32(ECCPoint:P, int4096:p_mod, ECCPoint:out) {
+    if (P.is_infinity == 1i64) {
+        out.is_infinity = 1i64;
+        pass 0i32;
+    }
+    int4096:one = cast_unchecked<int4096>(1i64);
+    int4096:px = P.x;
+    int4096:py = P.y;
+    int4096:pz = P.z;
     
-    int64:i = 0i64;
-    while (i < 10i64) {
-        int64:px = px_buf[3i64 + i];
-        int64:qx = qx_buf[3i64 + i];
-        int64:mask = (0i64 - bit);
-        int64:swap_x = (px ^ qx) & mask;
-        px_buf[3i64 + i] = px ^ swap_x;
-        qx_buf[3i64 + i] = qx ^ swap_x;
-        
-        int64:py = py_buf[3i64 + i];
-        int64:qy = qy_buf[3i64 + i];
-        int64:swap_y = (py ^ qy) & mask;
-        py_buf[3i64 + i] = py ^ swap_y;
-        qy_buf[3i64 + i] = qy ^ swap_y;
-        
-        i += 1i64;
+    if (raw int4096_eq(pz, one) == 1i32) {
+        out.x = px;
+        out.y = py;
+        out.z = pz;
+        out.is_infinity = P.is_infinity;
+        pass 0i32;
     }
     
-    int64:p_len = px_buf[1i64];
-    int64:q_len = qx_buf[1i64];
-    int64:swap_len = (p_len ^ q_len) & (0i64 - bit);
-    px_buf[1i64] = p_len ^ swap_len;
-    qx_buf[1i64] = q_len ^ swap_len;
+    int4096:Zinv = raw ecc_mod_inv(pz, p_mod);
+    int4096:Zinv2 = raw ecc_mod_mul(Zinv, Zinv, p_mod);
+    int4096:Zinv3 = raw ecc_mod_mul(Zinv2, Zinv, p_mod);
     
-    int64:p_sign = px_buf[2i64];
-    int64:q_sign = qx_buf[2i64];
-    int64:swap_sign = (p_sign ^ q_sign) & (0i64 - bit);
-    px_buf[2i64] = p_sign ^ swap_sign;
-    qx_buf[2i64] = q_sign ^ swap_sign;
+    out.x = raw ecc_mod_mul(px, Zinv2, p_mod);
+    out.y = raw ecc_mod_mul(py, Zinv3, p_mod);
+    out.z = one;
+    out.is_infinity = 0i64;
+    pass 0i32;
+};
+
+func:ecc_point_cswap = int32(ECCPoint:P, ECCPoint:Q, int4096:bit) {
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    int4096:mask = (zero - bit); // if bit=1 => all 1s (-1)
     
-    p_len = py_buf[1i64];
-    q_len = qy_buf[1i64];
-    swap_len = (p_len ^ q_len) & (0i64 - bit);
-    py_buf[1i64] = p_len ^ swap_len;
-    qy_buf[1i64] = q_len ^ swap_len;
+    int4096:px = P.x;
+    int4096:qx = Q.x;
+    int4096:swap_x = (px ^ qx) & mask;
+    P.x = px ^ swap_x;
+    Q.x = qx ^ swap_x;
     
-    p_sign = py_buf[2i64];
-    q_sign = qy_buf[2i64];
-    swap_sign = (p_sign ^ q_sign) & (0i64 - bit);
-    py_buf[2i64] = p_sign ^ swap_sign;
-    qy_buf[2i64] = q_sign ^ swap_sign;
+    int4096:py = P.y;
+    int4096:qy = Q.y;
+    int4096:swap_y = (py ^ qy) & mask;
+    P.y = py ^ swap_y;
+    Q.y = qy ^ swap_y;
     
-    int64:p_inf = raw get_inf(P);
-    int64:q_inf = raw get_inf(Q);
-    int64:swap_inf = (p_inf ^ q_inf) & (0i64 - bit);
-    drop raw set_inf(P, p_inf ^ swap_inf);
-    drop raw set_inf(Q, q_inf ^ swap_inf);
+    int4096:pz = P.z;
+    int4096:qz = Q.z;
+    int4096:swap_z = (pz ^ qz) & mask;
+    P.z = pz ^ swap_z;
+    Q.z = qz ^ swap_z;
+    
+    int4096:bit_local = bit;
+    int64->:ptr_bit = cast_unchecked<int64->>(@bit_local);
+    int64:bit64 = ptr_bit[0];
+    int64:swap_inf = (P.is_infinity ^ Q.is_infinity) & (0i64 - bit64);
+    P.is_infinity = P.is_infinity ^ swap_inf;
+    Q.is_infinity = Q.is_infinity ^ swap_inf;
     
     pass 0i32;
 };
 
-pub func:ecc_scalar_mul_ct = int32(int64:k, ECCPoint:P, int64:p_mod, ECCPoint:out) {
+pub func:ecc_scalar_mul_ct = int32(int4096:k, ECCPoint:P, int4096:p_mod, ECCPoint:out) {
     ECCPoint:R0 = raw ecc_point_alloc();
     ECCPoint:R1 = raw ecc_point_alloc();
     
     drop raw ecc_point_copy(P, R1);
     
-    int64:bits = raw bigint_bit_len(k);
-    if (bits == 0i64) {
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    if (raw int4096_eq(k, zero) == 1i32) {
         drop raw ecc_point_copy(R0, out);
-        drop raw ecc_point_free(R0);
-        drop raw ecc_point_free(R1);
         pass 0i32;
     }
     
+    int4096:one = cast_unchecked<int4096>(1i64);
     int64:i = 255i64;
     while (i >= 0i64) {
-        int64:bit = raw bigint_get_bit(k, i);
+        // bit = (k >> i) & 1
+        int4096:shift_amt = cast_unchecked<int4096>(0i64);
+        int64->:ptr_shift = cast_unchecked<int64->>(@shift_amt);
+        ptr_shift[0] = i;
+        int4096:bit = (k >> shift_amt) & one;
         
         drop raw ecc_point_cswap(R0, R1, bit);
         
@@ -272,73 +310,44 @@ pub func:ecc_scalar_mul_ct = int32(int64:k, ECCPoint:P, int64:p_mod, ECCPoint:ou
         drop raw ecc_point_copy(tmp_R0, R0);
         drop raw ecc_point_copy(tmp_R1, R1);
         
-        drop raw ecc_point_free(tmp_R0);
-        drop raw ecc_point_free(tmp_R1);
-        
         drop raw ecc_point_cswap(R0, R1, bit);
         
         i -= 1i64;
     }
     
-    drop raw ecc_point_copy(R0, out);
-    drop raw ecc_point_free(R0);
-    drop raw ecc_point_free(R1);
+    // We accumulated in Jacobian, now convert out to Affine
+    drop raw ecc_to_affine(R0, p_mod, out);
     pass 0i32;
 };
 
-pub func:ecc_bigint_from_hex = int64(string:hex) {
+pub func:ecc_bigint_from_hex = int4096(string:hex) {
     int64:hex_len = string_length(hex);
     int64:byte_len = hex_len / 2i64;
-    int64:bin_ptr = cast_unchecked<int64>(alloc(byte_len));
-    
-    drop raw hex_to_raw(hex, bin_ptr);
-    
-    int64:bi = raw bigint_alloc(byte_len / 4i64 + 2i64);
-    
-    int64:j = 0i64;
-    int64->:bin64 = cast_unchecked<int64->>(bin_ptr);
-    while (j < byte_len) {
-        int64:o_sh = (j & 7i64) * 8i64;
-        int64:b = (bin64[j / 8i64] >> o_sh) & 255i64;
-        
-        int64:le_idx = byte_len - 1i64 - j;
-        int64:limb_idx = le_idx / 4i64;
-        int64:byte_in_limb = le_idx & 3i64;
-        
-        int64->:B = cast_unchecked<int64->>(bi);
-        B[3i64 + limb_idx] = B[3i64 + limb_idx] | (b << (byte_in_limb * 8i64));
-        j += 1i64;
-    }
-    
-    int64:req_limbs = (byte_len + 3i64) / 4i64;
-    int64->:B2 = cast_unchecked<int64->>(bi);
-    B2[1i64] = req_limbs;
-    B2[2i64] = 1i64;
-    drop raw bigint_trim(bi);
-    
-    drop dalloc(cast_unchecked<wild any->>(bin_ptr));
-    pass bi;
+    int64:buf = cast_unchecked<int64>(alloc(byte_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(buf)); }
+    drop raw secure_zero(buf, byte_len + 8i64);
+    drop (hex_to_raw(hex, buf) ?! 1i32);
+    int4096:res = raw int4096_from_bytes(buf, byte_len);
+    pass res;
 };
 
 pub struct:Secp256k1Params = {
-    int64:p;
-    int64:n;
+    int4096:p;
+    int4096:n;
     ECCPoint:G;
 };
 
 pub func:secp256k1_get_params = Secp256k1Params() {
-    int64:p_val = raw ecc_bigint_from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
-    int64:n_val = raw ecc_bigint_from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
-    int64:gx_val = raw ecc_bigint_from_hex("79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798");
-    int64:gy_val = raw ecc_bigint_from_hex("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
-    
-    int64:g_inf = cast_unchecked<int64>(alloc(8i64));
-    cast_unchecked<int64->>(g_inf)[0i64] = 0i64;
+    int4096:p_val = raw ecc_bigint_from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+    int4096:n_val = raw ecc_bigint_from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    int4096:gx_val = raw ecc_bigint_from_hex("79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798");
+    int4096:gy_val = raw ecc_bigint_from_hex("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
     
     ECCPoint:G_val = ECCPoint {
         x: gx_val,
         y: gy_val,
-        is_infinity: g_inf
+        z: cast_unchecked<int4096>(1i64),
+        is_infinity: 0i64
     };
     
     pass Secp256k1Params {
@@ -349,8 +358,5 @@ pub func:secp256k1_get_params = Secp256k1Params() {
 };
 
 pub func:secp256k1_free_params = int32(Secp256k1Params:params) {
-    drop raw bigint_free(params.p);
-    drop raw bigint_free(params.n);
-    drop raw ecc_point_free(params.G);
     pass 0i32;
 };

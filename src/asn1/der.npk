@@ -1,5 +1,6 @@
 // src/asn1/der.npk
 use "stdlib/core.npk".*;
+use "src/util/bytes.npk".*;
 
 // ASN1Node structure (pointers and arrays managed manually)
 // Offset 0: tag (int64)
@@ -43,16 +44,16 @@ pub func:asn1_node_free = int32(int64:ptr) {
             i += 1i64;
         }
         if (children != 0i64) {
-            free(cast_unchecked<int8->>(children));
+            drop dalloc(cast_unchecked<int8->>(children));
         }
     } else {
         int64:data = p[2i64];
         if (data != 0i64) {
-            free(cast_unchecked<int8->>(data));
+            drop dalloc(cast_unchecked<int8->>(data));
         }
     }
     
-    free(cast_unchecked<int8->>(ptr));
+    drop dalloc(cast_unchecked<int8->>(ptr));
     pass 0i32;
 };
 
@@ -75,7 +76,7 @@ pub func:asn1_node_add_child = int32(int64:parent, int64:child) {
             new_arr_64[i] = old_arr_64[i];
             i += 1i64;
         }
-        free(cast_unchecked<int8->>(children));
+        drop dalloc(cast_unchecked<int8->>(children));
         p[4i64] = new_arr;
         p[6i64] = new_cap;
         children = new_arr;
@@ -113,7 +114,7 @@ pub func:asn1_node_set_data = int32(int64:node, int64:data_ptr, int64:data_len) 
     }
     
     if (p[2i64] != 0i64) {
-        free(cast_unchecked<int8->>(p[2i64]));
+        drop dalloc(cast_unchecked<int8->>(p[2i64]));
     }
     p[2i64] = new_data;
     p[3i64] = data_len;
@@ -121,22 +122,7 @@ pub func:asn1_node_set_data = int32(int64:node, int64:data_ptr, int64:data_len) 
     pass 0i32;
 };
 
-func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    int64:mask = ~(255i64 << sh);
-    w = (w & mask) | (byte_val << sh);
-    buf64[wi] = w;
-    pass 0i32;
-};
 
-func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    pass (w >> sh) & 255i64;
-};
 
 pub func:asn1_encode_len = int64(int64:node) {
     int64->:p = cast_unchecked<int64->>(node);
@@ -185,7 +171,7 @@ pub func:asn1_encode = int64(int64:node, int64:buf_ptr, int64:offset) {
         tag_byte = tag_byte | 0x20i64;
     }
     
-    drop raw buf_put_u8(buf64, offset, tag_byte);
+    drop (buf_put_u8(buf64, offset, tag_byte) ?! 1i32);
     int64:cur_off = offset + 1i64;
     
     int64:content_len = 0i64;
@@ -204,22 +190,22 @@ pub func:asn1_encode = int64(int64:node, int64:buf_ptr, int64:offset) {
     }
     
     if (content_len < 128i64) {
-        drop raw buf_put_u8(buf64, cur_off, content_len);
+        drop (buf_put_u8(buf64, cur_off, content_len) ?! 1i32);
         cur_off += 1i64;
     } else if (content_len < 256i64) {
-        drop raw buf_put_u8(buf64, cur_off, 0x81i64);
-        drop raw buf_put_u8(buf64, cur_off + 1i64, content_len);
+        drop (buf_put_u8(buf64, cur_off, 0x81i64) ?! 1i32);
+        drop (buf_put_u8(buf64, cur_off + 1i64, content_len) ?! 1i32);
         cur_off += 2i64;
     } else if (content_len < 65536i64) {
-        drop raw buf_put_u8(buf64, cur_off, 0x82i64);
-        drop raw buf_put_u8(buf64, cur_off + 1i64, (content_len >> 8i64) & 255i64);
-        drop raw buf_put_u8(buf64, cur_off + 2i64, content_len & 255i64);
+        drop (buf_put_u8(buf64, cur_off, 0x82i64) ?! 1i32);
+        drop (buf_put_u8(buf64, cur_off + 1i64, (content_len >> 8i64) & 255i64) ?! 1i32);
+        drop (buf_put_u8(buf64, cur_off + 2i64, content_len & 255i64) ?! 1i32);
         cur_off += 3i64;
     } else if (content_len < 16777216i64) {
-        drop raw buf_put_u8(buf64, cur_off, 0x83i64);
-        drop raw buf_put_u8(buf64, cur_off + 1i64, (content_len >> 16i64) & 255i64);
-        drop raw buf_put_u8(buf64, cur_off + 2i64, (content_len >> 8i64) & 255i64);
-        drop raw buf_put_u8(buf64, cur_off + 3i64, content_len & 255i64);
+        drop (buf_put_u8(buf64, cur_off, 0x83i64) ?! 1i32);
+        drop (buf_put_u8(buf64, cur_off + 1i64, (content_len >> 16i64) & 255i64) ?! 1i32);
+        drop (buf_put_u8(buf64, cur_off + 2i64, (content_len >> 8i64) & 255i64) ?! 1i32);
+        drop (buf_put_u8(buf64, cur_off + 3i64, content_len & 255i64) ?! 1i32);
         cur_off += 4i64;
     }
     
@@ -244,7 +230,7 @@ pub func:asn1_encode = int64(int64:node, int64:buf_ptr, int64:offset) {
             int64:wi = i / 8i64;
             int64:sh = (i & 7i64) * 8i64;
             int64:b = (data_64[wi] >> sh) & 255i64;
-            drop raw buf_put_u8(buf64, cur_off, b);
+            drop (buf_put_u8(buf64, cur_off, b) ?! 1i32);
             cur_off += 1i64;
             i += 1i64;
         }
@@ -263,7 +249,7 @@ pub func:asn1_parse_internal = int64(int64:buf_ptr, int64:buf_len, int64:offset,
     int64->:buf64 = cast_unchecked<int64->>(buf_ptr);
     int64->:ol_64 = cast_unchecked<int64->>(out_len);
     
-    int64:tag_byte = raw buf_get_u8(buf64, offset);
+    int64:tag_byte = (buf_get_u8(buf64, offset) ?! 1i32);
     int64:is_constructed = 0i64;
     if ((tag_byte & 0x20i64) != 0i64) {
         is_constructed = 1i64;
@@ -273,7 +259,7 @@ pub func:asn1_parse_internal = int64(int64:buf_ptr, int64:buf_len, int64:offset,
     int64:cur_off = offset + 1i64;
     if (cur_off >= buf_len) { pass 0i64; }
     
-    int64:len_byte = raw buf_get_u8(buf64, cur_off);
+    int64:len_byte = (buf_get_u8(buf64, cur_off) ?! 1i32);
     cur_off += 1i64;
     
     int64:content_len = 0i64;
@@ -286,7 +272,7 @@ pub func:asn1_parse_internal = int64(int64:buf_ptr, int64:buf_len, int64:offset,
         
         int64:i = 0i64;
         while (i < num_len_bytes) {
-            int64:b = raw buf_get_u8(buf64, cur_off);
+            int64:b = (buf_get_u8(buf64, cur_off) ?! 1i32);
             content_len = (content_len << 8i64) | b;
             cur_off += 1i64;
             i += 1i64;
@@ -304,12 +290,12 @@ pub func:asn1_parse_internal = int64(int64:buf_ptr, int64:buf_len, int64:offset,
             int64:child = raw asn1_parse_internal(buf_ptr, buf_len, cur_off, child_len);
             if (child == 0i64) {
                 drop raw asn1_node_free(node);
-                free(cast_unchecked<int8->>(child_len));
+                drop dalloc(cast_unchecked<int8->>(child_len));
                 pass 0i64;
             }
             int64:c_len = cast_unchecked<int64->>(child_len)[0i64];
             cur_off += c_len;
-            free(cast_unchecked<int8->>(child_len));
+            drop dalloc(cast_unchecked<int8->>(child_len));
             
             drop raw asn1_node_add_child(node, child);
         }
@@ -319,12 +305,12 @@ pub func:asn1_parse_internal = int64(int64:buf_ptr, int64:buf_len, int64:offset,
             int64->:td_64 = cast_unchecked<int64->>(tmp_data);
             int64:i = 0i64;
             while (i < content_len) {
-                int64:b = raw buf_get_u8(buf64, cur_off + i);
-                drop raw buf_put_u8(td_64, i, b);
+                int64:b = (buf_get_u8(buf64, cur_off + i) ?! 1i32);
+                drop (buf_put_u8(td_64, i, b) ?! 1i32);
                 i += 1i64;
             }
             drop raw asn1_node_set_data(node, tmp_data, content_len);
-            free(cast_unchecked<int8->>(tmp_data));
+            drop dalloc(cast_unchecked<int8->>(tmp_data));
         }
         cur_off += content_len;
     }

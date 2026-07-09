@@ -1,0 +1,209 @@
+// bytes.npk - Centralized byte utilities
+use "stdlib/core.npk".*;
+
+pub func:buf_get_u8 = int64(int64->:buf64, int64:offset) {
+    int64:word = buf64[offset / 8i64];
+    int64:shift = (offset & 7i64) * 8i64;
+    pass (word >> shift) & 255i64;
+};
+
+pub func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:val) {
+    int64:wi = byte_off / 8i64;
+    int64:shift = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << shift);
+    w = (w & mask) | ((val & 255i64) << shift);
+    buf64[wi] = w;
+    pass 0i32;
+};
+
+pub func:buf_set_u8 = int32(int64->:buf64, int64:byte_off, int64:val) {
+    pass (buf_put_u8(buf64, byte_off, val) ?! 1i32);
+};
+
+pub func:read_le64 = int64(int64->:buf64, int64:byte_off) {
+    int64:b0 = (buf_get_u8(buf64, byte_off) ?! 1i64);
+    int64:b1 = (buf_get_u8(buf64, byte_off + 1i64) ?! 1i64);
+    int64:b2 = (buf_get_u8(buf64, byte_off + 2i64) ?! 1i64);
+    int64:b3 = (buf_get_u8(buf64, byte_off + 3i64) ?! 1i64);
+    int64:b4 = (buf_get_u8(buf64, byte_off + 4i64) ?! 1i64);
+    int64:b5 = (buf_get_u8(buf64, byte_off + 5i64) ?! 1i64);
+    int64:b6 = (buf_get_u8(buf64, byte_off + 6i64) ?! 1i64);
+    int64:b7 = (buf_get_u8(buf64, byte_off + 7i64) ?! 1i64);
+    pass b0 | (b1 << 8i64) | (b2 << 16i64) | (b3 << 24i64) | (b4 << 32i64) | (b5 << 40i64) | (b6 << 48i64) | (b7 << 56i64);
+};
+
+pub func:write_le64 = int32(int64->:buf64, int64:byte_off, int64:val) {
+    drop (buf_put_u8(buf64, byte_off, val) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 1i64, val >> 8i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 2i64, val >> 16i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 3i64, val >> 24i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 4i64, val >> 32i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 5i64, val >> 40i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 6i64, val >> 48i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 7i64, val >> 56i64) ?! 1i32);
+    pass 0i32;
+};
+
+pub func:read_be64 = int64(int64->:buf64, int64:byte_off) {
+    int64:b0 = (buf_get_u8(buf64, byte_off) ?! 1i64);
+    int64:b1 = (buf_get_u8(buf64, byte_off + 1i64) ?! 1i64);
+    int64:b2 = (buf_get_u8(buf64, byte_off + 2i64) ?! 1i64);
+    int64:b3 = (buf_get_u8(buf64, byte_off + 3i64) ?! 1i64);
+    int64:b4 = (buf_get_u8(buf64, byte_off + 4i64) ?! 1i64);
+    int64:b5 = (buf_get_u8(buf64, byte_off + 5i64) ?! 1i64);
+    int64:b6 = (buf_get_u8(buf64, byte_off + 6i64) ?! 1i64);
+    int64:b7 = (buf_get_u8(buf64, byte_off + 7i64) ?! 1i64);
+    pass (b0 << 56i64) | (b1 << 48i64) | (b2 << 40i64) | (b3 << 32i64) | (b4 << 24i64) | (b5 << 16i64) | (b6 << 8i64) | b7;
+};
+
+pub func:write_be64 = int32(int64->:buf64, int64:byte_off, int64:val) {
+    drop (buf_put_u8(buf64, byte_off, val >> 56i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 1i64, val >> 48i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 2i64, val >> 40i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 3i64, val >> 32i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 4i64, val >> 24i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 5i64, val >> 16i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 6i64, val >> 8i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 7i64, val) ?! 1i32);
+    pass 0i32;
+};
+
+pub func:read_u32_le = int64(int64->:buf64, int64:byte_off) {
+    int64:b0 = (buf_get_u8(buf64, byte_off) ?! 1i64);
+    int64:b1 = (buf_get_u8(buf64, byte_off + 1i64) ?! 1i64);
+    int64:b2 = (buf_get_u8(buf64, byte_off + 2i64) ?! 1i64);
+    int64:b3 = (buf_get_u8(buf64, byte_off + 3i64) ?! 1i64);
+    pass b0 | (b1 << 8i64) | (b2 << 16i64) | (b3 << 24i64);
+};
+
+pub func:write_u32_le = int32(int64->:buf64, int64:byte_off, int64:val) {
+    drop (buf_put_u8(buf64, byte_off, val) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 1i64, val >> 8i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 2i64, val >> 16i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 3i64, val >> 24i64) ?! 1i32);
+    pass 0i32;
+};
+
+pub func:write_u32_be = int32(int64->:buf64, int64:byte_off, int64:val) {
+    drop (buf_put_u8(buf64, byte_off, val >> 24i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 1i64, val >> 16i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 2i64, val >> 8i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 3i64, val) ?! 1i32);
+    pass 0i32;
+};
+
+pub func:buf_copy_bytes = int32(int64->:dst, int64:dst_off, int64->:src, int64:src_off, int64:len) {
+    int64:i = 0i64;
+    while (i < len) {
+        int64:b = (buf_get_u8(src, src_off + i) ?! 1i64);
+        drop (buf_put_u8(dst, dst_off + i, b) ?! 1i32);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:is_zero_byte = int32(int64->:buf64, int64:byte_off) {
+    int64:b = (buf_get_u8(buf64, byte_off) ?! 1i64);
+    if (b == 0i64) { pass 1i32; }
+    pass 0i32;
+};
+
+// local_memcpy: copy `len` bytes from src (raw int64 address) to
+// dst (int64-> buffer) starting at dst_off byte offset.
+// Used by hash implementations.
+pub func:local_memcpy = int32(int64->:dst, int64:dst_off, int64:src_ptr, int64:len) {
+    int8->:d = cast_unchecked<int8->>(cast_unchecked<int64>(dst) + dst_off);
+    int8->:s = cast_unchecked<int8->>(src_ptr);
+    mcpy(d, s, len);
+    pass 0i32;
+};
+
+// local_memset: set `len` bytes to val starting at dst_off in dst.
+pub func:local_memset = int32(int64->:dst, int64:dst_off, int64:val, int64:len) {
+    int8->:d = cast_unchecked<int8->>(cast_unchecked<int64>(dst) + dst_off);
+    memset(d, val, len);
+    pass 0i32;
+};
+
+// buf_get_u32_be: read a 32-bit big-endian word from buf at byte offset.
+pub func:buf_get_u32_be = int64(int64->:buf64, int64:byte_off) {
+    int64:b0 = (buf_get_u8(buf64, byte_off) ?! 1i64);
+    int64:b1 = (buf_get_u8(buf64, byte_off + 1i64) ?! 1i64);
+    int64:b2 = (buf_get_u8(buf64, byte_off + 2i64) ?! 1i64);
+    int64:b3 = (buf_get_u8(buf64, byte_off + 3i64) ?! 1i64);
+    pass (b0 << 24i64) | (b1 << 16i64) | (b2 << 8i64) | b3;
+};
+
+// buf_get_u64_be: read a 64-bit big-endian word from buf at byte offset.
+pub func:buf_get_u64_be = uint64(int64->:buf64, int64:byte_off) {
+    int64:b0 = (buf_get_u8(buf64, byte_off) ?! 1i64);
+    int64:b1 = (buf_get_u8(buf64, byte_off + 1i64) ?! 1i64);
+    int64:b2 = (buf_get_u8(buf64, byte_off + 2i64) ?! 1i64);
+    int64:b3 = (buf_get_u8(buf64, byte_off + 3i64) ?! 1i64);
+    int64:b4 = (buf_get_u8(buf64, byte_off + 4i64) ?! 1i64);
+    int64:b5 = (buf_get_u8(buf64, byte_off + 5i64) ?! 1i64);
+    int64:b6 = (buf_get_u8(buf64, byte_off + 6i64) ?! 1i64);
+    int64:b7 = (buf_get_u8(buf64, byte_off + 7i64) ?! 1i64);
+    int64:val = (b0 << 56i64) | (b1 << 48i64) | (b2 << 40i64) | (b3 << 32i64) | (b4 << 24i64) | (b5 << 16i64) | (b6 << 8i64) | b7;
+    pass cast_unchecked<uint64>(val);
+};
+
+// buf_set_u64_be: write a 64-bit big-endian word to buf at byte offset.
+pub func:buf_set_u64_be = int32(int64->:buf64, int64:byte_off, uint64:val) {
+    int64:v = cast_unchecked<int64>(val);
+    drop (buf_put_u8(buf64, byte_off, (v >> 56i64) & 255i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 1i64, (v >> 48i64) & 255i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 2i64, (v >> 40i64) & 255i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 3i64, (v >> 32i64) & 255i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 4i64, (v >> 24i64) & 255i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 5i64, (v >> 16i64) & 255i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 6i64, (v >> 8i64) & 255i64) ?! 1i32);
+    drop (buf_put_u8(buf64, byte_off + 7i64, v & 255i64) ?! 1i32);
+    pass 0i32;
+};
+
+// mem_copy: 3-arg variant with raw int64 addresses (for md5/sha1 compatibility)
+pub func:mem_copy = int32(int64:dst_ptr, int64:src_ptr, int64:len) {
+    int8->:d = cast_unchecked<int8->>(dst_ptr);
+    int8->:s = cast_unchecked<int8->>(src_ptr);
+    mcpy(d, s, len);
+    pass 0i32;
+};
+
+// mem_set: 3-arg variant with raw int64 address
+pub func:mem_set = int32(int64:dst_ptr, int64:val, int64:len) {
+    int8->:d = cast_unchecked<int8->>(dst_ptr);
+    memset(d, val, len);
+    pass 0i32;
+};
+
+// buf_get_u32_le: read a 32-bit little-endian word from buf at byte offset.
+pub func:buf_get_u32_le = int64(int64->:buf64, int64:byte_off) {
+    int64:b0 = (buf_get_u8(buf64, byte_off) ?! 1i64);
+    int64:b1 = (buf_get_u8(buf64, byte_off + 1i64) ?! 1i64);
+    int64:b2 = (buf_get_u8(buf64, byte_off + 2i64) ?! 1i64);
+    int64:b3 = (buf_get_u8(buf64, byte_off + 3i64) ?! 1i64);
+    pass b0 | (b1 << 8i64) | (b2 << 16i64) | (b3 << 24i64);
+};
+
+// buf_get_u32: alias for buf_get_u32_le (little-endian, used by MD5)
+pub func:buf_get_u32 = int64(int64->:buf64, int64:byte_off) {
+    pass (buf_get_u32_le(buf64, byte_off) ?! 1i64);
+};
+
+// ct_eq: constant-time equality — returns 1 if a==b, 0 otherwise (no branches)
+pub func:ct_eq = int64(int64:a, int64:b) {
+    int64:diff = a ^ b;
+    // If diff==0, (~diff)+1 == 0 (wraps). We want 1 if zero, 0 if nonzero.
+    // Use: (1 - (((diff | (0-diff)) >> 63) & 1))
+    int64:neg = (0i64 - diff);
+    int64:hi = ((diff | neg) >> 63i64) & 1i64;
+    pass 1i64 - hi;
+};
+
+// ct_lt: constant-time less-than — returns 1 if a<b, 0 otherwise (no branches)
+pub func:ct_lt = int64(int64:a, int64:b) {
+    // Use subtraction: (a-b) >> 63 gives sign bit (1 if negative, i.e., a<b)
+    pass ((a - b) >> 63i64) & 1i64;
+};

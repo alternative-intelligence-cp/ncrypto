@@ -1,32 +1,14 @@
 // src/asymmetric/curve25519.npk
 use "stdlib/core.npk".*;
+use "../util/bytes.npk".*;
 
 // Curve25519 field elements are represented as int64[16] (128 bytes)
 // Each element holds 16 bits of the number.
 
-func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    pass (w >> sh) & 255i64;
-};
 
-func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    int64:mask = ~(255i64 << sh);
-    w = (w & mask) | (byte_val << sh);
-    buf64[wi] = w;
-    pass 0i32;
-};
-
-pub func:gf_alloc = int64() {
-    pass cast_unchecked<int64>(alloc(128i64));
-};
 
 pub func:gf_free = int32(int64:p) {
-    if (p != 0i64) { free(cast_unchecked<int8->>(p)); }
+    if (p != 0i64) { drop dalloc(cast_unchecked<int8->>(p)); }
     pass 0i32;
 };
 
@@ -142,7 +124,7 @@ pub func:gf_mul = int32(int64:o, int64:a, int64:b) {
         i += 1i64;
     }
     
-    free(cast_unchecked<int8->>(t_ptr));
+    drop dalloc(cast_unchecked<int8->>(t_ptr));
     
     drop raw car25519(o);
     drop raw car25519(o);
@@ -178,8 +160,8 @@ pub func:gf_unpack = int32(int64:o, int64:n_ptr) {
     int64:b0 = 0i64;
     int64:b1 = 0i64;
     while (i < 16i64) {
-        b0 = raw buf_get_u8(N, 2i64 * i);
-        b1 = raw buf_get_u8(N, 2i64 * i + 1i64);
+        b0 = (buf_get_u8(N, 2i64 * i) ?! 1i32);
+        b1 = (buf_get_u8(N, 2i64 * i + 1i64) ?! 1i32);
         O[i] = b0 + (b1 << 8i64);
         i += 1i64;
     }
@@ -235,8 +217,8 @@ pub func:gf_pack = int32(int64:o_ptr, int64:n) {
     
     i = 0i64;
     while (i < 16i64) {
-        drop raw buf_put_u8(O, 2i64 * i, T[i] & 0xFFi64);
-        drop raw buf_put_u8(O, 2i64 * i + 1i64, T[i] >> 8i64);
+        drop (buf_put_u8(O, 2i64 * i, T[i] & 0xFFi64) ?! 1i32);
+        drop (buf_put_u8(O, 2i64 * i + 1i64, T[i] >> 8i64) ?! 1i32);
         i += 1i64;
     }
     
@@ -252,13 +234,13 @@ pub func:x25519_scalarmult = int32(int64:q_ptr, int64:n_ptr, int64:p_ptr) {
     
     int64:i = 0i64;
     while (i < 31i64) {
-        drop raw buf_put_u8(Z_buf, i, raw buf_get_u8(N_buf, i));
+        drop (buf_put_u8(Z_buf, i, (buf_get_u8(N_buf, i) ?! 1i32)) ?! 1i32);
         i += 1i64;
     }
-    int64:b31 = raw buf_get_u8(N_buf, 31i64);
-    drop raw buf_put_u8(Z_buf, 31i64, (b31 & 127i64) | 64i64);
-    int64:b0 = raw buf_get_u8(Z_buf, 0i64);
-    drop raw buf_put_u8(Z_buf, 0i64, b0 & 248i64);
+    int64:b31 = (buf_get_u8(N_buf, 31i64) ?! 1i32);
+    drop (buf_put_u8(Z_buf, 31i64, (b31 & 127i64) | 64i64) ?! 1i32);
+    int64:b0 = (buf_get_u8(Z_buf, 0i64) ?! 1i32);
+    drop (buf_put_u8(Z_buf, 0i64, b0 & 248i64) ?! 1i32);
     
     int64:x_arr = cast_unchecked<int64>(alloc(640i64)); // 80 * 8
     int64->:X = cast_unchecked<int64->>(x_arr);
@@ -293,7 +275,7 @@ pub func:x25519_scalarmult = int32(int64:q_ptr, int64:n_ptr, int64:p_ptr) {
     i = 254i64;
     int64:r = 0i64;
     while (i >= 0i64) {
-        r = (raw buf_get_u8(Z_buf, i >> 3i64) >> (i & 7i64)) & 1i64;
+        r = ((buf_get_u8(Z_buf, i >> 3i64) ?! 1i32) >> (i & 7i64)) & 1i64;
         drop raw sel25519(a, b, r);
         drop raw sel25519(c, d, r);
         drop raw gf_add(e, a, c);
@@ -326,8 +308,8 @@ pub func:x25519_scalarmult = int32(int64:q_ptr, int64:n_ptr, int64:p_ptr) {
     drop raw gf_free(a); drop raw gf_free(b); drop raw gf_free(c);
     drop raw gf_free(d); drop raw gf_free(e); drop raw gf_free(f);
     drop raw gf_free(x); drop raw gf_free(_121665);
-    free(cast_unchecked<int8->>(z_ptr));
-    free(cast_unchecked<int8->>(x_arr));
+    drop dalloc(cast_unchecked<int8->>(z_ptr));
+    drop dalloc(cast_unchecked<int8->>(x_arr));
     
     pass 0i32;
 };
@@ -335,12 +317,12 @@ pub func:x25519_scalarmult = int32(int64:q_ptr, int64:n_ptr, int64:p_ptr) {
 pub func:x25519_scalarmult_base = int32(int64:q_ptr, int64:n_ptr) {
     int64:p_ptr = cast_unchecked<int64>(alloc(32i64));
     int64->:P_buf = cast_unchecked<int64->>(p_ptr);
-    drop raw buf_put_u8(P_buf, 0i64, 9i64);
+    drop (buf_put_u8(P_buf, 0i64, 9i64) ?! 1i32);
     int64:i = 1i64;
-    while (i < 32i64) { drop raw buf_put_u8(P_buf, i, 0i64); i += 1i64; }
+    while (i < 32i64) { drop (buf_put_u8(P_buf, i, 0i64) ?! 1i32); i += 1i64; }
     
     drop raw x25519_scalarmult(q_ptr, n_ptr, p_ptr);
     
-    free(cast_unchecked<int8->>(p_ptr));
+    drop dalloc(cast_unchecked<int8->>(p_ptr));
     pass 0i32;
 };

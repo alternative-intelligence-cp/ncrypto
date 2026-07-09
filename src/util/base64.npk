@@ -1,22 +1,8 @@
 // src/util/base64.npk
 use "stdlib/core.npk".*;
+use "bytes.npk".*;
 
-func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    int64:mask = ~(255i64 << sh);
-    w = (w & mask) | (byte_val << sh);
-    buf64[wi] = w;
-    pass 0i32;
-};
 
-func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    pass (w >> sh) & 255i64;
-};
 
 func:b64_encode_char = int64(int64:idx) {
     int64:is_upper = (1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(idx) >> 63u64)) & (1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(25i64 - idx) >> 63u64));
@@ -69,31 +55,31 @@ pub func:base64_encode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:
     int64:i = 0i64;
     int64:o = 0i64;
     while (i < in_len) {
-        int64:b0 = raw buf_get_u8(in_64, i);
+        int64:b0 = (buf_get_u8(in_64, i) ?! 1i32);
         int64:b1 = 0i64;
         int64:b2 = 0i64;
         
-        if ((i + 1i64) < in_len) { b1 = raw buf_get_u8(in_64, i + 1i64); }
-        if ((i + 2i64) < in_len) { b2 = raw buf_get_u8(in_64, i + 2i64); }
+        if ((i + 1i64) < in_len) { b1 = (buf_get_u8(in_64, i + 1i64) ?! 1i32); }
+        if ((i + 2i64) < in_len) { b2 = (buf_get_u8(in_64, i + 2i64) ?! 1i32); }
         
         int64:c0 = b0 >> 2i64;
         int64:c1 = ((b0 & 3i64) << 4i64) | (b1 >> 4i64);
         int64:c2 = ((b1 & 15i64) << 2i64) | (b2 >> 6i64);
         int64:c3 = b2 & 63i64;
         
-        drop raw buf_put_u8(out_64, o, raw b64_encode_char(c0));
-        drop raw buf_put_u8(out_64, o + 1i64, raw b64_encode_char(c1));
+        drop (buf_put_u8(out_64, o, raw b64_encode_char(c0)) ?! 1i32);
+        drop (buf_put_u8(out_64, o + 1i64, raw b64_encode_char(c1)) ?! 1i32);
         
         if ((i + 1i64) < in_len) {
-            drop raw buf_put_u8(out_64, o + 2i64, raw b64_encode_char(c2));
+            drop (buf_put_u8(out_64, o + 2i64, raw b64_encode_char(c2)) ?! 1i32);
         } else {
-            drop raw buf_put_u8(out_64, o + 2i64, 61i64); // '='
+            drop (buf_put_u8(out_64, o + 2i64, 61i64) ?! 1i32); // '='
         }
         
         if ((i + 2i64) < in_len) {
-            drop raw buf_put_u8(out_64, o + 3i64, raw b64_encode_char(c3));
+            drop (buf_put_u8(out_64, o + 3i64, raw b64_encode_char(c3)) ?! 1i32);
         } else {
-            drop raw buf_put_u8(out_64, o + 3i64, 61i64); // '='
+            drop (buf_put_u8(out_64, o + 3i64, 61i64) ?! 1i32); // '='
         }
         
         i += 3i64;
@@ -112,8 +98,8 @@ pub func:base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:
     
     int64:pad_count = 0i64;
     if (in_len >= 2i64) {
-        if (raw buf_get_u8(in_64, in_len - 1i64) == 61i64) { pad_count += 1i64; }
-        if (raw buf_get_u8(in_64, in_len - 2i64) == 61i64) { pad_count += 1i64; }
+        if ((buf_get_u8(in_64, in_len - 1i64) ?! 1i32) == 61i64) { pad_count += 1i64; }
+        if ((buf_get_u8(in_64, in_len - 2i64) ?! 1i32) == 61i64) { pad_count += 1i64; }
     }
     
     int64:out_len = ((in_len / 4i64) * 3i64) - pad_count;
@@ -122,10 +108,10 @@ pub func:base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:
     int64:i = 0i64;
     int64:o = 0i64;
     while (i < in_len) {
-        int64:c0 = raw buf_get_u8(in_64, i);
-        int64:c1 = raw buf_get_u8(in_64, i + 1i64);
-        int64:c2 = raw buf_get_u8(in_64, i + 2i64);
-        int64:c3 = raw buf_get_u8(in_64, i + 3i64);
+        int64:c0 = (buf_get_u8(in_64, i) ?! 1i32);
+        int64:c1 = (buf_get_u8(in_64, i + 1i64) ?! 1i32);
+        int64:c2 = (buf_get_u8(in_64, i + 2i64) ?! 1i32);
+        int64:c3 = (buf_get_u8(in_64, i + 3i64) ?! 1i32);
         
         if (c2 == 61i64) { c2 = 65i64; }
         if (c3 == 61i64) { c3 = 65i64; }
@@ -143,9 +129,9 @@ pub func:base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:
         int64:b1 = ((v1 & 15i64) << 4i64) | (v2 >> 2i64);
         int64:b2 = ((v2 & 3i64) << 6i64) | v3;
         
-        if (o < out_len) { drop raw buf_put_u8(out_64, o, b0); o += 1i64; }
-        if (o < out_len) { drop raw buf_put_u8(out_64, o, b1); o += 1i64; }
-        if (o < out_len) { drop raw buf_put_u8(out_64, o, b2); o += 1i64; }
+        if (o < out_len) { drop (buf_put_u8(out_64, o, b0) ?! 1i32); o += 1i64; }
+        if (o < out_len) { drop (buf_put_u8(out_64, o, b1) ?! 1i32); o += 1i64; }
+        if (o < out_len) { drop (buf_put_u8(out_64, o, b2) ?! 1i32); o += 1i64; }
         
         i += 4i64;
     }

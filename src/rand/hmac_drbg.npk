@@ -1,4 +1,5 @@
 use "src/hash/sha256.npk".*;
+use "src/util/bytes.npk".*;
 use "src/mac/hmac.npk".*;
 use "src/util/hex.npk".*;
 
@@ -52,7 +53,7 @@ pub func:hmac_drbg_update = int32(HMAC_DRBG_State:state, int64:provided_data_ptr
     drop raw hmac_sha256_raw(state.Key_ptr, hash_len, state.V_ptr, hash_len, state.V_ptr);
     
     if (provided_data_len == 0i64) {
-        drop dalloc(cast_unchecked<wild any->>(msg_buf)); // free
+        drop dalloc(cast_unchecked<int8->>(msg_buf)); // free
         pass 0i32;
     }
     
@@ -76,7 +77,7 @@ pub func:hmac_drbg_update = int32(HMAC_DRBG_State:state, int64:provided_data_ptr
     // V = HMAC(Key, V)
     drop raw hmac_sha256_raw(state.Key_ptr, hash_len, state.V_ptr, hash_len, state.V_ptr);
     
-    drop dalloc(cast_unchecked<wild any->>(msg_buf)); // free
+    drop dalloc(cast_unchecked<int8->>(msg_buf)); // free
     pass 0i32;
 };
 
@@ -140,7 +141,7 @@ pub func:hmac_drbg_instantiate = HMAC_DRBG_State(int64:entropy_ptr, int64:entrop
     
     drop raw hmac_drbg_update(state, seed_material, seed_material_len);
     
-    drop dalloc(cast_unchecked<wild any->>(seed_material));
+    drop dalloc(cast_unchecked<int8->>(seed_material));
     pass state;
 };
 
@@ -176,7 +177,7 @@ pub func:hmac_drbg_reseed = int32(HMAC_DRBG_State:state, int64:entropy_ptr, int6
     drop raw hmac_drbg_update(state, seed_material, seed_material_len);
     state.reseed_counter = 1i64;
     
-    drop dalloc(cast_unchecked<wild any->>(seed_material));
+    drop dalloc(cast_unchecked<int8->>(seed_material));
     pass 0i32;
 };
 

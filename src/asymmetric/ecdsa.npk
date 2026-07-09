@@ -1,198 +1,130 @@
 // src/asymmetric/ecdsa.npk
+use "../math/int4096_bridge.npk".*;
+use "../util/bytes.npk".*;
 use "stdlib/core.npk".*;
-use "../math/bigint.npk".*;
+use "../math/int4096_bytes.npk".*;
 use "ecc.npk".*;
+use "../rand/hmac_drbg.npk".*;
 
 pub struct:ECDSASignature = {
-    int64:r;
-    int64:s;
+    int4096:r;
+    int4096:s;
 };
 
 pub func:ecdsa_signature_alloc = ECDSASignature() {
     pass ECDSASignature {
-        r: raw bigint_alloc(10i64),
-        s: raw bigint_alloc(10i64)
+        r: cast_unchecked<int4096>(0i64),
+        s: cast_unchecked<int4096>(0i64)
     };
 };
 
 pub func:ecdsa_signature_free = int32(ECDSASignature:sig) {
-    drop raw bigint_free(sig.r);
-    drop raw bigint_free(sig.s);
     pass 0i32;
 };
 
-pub func:bigint_from_random = int64(int64:n) {
-    int64:n_bits = raw bigint_bit_len(n);
-    int64:n_bytes = (n_bits + 7i64) / 8i64;
-    int64:buf = cast_unchecked<int64>(alloc(n_bytes));
-    int64->:buf64 = cast_unchecked<int64->>(buf);
+// RFC 6979 deterministic ECDSA sign
+pub func:ecdsa_sign = int32(int4096:z, int4096:d, Secp256k1Params:params, ECDSASignature:sig) {
+    int4096:p_mod = params.p;
+    int4096:n_mod = params.n;
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    if (raw int4096_eq(n_mod, zero) == 1i32) { pass -1i32; }
     
-    int64:zero = raw bigint_alloc(1i64);
-    int64->:zero_b = cast_unchecked<int64->>(zero);
-    zero_b[1i64] = 1i64;
-    zero_b[2i64] = 1i64;
-    zero_b[3i64] = 0i64;
+    int64:d_bytes = cast_unchecked<int64>(alloc(32i64));
+    defer { drop dalloc(cast_unchecked<int8->>(d_bytes)); }
+    int64:z_bytes = cast_unchecked<int64>(alloc(32i64));
+    defer { drop dalloc(cast_unchecked<int8->>(z_bytes)); }
     
-    int64:k = raw bigint_alloc((n_bytes / 4i64) + 2i64);
+    drop raw int4096_to_bytes(d, d_bytes, 32i64);
+    drop raw int4096_to_bytes(z, z_bytes, 32i64);
+    
+    HMAC_DRBG_State:drbg = raw hmac_drbg_instantiate(d_bytes, 32i64, z_bytes, 32i64, 0i64, 0i64);
+    defer { drop dalloc(cast_unchecked<int8->>(drbg.V_ptr)); }
+    defer { drop dalloc(cast_unchecked<int8->>(drbg.Key_ptr)); }
+    
+    int64:k_bytes = cast_unchecked<int64>(alloc(32i64));
+    defer { drop dalloc(cast_unchecked<int8->>(k_bytes)); }
     
     int64:done = 0i64;
     while (done == 0i64) {
-        int64:sys_ret = raw sys!!(318i64, buf, n_bytes, 0i64);
-        if (sys_ret < n_bytes) {
-            !!! 1i32;
-        }
+        drop raw hmac_drbg_generate(drbg, k_bytes, 32i64, 0i64, 0i64);
+        int4096:k = raw int4096_from_bytes(k_bytes, 32i64);
         
-        int64:excess = (n_bytes * 8i64) - n_bits;
-        if (excess > 0i64) {
-            int64:mask = (1i64 << (8i64 - excess)) - 1i64;
-            int64:w_idx = (n_bytes - 1i64) / 8i64;
-            int64:w = buf64[w_idx];
-            int64:sh = ((n_bytes - 1i64) & 7i64) * 8i64;
-            int64:b = (w >> sh) & 255i64;
-            b = b & mask;
-            w = (w & ~(255i64 << sh)) | (b << sh);
-            buf64[w_idx] = w;
-        }
-        
-        int64:j = 0i64;
-        int64->:k_limbs = cast_unchecked<int64->>(k);
-        int64:clear_i = 0i64;
-        while (clear_i < ((n_bytes / 4i64) + 2i64)) {
-            k_limbs[3i64 + clear_i] = 0i64;
-            clear_i += 1i64;
-        }
-        
-        while (j < n_bytes) {
-            int64:w = buf64[j / 8i64];
-            int64:sh = (j & 7i64) * 8i64;
-            int64:b = (w >> sh) & 255i64;
-            
-            int64:limb_idx = j / 4i64;
-            int64:byte_in_limb = j & 3i64;
-            
-            k_limbs[3i64 + limb_idx] = k_limbs[3i64 + limb_idx] | (b << (byte_in_limb * 8i64));
-            j += 1i64;
-        }
-        
-        k_limbs[1i64] = (n_bytes + 3i64) / 4i64;
-        k_limbs[2i64] = 1i64;
-        drop raw bigint_trim(k);
-        
-        if (raw bigint_ucmp(k, zero) > 0i32) {
-            if (raw bigint_ucmp(k, n) < 0i32) {
-                done = 1i64;
+        if (raw int4096_gt(k, zero) == 1i32) {
+            if (raw int4096_lt(k, n_mod) == 1i32) {
+                ECCPoint:R = raw ecc_point_alloc();
+                drop raw ecc_scalar_mul_ct(k, params.G, p_mod, R);
+                
+                int4096:rx = R.x;
+                sig.r = (rx % n_mod) ?! -1i32;
+                
+                if (raw int4096_gt(sig.r, zero) == 1i32) {
+                    int4096:k_inv = raw ecc_mod_inv(k, n_mod);
+                    
+                    int4096:dr = (sig.r * d) ?! -1i32;
+                    int4096:dr_mod = (dr % n_mod) ?! -1i32;
+                    int4096:z_mod = (z % n_mod) ?! -1i32;
+                    
+                    int4096:sum = (z_mod + dr_mod);
+                    int4096:sum_mod = (sum % n_mod) ?! -1i32;
+                    
+                    int4096:s_tmp = (k_inv * sum_mod);
+                    sig.s = (s_tmp % n_mod) ?! -1i32;
+                    
+                    if (raw int4096_gt(sig.s, zero) == 1i32) {
+                        done = 1i64;
+                    }
+                }
             }
         }
     }
     
-    drop raw bigint_free(zero);
-    free(cast_unchecked<int8->>(buf));
-    pass k;
-};
-
-pub func:ecdsa_sign = int32(int64:z, int64:d, Secp256k1Params:params, ECDSASignature:sig) {
-    int64:zero = raw bigint_alloc(1i64);
-    cast_unchecked<int64->>(zero)[1i64] = 1i64;
-    cast_unchecked<int64->>(zero)[2i64] = 1i64;
-    cast_unchecked<int64->>(zero)[3i64] = 0i64;
-    
-    int64:done = 0i64;
-    while (done == 0i64) {
-        int64:k = raw bigint_from_random(params.n);
-        
-        ECCPoint:R = raw ecc_point_alloc();
-        drop raw ecc_scalar_mul_ct(k, params.G, params.p, R);
-        
-        drop raw ecc_mod_add(R.x, zero, params.n, sig.r);
-        
-        if (raw bigint_ucmp(sig.r, zero) > 0i32) {
-            int64:k_inv = raw bigint_alloc(10i64);
-            drop raw bigint_modinv(k, params.n, k_inv);
-            
-            int64:tmp1 = raw bigint_alloc(20i64);
-            int64:tmp2 = raw bigint_alloc(20i64);
-            int64:q = raw bigint_alloc(20i64);
-            
-            drop raw bigint_mul(sig.r, d, tmp1);
-            drop raw bigint_div_mod(tmp1, params.n, q, tmp2);
-            drop raw bigint_copy(tmp2, tmp1);
-            
-            drop raw bigint_div_mod(z, params.n, q, tmp2);
-            
-            drop raw ecc_mod_add(tmp2, tmp1, params.n, tmp2);
-            drop raw ecc_mod_mul(k_inv, tmp2, params.n, sig.s);
-            
-            if (raw bigint_ucmp(sig.s, zero) > 0i32) {
-                done = 1i64;
-            }
-            
-            drop raw bigint_free(k_inv);
-            drop raw bigint_free(tmp1);
-            drop raw bigint_free(tmp2);
-            drop raw bigint_free(q);
-        }
-        
-        drop raw ecc_point_free(R);
-        drop raw bigint_free(k);
-    }
-    
-    drop raw bigint_free(zero);
     pass 0i32;
 };
 
-pub func:ecdsa_verify = int32(int64:z, ECCPoint:Q, Secp256k1Params:params, ECDSASignature:sig) {
-    int64:zero = raw bigint_alloc(1i64);
-    cast_unchecked<int64->>(zero)[1i64] = 1i64;
-    cast_unchecked<int64->>(zero)[2i64] = 1i64;
-    cast_unchecked<int64->>(zero)[3i64] = 0i64;
+pub func:ecdsa_verify = int32(int4096:z, ECDSASignature:sig, ECCPoint:Q, Secp256k1Params:params) {
+    int4096:n_mod = params.n;
+    int4096:p_mod = params.p;
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    if (raw int4096_eq(n_mod, zero) == 1i32) { pass -1i32; }
+    if (raw int4096_eq(p_mod, zero) == 1i32) { pass -1i32; }
     
-    if (raw bigint_ucmp(sig.r, zero) <= 0i32) { drop raw bigint_free(zero); pass 0i32; }
-    if (raw bigint_ucmp(sig.r, params.n) >= 0i32) { drop raw bigint_free(zero); pass 0i32; }
+    if (sig.r <= zero) { pass 0i32; }
+    if (sig.r >= n_mod) { pass 0i32; }
     
-    if (raw bigint_ucmp(sig.s, zero) <= 0i32) { drop raw bigint_free(zero); pass 0i32; }
-    if (raw bigint_ucmp(sig.s, params.n) >= 0i32) { drop raw bigint_free(zero); pass 0i32; }
+    if (sig.s <= zero) { pass 0i32; }
+    if (sig.s >= n_mod) { pass 0i32; }
     
-    int64:s_inv = raw bigint_alloc(10i64);
-    drop raw bigint_modinv(sig.s, params.n, s_inv);
+    int4096:s_inv = raw ecc_mod_inv(sig.s, n_mod);
     
-    int64:u1 = raw bigint_alloc(10i64);
-    int64:u2 = raw bigint_alloc(10i64);
+    int4096:z_mod_n = (z % n_mod) ?! -1i32;
     
-    int64:z_mod_n = raw bigint_alloc(10i64);
-    int64:q = raw bigint_alloc(20i64);
-    drop raw bigint_div_mod(z, params.n, q, z_mod_n);
+    int4096:u1_tmp = (z_mod_n * s_inv);
+    int4096:u1 = (u1_tmp % n_mod) ?! -1i32;
     
-    drop raw ecc_mod_mul(z_mod_n, s_inv, params.n, u1);
-    drop raw ecc_mod_mul(sig.r, s_inv, params.n, u2);
+    int4096:u2_tmp = (sig.r * s_inv) ?! -1i32;
+    int4096:u2 = (u2_tmp % n_mod) ?! -1i32;
     
     ECCPoint:R1 = raw ecc_point_alloc();
-    drop raw ecc_scalar_mul_ct(u1, params.G, params.p, R1);
+    drop raw ecc_scalar_mul_ct(u1, params.G, p_mod, R1);
     
     ECCPoint:R2 = raw ecc_point_alloc();
-    drop raw ecc_scalar_mul_ct(u2, Q, params.p, R2);
+    drop raw ecc_scalar_mul_ct(u2, Q, p_mod, R2);
     
     ECCPoint:R = raw ecc_point_alloc();
-    drop raw ecc_point_add(R1, R2, params.p, R);
+    drop raw ecc_point_add(R1, R2, p_mod, R);
+    
+    // R is now in Jacobian coordinates! We must convert to Affine to check x.
+    ECCPoint:R_aff = raw ecc_point_alloc();
+    drop raw ecc_to_affine(R, p_mod, R_aff);
     
     int32:valid = 0i32;
-    if (raw get_inf(R) == 0i64) {
-        int64:r_calc = raw bigint_alloc(10i64);
-        drop raw ecc_mod_add(R.x, zero, params.n, r_calc);
-        if (raw bigint_ucmp(sig.r, r_calc) == 0i32) {
+    if (R_aff.is_infinity == 0i64) {
+        int4096:rx = R_aff.x;
+        int4096:r_calc = (rx % n_mod) ?! -1i32;
+        if (raw int4096_eq(sig.r, r_calc) == 1i32) {
             valid = 1i32;
         }
-        drop raw bigint_free(r_calc);
     }
-    
-    drop raw bigint_free(zero);
-    drop raw bigint_free(s_inv);
-    drop raw bigint_free(u1);
-    drop raw bigint_free(u2);
-    drop raw bigint_free(z_mod_n);
-    drop raw bigint_free(q);
-    drop raw ecc_point_free(R1);
-    drop raw ecc_point_free(R2);
-    drop raw ecc_point_free(R);
     
     pass valid;
 };

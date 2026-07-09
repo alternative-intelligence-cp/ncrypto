@@ -1,6 +1,7 @@
 // src/hash/sha3.npk
 // Auto-generated Keccak / SHA-3 permutation
 use "stdlib/core.npk".*;
+use "../util/bytes.npk".*;
 
 func:keccak_f1600 = int32(int64:state_ptr) {
     int64->:s = cast_unchecked<int64->>(state_ptr);
@@ -2306,7 +2307,7 @@ pub func:sha3_process = int32(
         }
     }
 
-    free(cast_unchecked<int8->>(state_ptr));
+    drop dalloc(cast_unchecked<int8->>(state_ptr));
     pass 0i32;
 };
 

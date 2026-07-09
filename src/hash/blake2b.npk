@@ -1,73 +1,37 @@
 use "stdlib/core.npk".*;
+use "../util/bytes.npk".*;
 
-func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    pass (w >> sh) & 255i64;
-};
 
-func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    int64:mask = ~(255i64 << sh);
-    w = (w & mask) | ((byte_val & 255i64) << sh);
-    buf64[wi] = w;
-    pass 0i32;
-};
 
-func:read_le64 = int64(int64->:buf, int64:offset) {
-    int64:v = raw buf_get_u8(buf, offset + 0i64);
-    v |= raw buf_get_u8(buf, offset + 1i64) << 8i64;
-    v |= raw buf_get_u8(buf, offset + 2i64) << 16i64;
-    v |= raw buf_get_u8(buf, offset + 3i64) << 24i64;
-    v |= raw buf_get_u8(buf, offset + 4i64) << 32i64;
-    v |= raw buf_get_u8(buf, offset + 5i64) << 40i64;
-    v |= raw buf_get_u8(buf, offset + 6i64) << 48i64;
-    v |= raw buf_get_u8(buf, offset + 7i64) << 56i64;
-    pass v;
-};
 
-func:write_le64 = int32(int64->:buf, int64:offset, int64:val) {
-    drop raw buf_put_u8(buf, offset + 0i64, val & 255i64);
-    drop raw buf_put_u8(buf, offset + 1i64, (val >> 8i64) & 255i64);
-    drop raw buf_put_u8(buf, offset + 2i64, (val >> 16i64) & 255i64);
-    drop raw buf_put_u8(buf, offset + 3i64, (val >> 24i64) & 255i64);
-    drop raw buf_put_u8(buf, offset + 4i64, (val >> 32i64) & 255i64);
-    drop raw buf_put_u8(buf, offset + 5i64, (val >> 40i64) & 255i64);
-    drop raw buf_put_u8(buf, offset + 6i64, (val >> 48i64) & 255i64);
-    drop raw buf_put_u8(buf, offset + 7i64, (val >> 56i64) & 255i64);
-    pass 0i32;
-};
 
 pub func:blake2b_compress = int32(int64:h_ptr, int64:m_ptr, int64:t0, int64:t1, int64:f0) {
     int64->:H = cast_unchecked<int64->>(h_ptr);
     int64->:M = cast_unchecked<int64->>(m_ptr);
-    int64:h0 = raw read_le64(H, 0i64);
-    int64:h1 = raw read_le64(H, 8i64);
-    int64:h2 = raw read_le64(H, 16i64);
-    int64:h3 = raw read_le64(H, 24i64);
-    int64:h4 = raw read_le64(H, 32i64);
-    int64:h5 = raw read_le64(H, 40i64);
-    int64:h6 = raw read_le64(H, 48i64);
-    int64:h7 = raw read_le64(H, 56i64);
-    int64:m0 = raw read_le64(M, 0i64);
-    int64:m1 = raw read_le64(M, 8i64);
-    int64:m2 = raw read_le64(M, 16i64);
-    int64:m3 = raw read_le64(M, 24i64);
-    int64:m4 = raw read_le64(M, 32i64);
-    int64:m5 = raw read_le64(M, 40i64);
-    int64:m6 = raw read_le64(M, 48i64);
-    int64:m7 = raw read_le64(M, 56i64);
-    int64:m8 = raw read_le64(M, 64i64);
-    int64:m9 = raw read_le64(M, 72i64);
-    int64:m10 = raw read_le64(M, 80i64);
-    int64:m11 = raw read_le64(M, 88i64);
-    int64:m12 = raw read_le64(M, 96i64);
-    int64:m13 = raw read_le64(M, 104i64);
-    int64:m14 = raw read_le64(M, 112i64);
-    int64:m15 = raw read_le64(M, 120i64);
+    int64:h0 = (read_le64(H, 0i64) ?! 1i32);
+    int64:h1 = (read_le64(H, 8i64) ?! 1i32);
+    int64:h2 = (read_le64(H, 16i64) ?! 1i32);
+    int64:h3 = (read_le64(H, 24i64) ?! 1i32);
+    int64:h4 = (read_le64(H, 32i64) ?! 1i32);
+    int64:h5 = (read_le64(H, 40i64) ?! 1i32);
+    int64:h6 = (read_le64(H, 48i64) ?! 1i32);
+    int64:h7 = (read_le64(H, 56i64) ?! 1i32);
+    int64:m0 = (read_le64(M, 0i64) ?! 1i32);
+    int64:m1 = (read_le64(M, 8i64) ?! 1i32);
+    int64:m2 = (read_le64(M, 16i64) ?! 1i32);
+    int64:m3 = (read_le64(M, 24i64) ?! 1i32);
+    int64:m4 = (read_le64(M, 32i64) ?! 1i32);
+    int64:m5 = (read_le64(M, 40i64) ?! 1i32);
+    int64:m6 = (read_le64(M, 48i64) ?! 1i32);
+    int64:m7 = (read_le64(M, 56i64) ?! 1i32);
+    int64:m8 = (read_le64(M, 64i64) ?! 1i32);
+    int64:m9 = (read_le64(M, 72i64) ?! 1i32);
+    int64:m10 = (read_le64(M, 80i64) ?! 1i32);
+    int64:m11 = (read_le64(M, 88i64) ?! 1i32);
+    int64:m12 = (read_le64(M, 96i64) ?! 1i32);
+    int64:m13 = (read_le64(M, 104i64) ?! 1i32);
+    int64:m14 = (read_le64(M, 112i64) ?! 1i32);
+    int64:m15 = (read_le64(M, 120i64) ?! 1i32);
 
     int64:v0 = h0;
     int64:v1 = h1;
@@ -1046,14 +1010,14 @@ pub func:blake2b_compress = int32(int64:h_ptr, int64:m_ptr, int64:t0, int64:t1, 
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
     v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
-    drop raw write_le64(H, 0i64, h0 ^ v0 ^ v8);
-    drop raw write_le64(H, 8i64, h1 ^ v1 ^ v9);
-    drop raw write_le64(H, 16i64, h2 ^ v2 ^ v10);
-    drop raw write_le64(H, 24i64, h3 ^ v3 ^ v11);
-    drop raw write_le64(H, 32i64, h4 ^ v4 ^ v12);
-    drop raw write_le64(H, 40i64, h5 ^ v5 ^ v13);
-    drop raw write_le64(H, 48i64, h6 ^ v6 ^ v14);
-    drop raw write_le64(H, 56i64, h7 ^ v7 ^ v15);
+    drop (write_le64(H, 0i64, h0 ^ v0 ^ v8) ?! 1i32);
+    drop (write_le64(H, 8i64, h1 ^ v1 ^ v9) ?! 1i32);
+    drop (write_le64(H, 16i64, h2 ^ v2 ^ v10) ?! 1i32);
+    drop (write_le64(H, 24i64, h3 ^ v3 ^ v11) ?! 1i32);
+    drop (write_le64(H, 32i64, h4 ^ v4 ^ v12) ?! 1i32);
+    drop (write_le64(H, 40i64, h5 ^ v5 ^ v13) ?! 1i32);
+    drop (write_le64(H, 48i64, h6 ^ v6 ^ v14) ?! 1i32);
+    drop (write_le64(H, 56i64, h7 ^ v7 ^ v15) ?! 1i32);
     pass 0i32;
 };
 
@@ -1065,24 +1029,24 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
     int64->:H = cast_unchecked<int64->>(h_ptr);
     
     // IV
-    drop raw write_le64(H, 0i64, 0x6a09e667f3bcc908i64);
-    drop raw write_le64(H, 8i64, 0xbb67ae8584caa73bi64);
-    drop raw write_le64(H, 16i64, 0x3c6ef372fe94f82bi64);
-    drop raw write_le64(H, 24i64, 0xa54ff53a5f1d36f1i64);
-    drop raw write_le64(H, 32i64, 0x510e527fade682d1i64);
-    drop raw write_le64(H, 40i64, 0x9b05688c2b3e6c1fi64);
-    drop raw write_le64(H, 48i64, 0x1f83d9abfb41bd6bi64);
-    drop raw write_le64(H, 56i64, 0x5be0cd19137e2179i64);
+    drop (write_le64(H, 0i64, 0x6a09e667f3bcc908i64) ?! 1i32);
+    drop (write_le64(H, 8i64, 0xbb67ae8584caa73bi64) ?! 1i32);
+    drop (write_le64(H, 16i64, 0x3c6ef372fe94f82bi64) ?! 1i32);
+    drop (write_le64(H, 24i64, 0xa54ff53a5f1d36f1i64) ?! 1i32);
+    drop (write_le64(H, 32i64, 0x510e527fade682d1i64) ?! 1i32);
+    drop (write_le64(H, 40i64, 0x9b05688c2b3e6c1fi64) ?! 1i32);
+    drop (write_le64(H, 48i64, 0x1f83d9abfb41bd6bi64) ?! 1i32);
+    drop (write_le64(H, 56i64, 0x5be0cd19137e2179i64) ?! 1i32);
     
     // Parameter block xor
     int64:param = 0x01010000i64 | (key_len << 8i64) | out_len;
-    int64:h0 = raw read_le64(H, 0i64);
-    drop raw write_le64(H, 0i64, h0 ^ param);
+    int64:h0 = (read_le64(H, 0i64) ?! 1i32);
+    drop (write_le64(H, 0i64, h0 ^ param) ?! 1i32);
     
     int64:block = cast_unchecked<int64>(alloc(128i64));
     int64->:B = cast_unchecked<int64->>(block);
     int64:i = 0i64;
-    while (i < 128i64) { drop raw buf_put_u8(B, i, 0i64); i += 1i64; }
+    while (i < 128i64) { drop (buf_put_u8(B, i, 0i64) ?! 1i32); i += 1i64; }
     
     int64:t0 = 0i64;
     int64:t1 = 0i64;
@@ -1096,7 +1060,7 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
         int64->:KEY = cast_unchecked<int64->>(key_ptr);
         i = 0i64;
         while (i < key_len) {
-            drop raw buf_put_u8(B, i, raw buf_get_u8(KEY, i));
+            drop (buf_put_u8(B, i, (buf_get_u8(KEY, i) ?! 1i32)) ?! 1i32);
             i += 1i64;
         }
         if (in_len == 0i64) {
@@ -1115,7 +1079,7 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
         while (rem > 128i64) {
             i = 0i64;
             while (i < 128i64) {
-                drop raw buf_put_u8(B, i, raw buf_get_u8(IN, in_offset + i));
+                drop (buf_put_u8(B, i, (buf_get_u8(IN, in_offset + i) ?! 1i32)) ?! 1i32);
                 i += 1i64;
             }
             in_offset += 128i64;
@@ -1127,11 +1091,11 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
         
         i = 0i64;
         while (i < rem) {
-            drop raw buf_put_u8(B, i, raw buf_get_u8(IN, in_offset + i));
+            drop (buf_put_u8(B, i, (buf_get_u8(IN, in_offset + i) ?! 1i32)) ?! 1i32);
             i += 1i64;
         }
         while (i < 128i64) {
-            drop raw buf_put_u8(B, i, 0i64);
+            drop (buf_put_u8(B, i, 0i64) ?! 1i32);
             i += 1i64;
         }
         t0 = (t0 + rem) & 0xFFFFFFFFFFFFFFFFi64;
@@ -1145,13 +1109,13 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
     while (i < out_len) {
         int64:wi = i / 8i64;
         int64:sh = (i & 7i64) * 8i64;
-        int64:v = raw read_le64(H, wi * 8i64);
-        drop raw buf_put_u8(OUT, i, (v >> sh) & 255i64);
+        int64:v = (read_le64(H, wi * 8i64) ?! 1i32);
+        drop (buf_put_u8(OUT, i, (v >> sh) & 255i64) ?! 1i32);
         i += 1i64;
     }
     
-    free(cast_unchecked<int8->>(h_ptr));
-    free(cast_unchecked<int8->>(block));
+    drop dalloc(cast_unchecked<int8->>(h_ptr));
+    drop dalloc(cast_unchecked<int8->>(block));
     
     pass 0i32;
 };

@@ -1,28 +1,15 @@
 // src/asymmetric/rsa_sign.npk
+use "../math/int4096_bridge.npk".*;
+use "../math/int4096_bytes.npk".*;
+use "../util/bytes.npk".*;
 use "stdlib/core.npk".*;
 use "src/asymmetric/rsa.npk".*;
-use "src/math/bigint.npk".*;
 use "src/asn1/der.npk".*;
 
-func:buf_put_u8_local = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    int64:mask = ~(255i64 << sh);
-    w = (w & mask) | (byte_val << sh);
-    buf64[wi] = w;
-    pass 0i32;
-};
-
-func:buf_get_u8_local = int64(int64->:buf64, int64:byte_off) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    pass (w >> sh) & 255i64;
-};
-
 pub func:rsa_sign_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:hash_ptr, int64:hash_len, int64:oid_ptr, int64:oid_len, int64:out_ptr, int64:out_len) {
-    int64:k = raw bigint_bit_len(priv_key.n);
+    int4096:priv_n = priv_key.n;
+    int4096:priv_d = priv_key.d;
+    int64:k = raw int4096_bit_len(priv_n);
     int64:k_bytes = (k + 7i64) / 8i64;
     if (out_len < k_bytes) { fail(-1i64); }
     
@@ -52,123 +39,140 @@ pub func:rsa_sign_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:hash_ptr, int64
     }
     
     int64:t_buf = cast_unchecked<int64>(alloc(t_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t_buf)); }
     drop raw asn1_encode(seq, t_buf, 0i64);
     drop raw asn1_node_free(seq);
     
     int64:em_buf = cast_unchecked<int64>(alloc(k_bytes + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(em_buf)); }
     int64->:em_64 = cast_unchecked<int64->>(em_buf);
     
-    drop raw buf_put_u8_local(em_64, 0i64, 0i64);
-    drop raw buf_put_u8_local(em_64, 1i64, 1i64);
+    drop (buf_put_u8(em_64, 0i64, 0i64) ?! 1i32);
+    drop (buf_put_u8(em_64, 1i64, 1i64) ?! 1i32);
     
     int64:ps_len = k_bytes - t_len - 3i64;
     int64:i = 0i64;
     while (i < ps_len) {
-        drop raw buf_put_u8_local(em_64, 2i64 + i, 255i64);
+        drop (buf_put_u8(em_64, 2i64 + i, 255i64) ?! 1i32);
         i += 1i64;
     }
     
-    drop raw buf_put_u8_local(em_64, 2i64 + ps_len, 0i64);
+    drop (buf_put_u8(em_64, 2i64 + ps_len, 0i64) ?! 1i32);
     
     int64->:t_64 = cast_unchecked<int64->>(t_buf);
     i = 0i64;
     while (i < t_len) {
-        int64:b = raw buf_get_u8_local(t_64, i);
-        drop raw buf_put_u8_local(em_64, 3i64 + ps_len + i, b);
+        int64:b = (buf_get_u8(t_64, i) ?! 1i64);
+        drop (buf_put_u8(em_64, 3i64 + ps_len + i, b) ?! 1i32);
         i += 1i64;
     }
     
-    int64:m_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
-    drop raw bigint_from_bytes(em_buf, k_bytes, m_bi);
-    
-    int64:c_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
-    drop raw bigint_modexp(m_bi, priv_key.d, priv_key.n, c_bi);
-    
-    drop raw bigint_to_bytes(c_bi, out_ptr, k_bytes);
-    
-    free(cast_unchecked<int8->>(t_buf));
-    free(cast_unchecked<int8->>(em_buf));
-    drop raw bigint_free(m_bi);
-    drop raw bigint_free(c_bi);
+    // Convert encoded message to int4096, do modexp, convert back
+    int4096:m_val = (int4096_from_bytes(em_buf, k_bytes) ?! -1i64);
+    int4096:c_val = (int4096_modexp(m_val, priv_d, priv_n) ?! -1i64);
+    drop (int4096_to_bytes(c_val, out_ptr, k_bytes) ?! -1i64);
     
     pass k_bytes;
 };
 
-// Returns hash length on success, or -1 on failure
+// Returns hash length on success, or fails on error
 pub func:rsa_verify_pkcs1v15 = int64(RSAPublicKey:pub_key, int64:sig_ptr, int64:sig_len, int64:oid_ptr, int64:oid_len, int64:out_hash, int64:out_hash_cap) {
-    int64:k = raw bigint_bit_len(pub_key.n);
+    int4096:pub_n = pub_key.n;
+    int4096:pub_e = pub_key.e;
+    int64:k = raw int4096_bit_len(pub_n);
     int64:k_bytes = (k + 7i64) / 8i64;
     
     if (sig_len != k_bytes) { fail(-1i64); }
     
-    int64:c_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
-    drop raw bigint_from_bytes(sig_ptr, sig_len, c_bi);
-    
-    int64:m_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
-    drop raw bigint_modexp(c_bi, pub_key.e, pub_key.n, m_bi);
+    // Convert signature to int4096, do modexp with public key, convert back
+    int4096:c_val = (int4096_from_bytes(sig_ptr, sig_len) ?! -1i64);
+    int4096:m_val = (int4096_modexp(c_val, pub_e, pub_n) ?! -1i64);
     
     int64:em_buf = cast_unchecked<int64>(alloc(k_bytes + 8i64));
-    drop raw bigint_to_bytes(m_bi, em_buf, k_bytes);
+    defer { drop dalloc(cast_unchecked<int8->>(em_buf)); }
+    drop (int4096_to_bytes(m_val, em_buf, k_bytes) ?! -1i64);
     
     int64->:em_64 = cast_unchecked<int64->>(em_buf);
     
-    // Check Padding: 0x00 0x01 0xFF ... 0xFF 0x00
-    if (raw buf_get_u8_local(em_64, 0i64) != 0i64) {
-        free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
-    }
-    if (raw buf_get_u8_local(em_64, 1i64) != 1i64) {
-        free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
-    }
-    
+    // Constant-time padding check: 0x00 0x01 {0xFF...} 0x00 T
+    // Scan ALL bytes and accumulate errors — no early exits.
+    int64:error = 0i64;
+
+    int64:b0 = (buf_get_u8(em_64, 0i64) ?! 1i64);
+    int64:b1 = (buf_get_u8(em_64, 1i64) ?! 1i64);
+    error = error | b0;           // Must be 0x00
+    error = error | (b1 ^ 1i64); // Must be 0x01
+
+    // Scan PS + separator constant-time: find first 0x00, verify rest is 0xFF
+    int64:separator_pos = 0i64;
+    int64:found = 0i64;
+    int64:bad_ps = 0i64;
     int64:i = 2i64;
-    int32:found_zero = 0i32;
-    while ((i < k_bytes) && (found_zero == 0i32)) {
-        if (raw buf_get_u8_local(em_64, i) == 0i64) {
-            found_zero = 1i32;
-        } else {
-            if (raw buf_get_u8_local(em_64, i) != 255i64) {
-                free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
-            }
-        }
+    while (i < k_bytes) {
+        int64:byte_val = (buf_get_u8(em_64, i) ?! 1i64);
+        int64:is_zero = (ct_eq(byte_val, 0i64) ?! 1i64);
+        int64:is_ff   = (ct_eq(byte_val, 255i64) ?! 1i64);
+
+        // Record the position of the FIRST zero byte
+        int64:first_zero = is_zero & ((1i64 - found) & 1i64);
+        separator_pos = separator_pos | (first_zero * i);
+        found = found | is_zero;
+
+        // Any byte before the separator that is not 0xFF is an error
+        int64:in_ps = ((1i64 - found) & 1i64) & ((1i64 - is_zero) & 1i64);
+        bad_ps = bad_ps | (in_ps & ((1i64 - is_ff) & 1i64));
+
         i += 1i64;
     }
-    
-    if (found_zero == 0i32) {
-        free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+
+    error = error | bad_ps;
+    error = error | (1i64 - found);   // No separator found
+
+    // PS must be at least 8 bytes (separator at offset >= 10: 2 header + 8 PS)
+    int64:ps_too_short = (ct_lt(separator_pos, 10i64) ?! 1i64);
+    error = error | ps_too_short;
+
+    if (error != 0i64) {
+        fail(-1i64);
     }
-    
-    int64:t_offset = i;
+
+    int64:t_offset = separator_pos + 1i64;
+
     int64:t_len = k_bytes - t_offset;
     
     int64:t_buf = cast_unchecked<int64>(alloc(t_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t_buf)); }
     int64->:t_64 = cast_unchecked<int64->>(t_buf);
     int64:j = 0i64;
     while (j < t_len) {
-        drop raw buf_put_u8_local(t_64, j, raw buf_get_u8_local(em_64, t_offset + j));
+        int64:bval = (buf_get_u8(em_64, t_offset + j) ?! 1i64);
+        drop (buf_put_u8(t_64, j, bval) ?! 1i32);
         j += 1i64;
     }
     
     // Parse DigestInfo
     int64:parsed_len_buf = cast_unchecked<int64>(alloc(8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(parsed_len_buf)); }
     int64:seq_node = raw asn1_parse(t_buf, t_len, parsed_len_buf);
     int64:parsed_len = cast_unchecked<int64->>(parsed_len_buf)[0i64];
-    free(cast_unchecked<int8->>(parsed_len_buf));
 
     if (seq_node == 0i64) {
-        free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        fail(-1i64);
     }
     
     if (parsed_len != t_len) {
         drop raw asn1_node_free(seq_node);
-        free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        fail(-1i64);
     }
     
     int64->:seq_p = cast_unchecked<int64->>(seq_node);
     if (seq_p[0i64] != 16i64) { // Not SEQUENCE
-        drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        drop raw asn1_node_free(seq_node);
+        fail(-1i64);
     }
     if (seq_p[5i64] != 2i64) { // Not 2 children
-        drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        drop raw asn1_node_free(seq_node);
+        fail(-1i64);
     }
     
     int64->:children = cast_unchecked<int64->>(seq_p[4i64]);
@@ -176,26 +180,31 @@ pub func:rsa_verify_pkcs1v15 = int64(RSAPublicKey:pub_key, int64:sig_ptr, int64:
     int64->:oct_node = cast_unchecked<int64->>(children[1i64]);
     
     if (alg_seq[0i64] != 16i64) {
-        drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        drop raw asn1_node_free(seq_node);
+        fail(-1i64);
     }
     if (oct_node[0i64] != 4i64) {
-        drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        drop raw asn1_node_free(seq_node);
+        fail(-1i64);
     }
     
     if (alg_seq[5i64] < 1i64) {
-        drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        drop raw asn1_node_free(seq_node);
+        fail(-1i64);
     }
     
     int64->:alg_children = cast_unchecked<int64->>(alg_seq[4i64]);
     int64->:oid_node = cast_unchecked<int64->>(alg_children[0i64]);
     
     if (oid_node[0i64] != 6i64) {
-        drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        drop raw asn1_node_free(seq_node);
+        fail(-1i64);
     }
     
     int64:parsed_oid_len = oid_node[3i64];
     if (parsed_oid_len != oid_len) {
-        drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        drop raw asn1_node_free(seq_node);
+        fail(-1i64);
     }
     
     int64->:parsed_oid_data = cast_unchecked<int64->>(oid_node[2i64]);
@@ -203,30 +212,31 @@ pub func:rsa_verify_pkcs1v15 = int64(RSAPublicKey:pub_key, int64:sig_ptr, int64:
     
     j = 0i64;
     while (j < oid_len) {
-        if (raw buf_get_u8_local(parsed_oid_data, j) != raw buf_get_u8_local(expected_oid_data, j)) {
-            drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        int64:pb = (buf_get_u8(parsed_oid_data, j) ?! 1i64);
+        int64:eb = (buf_get_u8(expected_oid_data, j) ?! 1i64);
+        if (pb != eb) {
+            drop raw asn1_node_free(seq_node);
+            fail(-1i64);
         }
         j += 1i64;
     }
     
     int64:hash_len = oct_node[3i64];
     if (hash_len > out_hash_cap) {
-        drop raw asn1_node_free(seq_node); free(cast_unchecked<int8->>(t_buf)); free(cast_unchecked<int8->>(em_buf)); drop raw bigint_free(c_bi); drop raw bigint_free(m_bi); fail(-1i64);
+        drop raw asn1_node_free(seq_node);
+        fail(-1i64);
     }
     
     int64->:parsed_hash_data = cast_unchecked<int64->>(oct_node[2i64]);
     int64->:out_hash_64 = cast_unchecked<int64->>(out_hash);
     j = 0i64;
     while (j < hash_len) {
-        drop raw buf_put_u8_local(out_hash_64, j, raw buf_get_u8_local(parsed_hash_data, j));
+        int64:hb = (buf_get_u8(parsed_hash_data, j) ?! 1i64);
+        drop (buf_put_u8(out_hash_64, j, hb) ?! 1i32);
         j += 1i64;
     }
     
     drop raw asn1_node_free(seq_node);
-    free(cast_unchecked<int8->>(t_buf));
-    free(cast_unchecked<int8->>(em_buf));
-    drop raw bigint_free(c_bi);
-    drop raw bigint_free(m_bi);
     
     pass hash_len;
 };

@@ -1,0 +1,137 @@
+use "stdlib/core.npk".*;
+use "../util/bytes.npk".*;
+pub func:int4096_eq = int32(int4096:a, int4096:b) {
+    if (a == b) { pass 1i32; }
+    pass 0i32;
+};
+
+pub func:int4096_neq = int32(int4096:a, int4096:b) {
+    if (a != b) { pass 1i32; }
+    pass 0i32;
+};
+
+pub func:int4096_lt = int32(int4096:a, int4096:b) {
+    if (a < b) { pass 1i32; }
+    pass 0i32;
+};
+
+pub func:int4096_gt = int32(int4096:a, int4096:b) {
+    if (a > b) { pass 1i32; }
+    pass 0i32;
+};
+
+// int4096_modexp: constant-time modular exponentiation.
+// Iterates exactly 4096 bits regardless of exponent, preventing timing leakage.
+pub func:int4096_modexp = int4096(int4096:base, int4096:exp, int4096:m) {
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    if (raw int4096_eq(m, zero) == 1i32) { pass zero; }
+    int4096:res = cast_unchecked<int4096>(1i64);
+    int4096:base_m = (base % m);
+    int4096:one = cast_unchecked<int4096>(1i64);
+    int64:bit = 4095i64;
+    while (bit >= 0i64) {
+        int4096:bit4 = cast_unchecked<int4096>(cast_unchecked<int64>(bit));
+        int4096:e_bit = (exp >> bit4) & one;
+        int4096:mul_mod = ((res * base_m) % m);
+        int4096:mask = (zero - e_bit);
+        int4096:not_mask = (zero - one) - mask;
+        res = (mul_mod & mask) | (res & not_mask);
+        base_m = ((base_m * base_m) % m);
+        bit -= 1i64;
+    }
+    pass res;
+};
+pub func:int64_to_int4096 = int4096(int64:v) {
+    int4096->:ptr = cast_unchecked<int4096->>(alloc(1024i64));
+    ptr[0i64] = cast_unchecked<int4096>(0i64);
+    int64->:ptr64 = cast_unchecked<int64->>(ptr);
+    ptr64[0i64] = v;
+    int4096:res = ptr[0i64];
+    drop dalloc(cast_unchecked<int8->>(ptr));
+    pass res;
+};
+
+pub func:int4096_to_int64 = int64(int4096:v) {
+    int4096->:ptr = cast_unchecked<int4096->>(alloc(1024i64));
+    ptr[0i64] = v;
+    int64->:ptr64 = cast_unchecked<int64->>(ptr);
+    int64:res = ptr64[0i64];
+    drop dalloc(cast_unchecked<int8->>(ptr));
+    pass res;
+};
+
+pub func:bigint_to_int4096 = int4096(int64:a) {
+    int64->:A = cast_unchecked<int64->>(a);
+    int64:len = A[1i64];
+    int4096:val = cast_unchecked<int4096>(0i64);
+    int64:i = len - 1i64;
+    while (i >= 0i64) {
+        int4096:limb = raw int64_to_int4096(A[3i64 + i]);
+        val = (val << cast_unchecked<int4096>(32i64)) | limb;
+        i -= 1i64;
+    }
+    if (A[2i64] == -1i64) {
+        val = cast_unchecked<int4096>(0i64) - val;
+    }
+    pass val;
+};
+
+pub func:int4096_to_bigint = int32(int4096:val, int64:out) {
+    int64->:O = cast_unchecked<int64->>(out);
+    int4096:v = val;
+    int64:sign = 1i64;
+    if (v < cast_unchecked<int4096>(0i64)) {
+        sign = -1i64;
+        v = cast_unchecked<int4096>(0i64) - v;
+    }
+    if (v == cast_unchecked<int4096>(0i64)) {
+        O[1i64] = 0i64;
+        O[2i64] = 0i64;
+        pass 0i32;
+    }
+    int64:i = 0i64;
+    int4096:mask = cast_unchecked<int4096>(4294967295i64); // 0xFFFFFFFF
+    while (v > cast_unchecked<int4096>(0i64)) {
+        int4096:limb = v & mask;
+        O[3i64 + i] = raw int4096_to_int64(limb);
+        v = v >> cast_unchecked<int4096>(32i64);
+        i += 1i64;
+    }
+    O[1i64] = i;
+    O[2i64] = sign;
+    pass 0i32;
+};
+
+pub func:bigint_to_int4096_unsigned = int4096(int64:a) {
+    int64->:A = cast_unchecked<int64->>(a);
+    int64:len = A[1i64];
+    int4096:val = cast_unchecked<int4096>(0i64);
+    int64:i = len - 1i64;
+    while (i >= 0i64) {
+        int4096:limb = raw int64_to_int4096(A[3i64 + i]);
+        val = (val << cast_unchecked<int4096>(32i64)) | limb;
+        i -= 1i64;
+    }
+    pass val;
+};
+
+pub func:int4096_to_bigint_unsigned = int32(int4096:val, int64:out) {
+    int64->:O = cast_unchecked<int64->>(out);
+    int4096:v = val;
+    
+    if (v == cast_unchecked<int4096>(0i64)) {
+        O[1i64] = 0i64;
+        O[2i64] = 0i64;
+        pass 0i32;
+    }
+    int64:i = 0i64;
+    int4096:mask = cast_unchecked<int4096>(4294967295i64);
+    while (v > cast_unchecked<int4096>(0i64)) {
+        int4096:limb = v & mask;
+        O[3i64 + i] = raw int4096_to_int64(limb);
+        v = v >> cast_unchecked<int4096>(32i64);
+        i += 1i64;
+    }
+    O[1i64] = i;
+    pass 0i32;
+};

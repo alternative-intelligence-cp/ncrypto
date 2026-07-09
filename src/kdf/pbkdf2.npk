@@ -1,4 +1,5 @@
 use "src/hash/sha256.npk".*;
+use "src/util/bytes.npk".*;
 use "src/hash/sha512.npk".*;
 use "src/mac/hmac.npk".*;
 use "src/util/hex.npk".*;
@@ -33,10 +34,12 @@ pub func:pbkdf2_hmac_sha256 = int32(int64:pass_ptr, int64:pass_len, int64:salt_p
     }
     
     int64:U_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(U_buf)); }
     int64:T_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(T_buf)); }
     int64:salt_block_len = salt_len + 4i64;
     int64:salt_block = cast_unchecked<int64>(alloc(salt_block_len + 8i64));
-    
+    defer { drop dalloc(cast_unchecked<int8->>(salt_block)); }
     int64->:U_64 = cast_unchecked<int64->>(U_buf);
     int64->:T_64 = cast_unchecked<int64->>(T_buf);
     int64->:salt_64 = cast_unchecked<int64->>(salt_block);
@@ -71,7 +74,7 @@ pub func:pbkdf2_hmac_sha256 = int32(int64:pass_ptr, int64:pass_len, int64:salt_p
         
         // U_1 = HMAC(P, S || INT(i))
         string:u_hex = raw hmac_sha256(pass_ptr, pass_len, salt_block, salt_block_len);
-        drop raw hex_to_raw(u_hex, U_buf);
+        drop (hex_to_raw(u_hex, U_buf) ?! 1i32);
         
         // T_i = U_1
         int64:k = 0i64;
@@ -86,7 +89,7 @@ pub func:pbkdf2_hmac_sha256 = int32(int64:pass_ptr, int64:pass_len, int64:salt_p
         while (iter <= iterations) {
             // U_c = HMAC(P, U_{c-1})
             u_hex = raw hmac_sha256(pass_ptr, pass_len, U_buf, hash_len);
-            drop raw hex_to_raw(u_hex, U_buf);
+            drop (hex_to_raw(u_hex, U_buf) ?! 1i32);
             
             // T_i ^= U_c
             k = 0i64;
@@ -117,12 +120,9 @@ pub func:pbkdf2_hmac_sha256 = int32(int64:pass_ptr, int64:pass_len, int64:salt_p
         i += 1i64;
     }
     
-    drop dalloc(cast_unchecked<wild any->>(U_buf));
-    drop dalloc(cast_unchecked<wild any->>(T_buf));
-    drop dalloc(cast_unchecked<wild any->>(salt_block));
-    
     pass 0i32;
 };
+
 
 // PBKDF2 with HMAC-SHA512
 pub func:pbkdf2_hmac_sha512 = int32(int64:pass_ptr, int64:pass_len, int64:salt_ptr, int64:salt_len, int64:iterations, int64:out_ptr, int64:out_len) {
@@ -134,10 +134,12 @@ pub func:pbkdf2_hmac_sha512 = int32(int64:pass_ptr, int64:pass_len, int64:salt_p
     }
     
     int64:U_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(U_buf)); }
     int64:T_buf = cast_unchecked<int64>(alloc(hash_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(T_buf)); }
     int64:salt_block_len = salt_len + 4i64;
     int64:salt_block = cast_unchecked<int64>(alloc(salt_block_len + 8i64));
-    
+    defer { drop dalloc(cast_unchecked<int8->>(salt_block)); }
     int64->:U_64 = cast_unchecked<int64->>(U_buf);
     int64->:T_64 = cast_unchecked<int64->>(T_buf);
     int64->:salt_64 = cast_unchecked<int64->>(salt_block);
@@ -172,7 +174,7 @@ pub func:pbkdf2_hmac_sha512 = int32(int64:pass_ptr, int64:pass_len, int64:salt_p
         
         // U_1 = HMAC(P, S || INT(i))
         string:u_hex = raw hmac_sha512(pass_ptr, pass_len, salt_block, salt_block_len);
-        drop raw hex_to_raw(u_hex, U_buf);
+        drop (hex_to_raw(u_hex, U_buf) ?! 1i32);
         
         // T_i = U_1
         int64:k = 0i64;
@@ -187,7 +189,7 @@ pub func:pbkdf2_hmac_sha512 = int32(int64:pass_ptr, int64:pass_len, int64:salt_p
         while (iter <= iterations) {
             // U_c = HMAC(P, U_{c-1})
             u_hex = raw hmac_sha512(pass_ptr, pass_len, U_buf, hash_len);
-            drop raw hex_to_raw(u_hex, U_buf);
+            drop (hex_to_raw(u_hex, U_buf) ?! 1i32);
             
             // T_i ^= U_c
             k = 0i64;
@@ -218,9 +220,6 @@ pub func:pbkdf2_hmac_sha512 = int32(int64:pass_ptr, int64:pass_len, int64:salt_p
         i += 1i64;
     }
     
-    drop dalloc(cast_unchecked<wild any->>(U_buf));
-    drop dalloc(cast_unchecked<wild any->>(T_buf));
-    drop dalloc(cast_unchecked<wild any->>(salt_block));
-    
     pass 0i32;
 };
+

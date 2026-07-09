@@ -2,6 +2,7 @@
 // RFC 8439 ChaCha20-Poly1305 AEAD
 
 use "stdlib/core.npk".*;
+use "../util/bytes.npk".*;
 use "src/cipher/chacha20.npk".*;
 use "src/mac/poly1305.npk".*;
 
@@ -38,7 +39,7 @@ pub func:chacha20_poly1305_encrypt = int32(
             int64->:pad64 = cast_unchecked<int64->>(pad_ptr);
             pad64[0i64] = 0i64; pad64[1i64] = 0i64;
             drop raw poly1305_update(poly_state, pad_ptr, pad_len);
-            free(cast_unchecked<int8->>(pad_ptr));
+            drop dalloc(cast_unchecked<int8->>(pad_ptr));
         }
     }
 
@@ -53,7 +54,7 @@ pub func:chacha20_poly1305_encrypt = int32(
             int64->:pad64 = cast_unchecked<int64->>(pad_ptr);
             pad64[0i64] = 0i64; pad64[1i64] = 0i64;
             drop raw poly1305_update(poly_state, pad_ptr, pad_len);
-            free(cast_unchecked<int8->>(pad_ptr));
+            drop dalloc(cast_unchecked<int8->>(pad_ptr));
         }
     }
 
@@ -66,23 +67,23 @@ pub func:chacha20_poly1305_encrypt = int32(
     // Nitpick spec says standard types are native. Let's just use write_u32_le.
     
     // Low 32 bits of aad_len
-    drop raw write_u32_le(lens_ptr, 0i64, aad_len & 0xFFFFFFFFi64);
+    drop (write_u32_le(lens_ptr, 0i64, aad_len & 0xFFFFFFFFi64) ?! 1i32);
     // High 32 bits of aad_len
-    drop raw write_u32_le(lens_ptr, 4i64, (aad_len >> 32i64) & 0xFFFFFFFFi64);
+    drop (write_u32_le(lens_ptr, 4i64, (aad_len >> 32i64) & 0xFFFFFFFFi64) ?! 1i32);
 
     // Low 32 bits of pt_len
-    drop raw write_u32_le(lens_ptr, 8i64, pt_len & 0xFFFFFFFFi64);
+    drop (write_u32_le(lens_ptr, 8i64, pt_len & 0xFFFFFFFFi64) ?! 1i32);
     // High 32 bits of pt_len
-    drop raw write_u32_le(lens_ptr, 12i64, (pt_len >> 32i64) & 0xFFFFFFFFi64);
+    drop (write_u32_le(lens_ptr, 12i64, (pt_len >> 32i64) & 0xFFFFFFFFi64) ?! 1i32);
 
     drop raw poly1305_update(poly_state, lens_ptr, 16i64);
 
     // 6. Finalize MAC
     drop raw poly1305_finish(poly_state, mac_ptr);
 
-    free(cast_unchecked<int8->>(block0_ptr));
-    free(cast_unchecked<int8->>(poly_state));
-    free(cast_unchecked<int8->>(lens_ptr));
+    drop dalloc(cast_unchecked<int8->>(block0_ptr));
+    drop dalloc(cast_unchecked<int8->>(poly_state));
+    drop dalloc(cast_unchecked<int8->>(lens_ptr));
 
     pass 0i32;
 };
@@ -111,7 +112,7 @@ pub func:chacha20_poly1305_decrypt = int32(
             int64->:pad64 = cast_unchecked<int64->>(pad_ptr);
             pad64[0i64] = 0i64; pad64[1i64] = 0i64;
             drop raw poly1305_update(poly_state, pad_ptr, pad_len);
-            free(cast_unchecked<int8->>(pad_ptr));
+            drop dalloc(cast_unchecked<int8->>(pad_ptr));
         }
     }
 
@@ -125,16 +126,16 @@ pub func:chacha20_poly1305_decrypt = int32(
             int64->:pad64 = cast_unchecked<int64->>(pad_ptr);
             pad64[0i64] = 0i64; pad64[1i64] = 0i64;
             drop raw poly1305_update(poly_state, pad_ptr, pad_len);
-            free(cast_unchecked<int8->>(pad_ptr));
+            drop dalloc(cast_unchecked<int8->>(pad_ptr));
         }
     }
 
     // 4. Process Lengths
     int64:lens_ptr = cast_unchecked<int64>(alloc(16i64));
-    drop raw write_u32_le(lens_ptr, 0i64, aad_len & 0xFFFFFFFFi64);
-    drop raw write_u32_le(lens_ptr, 4i64, (aad_len >> 32i64) & 0xFFFFFFFFi64);
-    drop raw write_u32_le(lens_ptr, 8i64, ct_len & 0xFFFFFFFFi64);
-    drop raw write_u32_le(lens_ptr, 12i64, (ct_len >> 32i64) & 0xFFFFFFFFi64);
+    drop (write_u32_le(lens_ptr, 0i64, aad_len & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(lens_ptr, 4i64, (aad_len >> 32i64) & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(lens_ptr, 8i64, ct_len & 0xFFFFFFFFi64) ?! 1i32);
+    drop (write_u32_le(lens_ptr, 12i64, (ct_len >> 32i64) & 0xFFFFFFFFi64) ?! 1i32);
     drop raw poly1305_update(poly_state, lens_ptr, 16i64);
 
     // 5. Finalize MAC and compare
@@ -149,10 +150,10 @@ pub func:chacha20_poly1305_decrypt = int32(
     diff = diff | (c_mac64[1i64] ^ e_mac64[1i64]);
 
     if (diff != 0i64) {
-        free(cast_unchecked<int8->>(block0_ptr));
-        free(cast_unchecked<int8->>(poly_state));
-        free(cast_unchecked<int8->>(lens_ptr));
-        free(cast_unchecked<int8->>(computed_mac));
+        drop dalloc(cast_unchecked<int8->>(block0_ptr));
+        drop dalloc(cast_unchecked<int8->>(poly_state));
+        drop dalloc(cast_unchecked<int8->>(lens_ptr));
+        drop dalloc(cast_unchecked<int8->>(computed_mac));
         pass 1i32; // mismatch
     }
 
@@ -161,10 +162,10 @@ pub func:chacha20_poly1305_decrypt = int32(
         drop raw chacha20_process(key_ptr, 1i64, nonce_ptr, ct_ptr, pt_ptr, ct_len);
     }
 
-    free(cast_unchecked<int8->>(block0_ptr));
-    free(cast_unchecked<int8->>(poly_state));
-    free(cast_unchecked<int8->>(lens_ptr));
-    free(cast_unchecked<int8->>(computed_mac));
+    drop dalloc(cast_unchecked<int8->>(block0_ptr));
+    drop dalloc(cast_unchecked<int8->>(poly_state));
+    drop dalloc(cast_unchecked<int8->>(lens_ptr));
+    drop dalloc(cast_unchecked<int8->>(computed_mac));
 
     pass 0i32;
 };

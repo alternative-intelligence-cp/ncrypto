@@ -2,6 +2,7 @@
 // Hex encoding/decoding utilities
 
 use "stdlib/core.npk".*;
+use "bytes.npk".*;
 
 pub func:my_string_ptr = int64(string:s) {
     int64:p = cast_unchecked<int64>(s);

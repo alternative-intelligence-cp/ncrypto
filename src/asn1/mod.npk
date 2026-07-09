@@ -1,2 +1,3 @@
 use "der.npk".*;
+use "src/util/bytes.npk".*;
 use "keys.npk".*;

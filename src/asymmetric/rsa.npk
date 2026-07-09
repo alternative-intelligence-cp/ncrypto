@@ -1,129 +1,125 @@
-use "../math/bigint.npk".*;
+// TODO: Implement RSA-OAEP (for encryption) and RSA-PSS (for signatures) padding schemes.
+// The current implementation is basic RSA, but modern padding is required for security.
+use "../math/int4096_bytes.npk".*;
+use "../util/bytes.npk".*;
+use "../math/int4096_bridge.npk".*;
 use "../rand/sys_rand.npk".*;
+use "stdlib/core.npk".*;
 
 pub struct:RSAPublicKey = {
-    int64:n;
-    int64:e;
+    int4096:n;
+    int4096:e;
 };
 
 pub struct:RSAPrivateKey = {
-    int64:n;
-    int64:d;
-    int64:p;
-    int64:q;
+    int4096:n;
+    int4096:d;
+    int4096:p;
+    int4096:q;
 };
 
-// Generates a random odd BigInt of exactly `bits` length.
-func:bigint_rand_odd = int32(int64:bits, int64:out) {
-    int64:limbs = (bits + 31i64) / 32i64;
-    int64:bytes_len = limbs * 4i64; 
-    int64:words = (bytes_len + 7i64) / 8i64;
-    
-    int64:flat = cast_unchecked<int64>(alloc(bytes_len + 8i64));
-    drop raw sys_rand_bytes(flat, bytes_len);
-    
-    int64->:B = cast_unchecked<int64->>(flat);
-    int64->:O = cast_unchecked<int64->>(out);
-    
-    O[1i64] = limbs;
-    O[2i64] = 1i64; // Positive
-    
-    int64:i = 0i64;
-    while (i < limbs) {
-        int64:w = B[i / 2i64];
-        int64:limb = 0i64;
-        if ((i & 1i64) == 0i64) {
-            limb = w & 0xFFFFFFFFi64;
-        } else {
-            limb = (w >> 32i64) & 0xFFFFFFFFi64;
-        }
-        O[3i64 + i] = limb;
-        i += 1i64;
+pub func:int4096_bit_len = int64(int4096:val) {
+    int4096:v = val;
+    int64:bits = 0i64;
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    while (raw int4096_gt(v, zero) == 1i32) {
+        bits += 1i64;
+        v = v >> cast_unchecked<int4096>(1i64);
     }
+    pass bits;
+};
+
+
+
+
+pub func:int4096_modinv = int4096(int4096:a, int4096:m) {
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    int4096:one = cast_unchecked<int4096>(1i64);
+    
+    int4096:t = zero;
+    int4096:newt = one;
+    int4096:r = m;
+    int4096:newr = a;
+    
+    while (raw int4096_neq(newr, zero) == 1i32) {
+        int4096:quotient = (r / newr);
+        
+        int4096:tmp_t = t;
+        int4096:q_newt = (quotient * newt);
+        t = newt;
+        newt = (tmp_t - q_newt);
+        
+        int4096:tmp_r = r;
+        int4096:q_newr = (quotient * newr);
+        r = newr;
+        newr = (tmp_r - q_newr);
+    }
+    
+    if (r > one) { fail(-1i32); } // No inverse
+    if (raw int4096_lt(t, zero) == 1i32) { t = (t + m); }
+    
+    pass t;
+};
+
+func:int4096_rand_odd = int4096(int64:bits) {
+    int64:bytes_len = (bits + 7i64) / 8i64;
+    int64:flat = cast_unchecked<int64>(alloc(bytes_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(flat)); }
+    int64:read_bytes = sys_rand_bytes(flat, bytes_len) ?! -1i32;
+    
+    int4096:out = raw int4096_from_bytes(flat, bytes_len);
     
     // Force LSB to 1 (odd)
-    O[3i64] = O[3i64] | 1i64;
+    out = out | cast_unchecked<int4096>(1i64);
     
     // Force top bit to 1, and clear excess bits
-    int64:top_bits = bits & 31i64;
-    if (top_bits == 0i64) {
-        O[3i64 + limbs - 1i64] = O[3i64 + limbs - 1i64] | 0x80000000i64;
-    } else {
-        int64:mask = (1i64 << top_bits) - 1i64;
-        int64:top_bit = 1i64 << (top_bits - 1i64);
-        O[3i64 + limbs - 1i64] = (O[3i64 + limbs - 1i64] & mask) | top_bit;
-    }
+    int64:shift_amt = bits - 1i64;
+    int4096:one = cast_unchecked<int4096>(1i64);
+    int4096:top_bit = one << cast_unchecked<int4096>(shift_amt);
     
-    drop raw bigint_trim(out);
-    drop dalloc(cast_unchecked<wild any->>(flat));
-    pass 0i32;
+    int4096:mask = (one << cast_unchecked<int4096>(bits)) - one;
+    out = (out & mask) | top_bit;
+    
+    pass out;
 };
 
 // Miller-Rabin primality test
-// Returns 1 if probably prime, 0 if composite
-func:bigint_is_prime = int32(int64:n, int32:k) {
-    int64:one = raw bigint_alloc(100i64);
-    int64->:one_b = cast_unchecked<int64->>(one);
-    one_b[1i64] = 1i64; one_b[2i64] = 1i64; one_b[3i64] = 1i64;
+func:int4096_is_prime = int32(int4096:n, int32:k) {
+    int4096:one = cast_unchecked<int4096>(1i64);
+    int4096:two = cast_unchecked<int4096>(2i64);
+    int4096:three = cast_unchecked<int4096>(3i64);
     
-    int64:two = raw bigint_alloc(100i64);
-    int64->:two_b = cast_unchecked<int64->>(two);
-    two_b[1i64] = 1i64; two_b[2i64] = 1i64; two_b[3i64] = 2i64;
-    
-    int64:three = raw bigint_alloc(100i64);
-    int64->:three_b = cast_unchecked<int64->>(three);
-    three_b[1i64] = 1i64; three_b[2i64] = 1i64; three_b[3i64] = 3i64;
-    
-    // if n <= 3
-    if (raw bigint_ucmp(n, three) <= 0i32) {
-        int32:ret = 0i32;
-        if (raw bigint_ucmp(n, two) >= 0i32) { ret = 1i32; }
-        drop raw bigint_free(one); drop raw bigint_free(two); drop raw bigint_free(three);
-        pass ret;
+    if (n <= three) {
+        if (n >= two) { pass 1i32; }
+        pass 0i32;
     }
     
-    int64:n_minus_1 = raw bigint_alloc(100i64);
-    drop raw bigint_sub(n, one, n_minus_1);
-    
-    int64:d = raw bigint_alloc(100i64);
-    drop raw bigint_copy(n_minus_1, d);
+    int4096:n_minus_1 = (n - one);
+    int4096:d = n_minus_1;
     
     int64:r = 0i64;
-    int64:tmp_q = raw bigint_alloc(100i64);
-    int64:tmp_r = raw bigint_alloc(100i64);
-    
-    while (raw bigint_get_bit(d, 0i64) == 0i64) {
-        drop raw bigint_div_mod(d, two, tmp_q, tmp_r);
-        drop raw bigint_copy(tmp_q, d);
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    while ((d & one) == zero) {
+        d = (d / two);
         r += 1i64;
     }
     
-    int64:a = raw bigint_alloc(100i64);
-    int64:x = raw bigint_alloc(200i64);
-    int64:bits = raw bigint_bit_len(n);
-    
+    int64:bits = raw int4096_bit_len(n);
     int32:i = 0i32;
     int32:is_composite = 0i32;
     
     while ((i < k) && (is_composite == 0i32)) {
-        // a = random in [2, n-2]
-        // Hack for MVP: just generate a random odd number of `bits-1` size.
-        // It will be < n. If it's < 2, just set it to 2.
-        drop raw bigint_rand_odd(bits - 1i64, a);
-        if (raw bigint_ucmp(a, two) < 0i32) {
-            drop raw bigint_copy(two, a);
-        }
+        int4096:a = raw int4096_rand_odd(bits - 1i64);
+        if (raw int4096_lt(a, two) == 1i32) { a = two; }
         
-        // x = a^d % n
-        drop raw bigint_modexp(a, d, n, x);
+        int4096:x = raw int4096_modexp(a, d, n);
         
-        if ((raw bigint_ucmp(x, one) != 0i32) && (raw bigint_ucmp(x, n_minus_1) != 0i32)) {
+        if (raw int4096_neq((x, one) == 1i32) && (x != n_minus_1)) {
             int64:j = 0i64;
             int32:passed_inner = 0i32;
             while ((j < (r - 1i64)) && (passed_inner == 0i32)) {
-                drop raw bigint_modexp(x, two, n, tmp_q); // tmp_q used as temp
-                drop raw bigint_copy(tmp_q, x);
-                if (raw bigint_ucmp(x, n_minus_1) == 0i32) {
+                x = raw int4096_modexp(x, two, n);
+                if (raw int4096_eq(x, n_minus_1) == 1i32) {
                     passed_inner = 1i32;
                 }
                 j += 1i64;
@@ -135,235 +131,129 @@ func:bigint_is_prime = int32(int64:n, int32:k) {
         i += 1i32;
     }
     
-    drop raw bigint_free(one); drop raw bigint_free(two); drop raw bigint_free(three);
-    drop raw bigint_free(n_minus_1); drop raw bigint_free(d);
-    drop raw bigint_free(tmp_q); drop raw bigint_free(tmp_r);
-    drop raw bigint_free(a); drop raw bigint_free(x);
-    
     if (is_composite == 1i32) { pass 0i32; }
     pass 1i32;
 };
 
-pub func:rsa_generate_prime = int32(int64:bits, int64:out) {
+pub func:rsa_generate_prime = int4096(int64:bits) {
     int32:found = 0i32;
+    int4096:out = cast_unchecked<int4096>(0i64);
     while (found == 0i32) {
-        drop raw bigint_rand_odd(bits, out);
-        if (raw bigint_is_prime(out, 40i32) == 1i32) {
+        out = raw int4096_rand_odd(bits);
+        if (raw int4096_is_prime(out, 40i32) == 1i32) {
             found = 1i32;
         }
     }
-    pass 0i32;
-};
-
-func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    int64:mask = ~(255i64 << sh);
-    w = (w & mask) | (byte_val << sh);
-    buf64[wi] = w;
-    pass 0i32;
-};
-
-func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
-    int64:wi = byte_off / 8i64;
-    int64:sh = (byte_off & 7i64) * 8i64;
-    int64:w = buf64[wi];
-    pass (w >> sh) & 255i64;
-};
-
-// buffer is Big-Endian byte array. BigInt is little-endian 32-bit limbs.
-pub func:bigint_from_bytes = int32(int64:buf_ptr, int64:buf_len, int64:out) {
-    int64->:buf64 = cast_unchecked<int64->>(buf_ptr);
-    int64->:O = cast_unchecked<int64->>(out);
-    
-    int64:cap = O[0i64];
-    int64:i = 0i64;
-    while (i < cap) { O[3i64 + i] = 0i64; i += 1i64; }
-    
-    O[2i64] = 1i64; // Positive
-    int64:limbs = (buf_len + 3i64) / 4i64;
-    O[1i64] = limbs;
-    
-    i = 0i64;
-    while (i < buf_len) {
-        int64:b = raw buf_get_u8(buf64, i);
-        int64:le_idx = buf_len - 1i64 - i;
-        int64:limb_idx = le_idx / 4i64;
-        int64:byte_in_limb = le_idx & 3i64;
-        
-        O[3i64 + limb_idx] = O[3i64 + limb_idx] | (b << (byte_in_limb * 8i64));
-        i += 1i64;
-    }
-    
-    drop raw bigint_trim(out);
-    pass 0i32;
-};
-
-pub func:bigint_to_bytes = int32(int64:bi, int64:buf_ptr, int64:buf_len) {
-    int64->:buf64 = cast_unchecked<int64->>(buf_ptr);
-    int64->:B = cast_unchecked<int64->>(bi);
-    
-    int64:i = 0i64;
-    while (i < buf_len) {
-        drop raw buf_put_u8(buf64, i, 0i64); // Zero out
-        i += 1i64;
-    }
-    
-    int64:limbs = B[1i64];
-    i = 0i64;
-    while (i < buf_len) {
-        int64:le_idx = buf_len - 1i64 - i; // Byte index in little-endian
-        int64:limb_idx = le_idx / 4i64;
-        
-        if (limb_idx < limbs) {
-            int64:limb = B[3i64 + limb_idx];
-            int64:byte_in_limb = le_idx & 3i64;
-            int64:b = (limb >> (byte_in_limb * 8i64)) & 255i64;
-            drop raw buf_put_u8(buf64, i, b);
-        }
-        i += 1i64;
-    }
-    pass 0i32;
+    pass out;
 };
 
 pub func:rsa_generate_key = RSAPrivateKey(int64:bits) {
-    int64:p = raw bigint_alloc(100i64);
-    int64:q = raw bigint_alloc(100i64);
-    int64:n = raw bigint_alloc(200i64);
-    int64:d = raw bigint_alloc(200i64);
+    int4096:e = cast_unchecked<int4096>(65537i64);
+    int4096:one = cast_unchecked<int4096>(1i64);
     
-    int64:e = raw bigint_alloc(10i64);
-    int64->:e_b = cast_unchecked<int64->>(e);
-    e_b[1i64] = 1i64; e_b[2i64] = 1i64; e_b[3i64] = 65537i64;
-    
-    int64:p_minus_1 = raw bigint_alloc(100i64);
-    int64:q_minus_1 = raw bigint_alloc(100i64);
-    int64:phi = raw bigint_alloc(200i64);
-    
-    int64:one = raw bigint_alloc(10i64);
-    int64->:one_b = cast_unchecked<int64->>(one);
-    one_b[1i64] = 1i64; one_b[2i64] = 1i64; one_b[3i64] = 1i64;
+    int4096:p = cast_unchecked<int4096>(0i64);
+    int4096:q = cast_unchecked<int4096>(0i64);
+    int4096:n = cast_unchecked<int4096>(0i64);
+    int4096:d = cast_unchecked<int4096>(0i64);
     
     int32:found = 0i32;
     while (found == 0i32) {
-        drop raw rsa_generate_prime(bits / 2i64, p);
-        drop raw rsa_generate_prime(bits / 2i64, q);
+        p = raw rsa_generate_prime(bits / 2i64);
+        q = raw rsa_generate_prime(bits / 2i64);
         
-        drop raw bigint_mul(p, q, n);
+        n = (p * q);
         
-        drop raw bigint_sub(p, one, p_minus_1);
-        drop raw bigint_sub(q, one, q_minus_1);
-        drop raw bigint_mul(p_minus_1, q_minus_1, phi);
+        int4096:p_minus_1 = (p - one);
+        int4096:q_minus_1 = (q - one);
+        int4096:phi = (p_minus_1 * q_minus_1);
         
-        int32:inv_res = raw bigint_modinv(e, phi, d);
-        if (inv_res == 0i32) {
+        // Let's ensure gcd(e, phi) == 1 by trying modinv
+        int4096:d_res = int4096_modinv(e, phi) ?! (cast_unchecked<int4096>(0i64) - cast_unchecked<int4096>(1i64));
+        if (d_res != (cast_unchecked<int4096>(0i64) - cast_unchecked<int4096>(1i64))) {
+            d = d_res;
             found = 1i32;
         }
     }
     
-    drop raw bigint_free(p_minus_1);
-    drop raw bigint_free(q_minus_1);
-    drop raw bigint_free(phi);
-    drop raw bigint_free(one);
-    
-    // Convert e to int64 to return
-    // Wait, the struct requires int64 pointers for n, d, p, q
-    // Wait, RSAPrivateKey defines int64:n etc. Are these values or pointers?
-    // They are BigInt pointers!
-    // So we just pass n, d, p, q.
-    // What about e? Wait, RSAPublicKey has e, but RSAPrivateKey doesnt.
-    drop raw bigint_free(e);
-    
-    RSAPrivateKey:priv = RSAPrivateKey {
+    pass RSAPrivateKey {
         n: n,
         d: d,
         p: p,
         q: q
     };
-    pass priv;
 };
 
 pub func:rsa_encrypt_pkcs1v15 = int64(RSAPublicKey:pub_key, int64:msg_ptr, int64:msg_len, int64:out_ptr, int64:out_len) {
-    int64:k = raw bigint_bit_len(pub_key.n);
+    int4096:pub_n = pub_key.n;
+    int4096:pub_e = pub_key.e;
+    int64:k = raw int4096_bit_len(pub_n);
     int64:k_bytes = (k + 7i64) / 8i64;
     
     if (out_len < k_bytes) { fail(-1i64); }
     if (msg_len > (k_bytes - 11i64)) { fail(-2i64); } // Message too long
     
     int64:em_buf = cast_unchecked<int64>(alloc(k_bytes + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(em_buf)); }
     int64->:em_64 = cast_unchecked<int64->>(em_buf);
     
     int64:i = 0i64;
-    while (i < k_bytes) { drop raw buf_put_u8(em_64, i, 0i64); i += 1i64; }
+    while (i < k_bytes) { drop (buf_put_u8(em_64, i, 0i64) ?! 1i32); i += 1i64; }
     
-    drop raw buf_put_u8(em_64, 1i64, 2i64); // 0x02
+    drop (buf_put_u8(em_64, 1i64, 2i64) ?! 1i32); // 0x02
     
     int64:ps_len = k_bytes - msg_len - 3i64;
     int64:ps_buf = cast_unchecked<int64>(alloc(ps_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(ps_buf)); }
     int64->:ps_64 = cast_unchecked<int64->>(ps_buf);
     
     int64:ps_idx = 0i64;
-    while (ps_idx < ps_len) {
-        drop raw sys_rand_bytes(ps_buf, 1i64);
-        int64:r = raw buf_get_u8(ps_64, 0i64);
+    while (raw int4096_lt(ps_idx, ps_len) == 1i32) {
+        int64:read_bytes_ps = sys_rand_bytes(ps_buf, 1i64) ?! -1i32;
+        int64:r = (buf_get_u8(ps_64, 0i64) ?! 1i32);
         if (r != 0i64) {
-            drop raw buf_put_u8(em_64, 2i64 + ps_idx, r);
+            drop (buf_put_u8(em_64, 2i64 + ps_idx, r) ?! 1i32);
             ps_idx += 1i64;
         }
     }
-    drop dalloc(cast_unchecked<wild any->>(ps_buf)); // free
     
-    drop raw buf_put_u8(em_64, 2i64 + ps_len, 0i64);
+    drop (buf_put_u8(em_64, 2i64 + ps_len, 0i64) ?! 1i32);
     
     int64->:msg_64 = cast_unchecked<int64->>(msg_ptr);
     i = 0i64;
     while (i < msg_len) {
-        int64:b = raw buf_get_u8(msg_64, i);
-        drop raw buf_put_u8(em_64, 3i64 + ps_len + i, b);
+        int64:b = (buf_get_u8(msg_64, i) ?! 1i32);
+        drop (buf_put_u8(em_64, 3i64 + ps_len + i, b) ?! 1i32);
         i += 1i64;
     }
     
-    int64:m_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
-    drop raw bigint_from_bytes(em_buf, k_bytes, m_bi);
-    
-    int64:c_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
-    drop raw bigint_modexp(m_bi, pub_key.e, pub_key.n, c_bi);
-    
-    drop raw bigint_to_bytes(c_bi, out_ptr, k_bytes);
-    
-    drop dalloc(cast_unchecked<wild any->>(em_buf));
-    drop raw bigint_free(m_bi);
-    drop raw bigint_free(c_bi);
+    int4096:m_bi = raw int4096_from_bytes(em_buf, k_bytes);
+    int4096:c_bi = raw int4096_modexp(m_bi, pub_e, pub_n);
+    drop raw int4096_to_bytes(c_bi, out_ptr, k_bytes);
     
     pass k_bytes;
 };
 
 
-func:is_zero_byte = int64(int64:b) {
-    pass 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(b + 255i64) >> 8u64);
-};
-
 pub func:rsa_decrypt_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:msg_ptr, int64:msg_len, int64:out_ptr, int64:out_len) {
-    int64:k = raw bigint_bit_len(priv_key.n);
+    int4096:priv_n = priv_key.n;
+    int4096:priv_d = priv_key.d;
+    int64:k = raw int4096_bit_len(priv_n);
     int64:k_bytes = (k + 7i64) / 8i64;
     
     if (msg_len != k_bytes) { fail(-1i64); }
     
-    int64:c_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
-    drop raw bigint_from_bytes(msg_ptr, msg_len, c_bi);
-    
-    int64:m_bi = raw bigint_alloc(k_bytes / 4i64 + 2i64);
-    drop raw bigint_modexp(c_bi, priv_key.d, priv_key.n, m_bi);
+    int4096:c_bi = raw int4096_from_bytes(msg_ptr, msg_len);
+    int4096:m_bi = raw int4096_modexp(c_bi, priv_d, priv_n);
     
     int64:em_buf = cast_unchecked<int64>(alloc(k_bytes + 8i64));
-    drop raw bigint_to_bytes(m_bi, em_buf, k_bytes);
+    defer { drop dalloc(cast_unchecked<int8->>(em_buf)); }
+    drop raw int4096_to_bytes(m_bi, em_buf, k_bytes);
     
     int64->:em_64 = cast_unchecked<int64->>(em_buf);
     
     int64:valid = 1i64;
-    int64:b0 = raw buf_get_u8(em_64, 0i64);
-    int64:b1 = raw buf_get_u8(em_64, 1i64);
+    int64:b0 = (buf_get_u8(em_64, 0i64) ?! 1i32);
+    int64:b1 = (buf_get_u8(em_64, 1i64) ?! 1i32);
     
     valid = valid & raw is_zero_byte(b0);
     valid = valid & raw is_zero_byte(b1 ^ 2i64);
@@ -373,7 +263,7 @@ pub func:rsa_decrypt_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:msg_ptr, int
     
     int64:i = 2i64;
     while (i < k_bytes) {
-        int64:b = raw buf_get_u8(em_64, i);
+        int64:b = (buf_get_u8(em_64, i) ?! 1i32);
         int64:is_zero = raw is_zero_byte(b);
         
         int64:update_idx = is_zero & (found_zero ^ 1i64);
@@ -386,7 +276,6 @@ pub func:rsa_decrypt_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:msg_ptr, int
     valid = valid & found_zero;
     
     int64:ps_len = zero_idx - 2i64;
-    // ps_valid is 1 if ps_len >= 8, 0 otherwise
     int64:ps_diff = ps_len - 8i64;
     int64:ps_valid = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(ps_diff) >> 63u64);
     valid = valid & ps_valid;
@@ -395,29 +284,22 @@ pub func:rsa_decrypt_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:msg_ptr, int
     
     int64->:out_64 = cast_unchecked<int64->>(out_ptr);
     int64:j = 0i64;
-    while (j < out_len) {
+    while (raw int4096_lt(j, out_len) == 1i32) {
         int64:read_idx = zero_idx + 1i64 + j;
         if (read_idx >= k_bytes) { read_idx = k_bytes - 1i64; }
         
-        int64:b = raw buf_get_u8(em_64, read_idx);
-        // do_write is 1 if j < msg_len_out, 0 otherwise
-        int64:j_diff = j - msg_len_out; // if j < msg_len_out, j_diff < 0, so sign bit is 1
+        int64:b = (buf_get_u8(em_64, read_idx) ?! 1i32);
+        int64:j_diff = j - msg_len_out;
         int64:is_less = cast_unchecked<int64>(cast_unchecked<uint64>(j_diff) >> 63u64);
         int64:do_write = valid & is_less;
         
-        int64:old_b = raw buf_get_u8(out_64, j);
+        int64:old_b = (buf_get_u8(out_64, j) ?! 1i32);
         int64:new_b = (b * do_write) + (old_b * (do_write ^ 1i64));
         
-        drop raw buf_put_u8(out_64, j, new_b);
+        drop (buf_put_u8(out_64, j, new_b) ?! 1i32);
         j += 1i64;
     }
     
     int64:actual_len = (msg_len_out * valid) + (-1i64 * (valid ^ 1i64));
-    
-    drop dalloc(cast_unchecked<wild any->>(em_buf));
-    drop raw bigint_free(c_bi);
-    drop raw bigint_free(m_bi);
-    
     pass actual_len;
 };
-

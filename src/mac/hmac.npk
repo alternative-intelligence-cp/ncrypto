@@ -1,4 +1,5 @@
 use "src/hash/sha256.npk".*;
+use "src/util/bytes.npk".*;
 use "src/hash/sha512.npk".*;
 
 use "src/util/hex.npk".*;

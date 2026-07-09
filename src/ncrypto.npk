@@ -1,54 +1,50 @@
 use "src/hash/sha512.npk".*;
+use "util/bytes.npk".*;
 use "src/kdf/argon2.npk".*;
 use "src/asymmetric/ed25519.npk".*;
 use "src/cipher/gcm.npk".*;
 use "src/util/hex.npk".*;
 use "src/util/base64.npk".*;
 
-pub extern func:ffi_argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int64:salt_len, int64:out_ptr, int64:out_len, int64:t_cost, int64:m_cost, int64:lanes) {
-    int32:res = raw argon2id_hash(pwd_ptr, pwd_len, salt_ptr, salt_len, out_ptr, out_len, t_cost, m_cost, lanes);
-    return res;
+// TODO: Implement BLAKE3 hashing, leveraging native async coroutines for parallel tree hashing.
+// TODO: Implement Lattice-based Post-Quantum Cryptography algorithms (Kyber/Dilithium), leveraging native tbb and tensor/matrix computation types.
+
+pub func:ncrypto_argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int64:salt_len, int64:out_ptr, int64:out_len, int64:t_cost, int64:m_cost, int64:lanes) {
+    pass (argon2id_hash(pwd_ptr, pwd_len, salt_ptr, salt_len, out_ptr, out_len, t_cost, m_cost, lanes) ?! 1i32);
 };
 
-pub extern func:ffi_argon2id_hash_default = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int64:salt_len, int64:out_ptr, int64:out_len) {
-    int32:res = raw argon2id_hash_default(pwd_ptr, pwd_len, salt_ptr, salt_len, out_ptr, out_len);
-    return res;
+pub func:ncrypto_argon2id_hash_default = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int64:salt_len, int64:out_ptr, int64:out_len) {
+    pass (argon2id_hash_default(pwd_ptr, pwd_len, salt_ptr, salt_len, out_ptr, out_len) ?! 1i32);
 };
 
-pub extern func:ffi_gcm_encrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:iv_len, int64:pt_ptr, int64:pt_len, int64:aad_ptr, int64:aad_len, int64:ct_ptr, int64:tag_ptr) {
-    int32:res = raw gcm_encrypt(key_ptr, key_len, iv_ptr, iv_len, pt_ptr, pt_len, aad_ptr, aad_len, ct_ptr, tag_ptr);
-    return res;
+pub func:ncrypto_gcm_encrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:iv_len, int64:pt_ptr, int64:pt_len, int64:aad_ptr, int64:aad_len, int64:ct_ptr, int64:tag_ptr) {
+    pass (gcm_encrypt(key_ptr, key_len, iv_ptr, iv_len, pt_ptr, pt_len, aad_ptr, aad_len, ct_ptr, tag_ptr) ?! 1i32);
 };
 
-pub extern func:ffi_gcm_decrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:iv_len, int64:ct_ptr, int64:ct_len, int64:aad_ptr, int64:aad_len, int64:tag_ptr, int64:pt_ptr) {
-    int32:res = raw gcm_decrypt(key_ptr, key_len, iv_ptr, iv_len, ct_ptr, ct_len, aad_ptr, aad_len, tag_ptr, pt_ptr);
-    return res;
+pub func:ncrypto_gcm_decrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:iv_len, int64:ct_ptr, int64:ct_len, int64:aad_ptr, int64:aad_len, int64:tag_ptr, int64:pt_ptr) {
+    pass (gcm_decrypt(key_ptr, key_len, iv_ptr, iv_len, ct_ptr, ct_len, aad_ptr, aad_len, tag_ptr, pt_ptr) ?! 1i32);
 };
 
-pub extern func:ffi_ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:n, int64:sk_ptr) {
-    int32:res = raw ed25519_sign(sm_ptr, smlen_ptr, m_ptr, n, sk_ptr);
-    return res;
+pub func:ncrypto_ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:n, int64:sk_ptr) {
+    pass (ed25519_sign(sm_ptr, smlen_ptr, m_ptr, n, sk_ptr) ?! 1i32);
 };
 
-pub extern func:ffi_ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64:n, int64:pk_ptr) {
-    int32:res = raw ed25519_verify(m_ptr, mlen_ptr, sm_ptr, n, pk_ptr);
-    return res;
+pub func:ncrypto_ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64:n, int64:pk_ptr) {
+    pass (ed25519_verify(m_ptr, mlen_ptr, sm_ptr, n, pk_ptr) ?! 1i32);
 };
 
-pub extern func:ffi_sha512_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr) {
+pub func:ncrypto_sha512_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr) {
     int64:ctx = raw sha512_init();
-    drop raw sha512_update(ctx, in_ptr, in_len);
-    drop raw sha512_finalize_raw(ctx, out_ptr);
-    drop raw sha512_free(ctx);
-    return 0i32;
+    defer { drop (sha512_free(ctx) ?! 1i32); }
+    drop (sha512_update(ctx, in_ptr, in_len) ?! 1i32);
+    drop (sha512_finalize_raw(ctx, out_ptr) ?! 1i32);
+    pass 0i32;
 };
 
-pub extern func:ffi_base64_encode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
-    int64:res = raw base64_encode(in_ptr, in_len, out_ptr, out_cap);
-    return res;
+pub func:ncrypto_base64_encode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
+    pass (base64_encode(in_ptr, in_len, out_ptr, out_cap) ?! 1i64);
 };
 
-pub extern func:ffi_base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
-    int64:res = raw base64_decode(in_ptr, in_len, out_ptr, out_cap);
-    return res;
+pub func:ncrypto_base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
+    pass (base64_decode(in_ptr, in_len, out_ptr, out_cap) ?! 1i64);
 };
