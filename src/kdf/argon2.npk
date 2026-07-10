@@ -1,31 +1,67 @@
 use "stdlib/core.npk".*;
-use "src/util/bytes.npk".*;
-use "src/util/secure.npk".*;
-use "src/hash/blake2b.npk".*;
+use "../util/secure.npk".*;
+use "../hash/blake2b.npk".*;
 
 
+func:buf_get_u8 = int64(int64->:buf64, int64:byte_off) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    pass (w >> sh) & 255i64;
+};
 
+func:buf_put_u8 = int32(int64->:buf64, int64:byte_off, int64:byte_val) {
+    int64:wi = byte_off / 8i64;
+    int64:sh = (byte_off & 7i64) * 8i64;
+    int64:w = buf64[wi];
+    int64:mask = ~(255i64 << sh);
+    w = (w & mask) | ((byte_val & 255i64) << sh);
+    buf64[wi] = w;
+    pass 0i32;
+};
 
+func:read_le64 = int64(int64->:buf, int64:offset) {
+    int64:v = raw buf_get_u8(buf, offset + 0i64);
+    v |= raw buf_get_u8(buf, offset + 1i64) << 8i64;
+    v |= raw buf_get_u8(buf, offset + 2i64) << 16i64;
+    v |= raw buf_get_u8(buf, offset + 3i64) << 24i64;
+    v |= raw buf_get_u8(buf, offset + 4i64) << 32i64;
+    v |= raw buf_get_u8(buf, offset + 5i64) << 40i64;
+    v |= raw buf_get_u8(buf, offset + 6i64) << 48i64;
+    v |= raw buf_get_u8(buf, offset + 7i64) << 56i64;
+    pass v;
+};
 
+func:write_le64 = int32(int64->:buf, int64:offset, int64:val) {
+    drop raw buf_put_u8(buf, offset + 0i64, val & 255i64);
+    drop raw buf_put_u8(buf, offset + 1i64, (val >> 8i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 2i64, (val >> 16i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 3i64, (val >> 24i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 4i64, (val >> 32i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 5i64, (val >> 40i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 6i64, (val >> 48i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 7i64, (val >> 56i64) & 255i64);
+    pass 0i32;
+};
 
 func:P_block = int32(int64:words_ptr) {
     int64->:W = cast_unchecked<int64->>(words_ptr);
-    int64:v0 = (read_le64(W, 0i64) ?! 1i32);
-    int64:v1 = (read_le64(W, 8i64) ?! 1i32);
-    int64:v2 = (read_le64(W, 16i64) ?! 1i32);
-    int64:v3 = (read_le64(W, 24i64) ?! 1i32);
-    int64:v4 = (read_le64(W, 32i64) ?! 1i32);
-    int64:v5 = (read_le64(W, 40i64) ?! 1i32);
-    int64:v6 = (read_le64(W, 48i64) ?! 1i32);
-    int64:v7 = (read_le64(W, 56i64) ?! 1i32);
-    int64:v8 = (read_le64(W, 64i64) ?! 1i32);
-    int64:v9 = (read_le64(W, 72i64) ?! 1i32);
-    int64:v10 = (read_le64(W, 80i64) ?! 1i32);
-    int64:v11 = (read_le64(W, 88i64) ?! 1i32);
-    int64:v12 = (read_le64(W, 96i64) ?! 1i32);
-    int64:v13 = (read_le64(W, 104i64) ?! 1i32);
-    int64:v14 = (read_le64(W, 112i64) ?! 1i32);
-    int64:v15 = (read_le64(W, 120i64) ?! 1i32);
+    int64:v0 = raw read_le64(W, 0i64);
+    int64:v1 = raw read_le64(W, 8i64);
+    int64:v2 = raw read_le64(W, 16i64);
+    int64:v3 = raw read_le64(W, 24i64);
+    int64:v4 = raw read_le64(W, 32i64);
+    int64:v5 = raw read_le64(W, 40i64);
+    int64:v6 = raw read_le64(W, 48i64);
+    int64:v7 = raw read_le64(W, 56i64);
+    int64:v8 = raw read_le64(W, 64i64);
+    int64:v9 = raw read_le64(W, 72i64);
+    int64:v10 = raw read_le64(W, 80i64);
+    int64:v11 = raw read_le64(W, 88i64);
+    int64:v12 = raw read_le64(W, 96i64);
+    int64:v13 = raw read_le64(W, 104i64);
+    int64:v14 = raw read_le64(W, 112i64);
+    int64:v15 = raw read_le64(W, 120i64);
 
     v0 = (v0 + v4 + 2i64 * (v0 & 0xFFFFFFFFi64) * (v4 & 0xFFFFFFFFi64)) & 0xFFFFFFFFFFFFFFFFi64;
     v12 = (((v12 ^ v0) >> 32i64) & 0xFFFFFFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xFFFFFFFFFFFFFFFFi64);
@@ -106,75 +142,78 @@ func:P_block = int32(int64:words_ptr) {
     v14 = (((v14 ^ v3) >> 16i64) & 0xFFFFFFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xFFFFFFFFFFFFFFFFi64);
     v9 = (v9 + v14 + 2i64 * (v9 & 0xFFFFFFFFi64) * (v14 & 0xFFFFFFFFi64)) & 0xFFFFFFFFFFFFFFFFi64;
     v4 = (((v4 ^ v9) >> 63i64) & 0xFFFFFFFFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xFFFFFFFFFFFFFFFFi64);
-        drop (write_le64(W, 0i64, v0) ?! 1i32);
-    drop (write_le64(W, 8i64, v1) ?! 1i32);
-    drop (write_le64(W, 16i64, v2) ?! 1i32);
-    drop (write_le64(W, 24i64, v3) ?! 1i32);
-    drop (write_le64(W, 32i64, v4) ?! 1i32);
-    drop (write_le64(W, 40i64, v5) ?! 1i32);
-    drop (write_le64(W, 48i64, v6) ?! 1i32);
-    drop (write_le64(W, 56i64, v7) ?! 1i32);
-    drop (write_le64(W, 64i64, v8) ?! 1i32);
-    drop (write_le64(W, 72i64, v9) ?! 1i32);
-    drop (write_le64(W, 80i64, v10) ?! 1i32);
-    drop (write_le64(W, 88i64, v11) ?! 1i32);
-    drop (write_le64(W, 96i64, v12) ?! 1i32);
-    drop (write_le64(W, 104i64, v13) ?! 1i32);
-    drop (write_le64(W, 112i64, v14) ?! 1i32);
-    drop (write_le64(W, 120i64, v15) ?! 1i32);
+        drop raw write_le64(W, 0i64, v0);
+    drop raw write_le64(W, 8i64, v1);
+    drop raw write_le64(W, 16i64, v2);
+    drop raw write_le64(W, 24i64, v3);
+    drop raw write_le64(W, 32i64, v4);
+    drop raw write_le64(W, 40i64, v5);
+    drop raw write_le64(W, 48i64, v6);
+    drop raw write_le64(W, 56i64, v7);
+    drop raw write_le64(W, 64i64, v8);
+    drop raw write_le64(W, 72i64, v9);
+    drop raw write_le64(W, 80i64, v10);
+    drop raw write_le64(W, 88i64, v11);
+    drop raw write_le64(W, 96i64, v12);
+    drop raw write_le64(W, 104i64, v13);
+    drop raw write_le64(W, 112i64, v14);
+    drop raw write_le64(W, 120i64, v15);
     pass 0i32;
 };
 
-// argon2_fill_block: fills one 1024-byte Argon2 block.
-// ws_r, ws_tmp, ws_q, ws_z: pre-allocated workspace buffers (1024, 128, 1024, 1024 bytes)
-// passed in to avoid repeated alloc/dealloc in the hot loop.
-func:argon2_fill_block = int32(int64:prev_ptr, int64:ref_ptr, int64:next_ptr, int64:with_xor, int64:ws_r, int64:ws_tmp, int64:ws_q, int64:ws_z) {
+func:argon2_fill_block = int32(int64:prev_ptr, int64:ref_ptr, int64:next_ptr, int64:with_xor) {
     int64->:PREV = cast_unchecked<int64->>(prev_ptr);
     int64->:REF = cast_unchecked<int64->>(ref_ptr);
     int64->:NEXT = cast_unchecked<int64->>(next_ptr);
     
-    int64->:R = cast_unchecked<int64->>(ws_r);
-    int64->:TMP = cast_unchecked<int64->>(ws_tmp);
-    int64->:Q = cast_unchecked<int64->>(ws_q);
-    int64->:Z = cast_unchecked<int64->>(ws_z);
-    
+    int64:r_ptr = cast_unchecked<int64>(alloc(1024i64));
+    int64->:R = cast_unchecked<int64->>(r_ptr);
     int64:i = 0i64;
     while (i < 1024i64) {
-        drop (buf_put_u8(R, i, (buf_get_u8(PREV, i) ?! 1i32) ^ (buf_get_u8(REF, i) ?! 1i32)) ?! 1i32);
+        drop raw buf_put_u8(R, i, raw buf_get_u8(PREV, i) ^ raw buf_get_u8(REF, i));
         i += 1i64;
     }
+    
+    int64:tmp_ptr = cast_unchecked<int64>(alloc(128i64));
+    int64->:TMP = cast_unchecked<int64->>(tmp_ptr);
+    
+    int64:q_ptr = cast_unchecked<int64>(alloc(1024i64));
+    int64->:Q = cast_unchecked<int64->>(q_ptr);
     
     int64:row = 0i64;
     while (row < 8i64) {
         i = 0i64;
         while (i < 128i64) {
-            drop (buf_put_u8(TMP, i, (buf_get_u8(R, row * 128i64 + i) ?! 1i32)) ?! 1i32);
+            drop raw buf_put_u8(TMP, i, raw buf_get_u8(R, row * 128i64 + i));
             i += 1i64;
         }
-        drop raw P_block(ws_tmp);
+        drop raw P_block(tmp_ptr);
         i = 0i64;
         while (i < 128i64) {
-            drop (buf_put_u8(Q, row * 128i64 + i, (buf_get_u8(TMP, i) ?! 1i32)) ?! 1i32);
+            drop raw buf_put_u8(Q, row * 128i64 + i, raw buf_get_u8(TMP, i));
             i += 1i64;
         }
         row += 1i64;
     }
+    
+    int64:z_ptr = cast_unchecked<int64>(alloc(1024i64));
+    int64->:Z = cast_unchecked<int64->>(z_ptr);
     
     int64:col = 0i64;
     while (col < 8i64) {
         int64:r2 = 0i64;
         while (r2 < 8i64) {
             int64:reg_offset = (r2 * 8i64 + col) * 16i64;
-            drop (write_le64(TMP, r2 * 16i64, (read_le64(Q, reg_offset) ?! 1i32)) ?! 1i32);
-            drop (write_le64(TMP, r2 * 16i64 + 8i64, (read_le64(Q, reg_offset + 8i64) ?! 1i32)) ?! 1i32);
+            drop raw write_le64(TMP, r2 * 16i64, raw read_le64(Q, reg_offset));
+            drop raw write_le64(TMP, r2 * 16i64 + 8i64, raw read_le64(Q, reg_offset + 8i64));
             r2 += 1i64;
         }
-        drop raw P_block(ws_tmp);
+        drop raw P_block(tmp_ptr);
         r2 = 0i64;
         while (r2 < 8i64) {
             int64:reg_offset = (r2 * 8i64 + col) * 16i64;
-            drop (write_le64(Z, reg_offset, (read_le64(TMP, r2 * 16i64) ?! 1i32)) ?! 1i32);
-            drop (write_le64(Z, reg_offset + 8i64, (read_le64(TMP, r2 * 16i64 + 8i64) ?! 1i32)) ?! 1i32);
+            drop raw write_le64(Z, reg_offset, raw read_le64(TMP, r2 * 16i64));
+            drop raw write_le64(Z, reg_offset + 8i64, raw read_le64(TMP, r2 * 16i64 + 8i64));
             r2 += 1i64;
         }
         col += 1i64;
@@ -183,49 +222,52 @@ func:argon2_fill_block = int32(int64:prev_ptr, int64:ref_ptr, int64:next_ptr, in
     i = 0i64;
     if (with_xor != 0i64) {
         while (i < 1024i64) {
-            drop (buf_put_u8(NEXT, i, (buf_get_u8(NEXT, i) ?! 1i32) ^ (buf_get_u8(R, i) ?! 1i32) ^ (buf_get_u8(Z, i) ?! 1i32)) ?! 1i32);
+            drop raw buf_put_u8(NEXT, i, raw buf_get_u8(NEXT, i) ^ raw buf_get_u8(R, i) ^ raw buf_get_u8(Z, i));
             i += 1i64;
         }
     } else {
         while (i < 1024i64) {
-            drop (buf_put_u8(NEXT, i, (buf_get_u8(R, i) ?! 1i32) ^ (buf_get_u8(Z, i) ?! 1i32)) ?! 1i32);
+            drop raw buf_put_u8(NEXT, i, raw buf_get_u8(R, i) ^ raw buf_get_u8(Z, i));
             i += 1i64;
         }
     }
     
+    drop dalloc(cast_unchecked<int8->>(r_ptr));
+    drop dalloc(cast_unchecked<int8->>(q_ptr));
+    drop dalloc(cast_unchecked<int8->>(z_ptr));
+    drop dalloc(cast_unchecked<int8->>(tmp_ptr));
+    
     pass 0i32;
 };
 
-
 func:write_le32 = int32(int64->:buf, int64:offset, int64:val) {
-    drop (buf_put_u8(buf, offset + 0i64, val & 255i64) ?! 1i32);
-    drop (buf_put_u8(buf, offset + 1i64, (val >> 8i64) & 255i64) ?! 1i32);
-    drop (buf_put_u8(buf, offset + 2i64, (val >> 16i64) & 255i64) ?! 1i32);
-    drop (buf_put_u8(buf, offset + 3i64, (val >> 24i64) & 255i64) ?! 1i32);
+    drop raw buf_put_u8(buf, offset + 0i64, val & 255i64);
+    drop raw buf_put_u8(buf, offset + 1i64, (val >> 8i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 2i64, (val >> 16i64) & 255i64);
+    drop raw buf_put_u8(buf, offset + 3i64, (val >> 24i64) & 255i64);
     pass 0i32;
 };
 
 func:H_prime = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len) {
-    int64:msg_ptr = cast_unchecked<int64>(alloc(in_len + 4i64));
-    defer { drop dalloc(cast_unchecked<int8->>(msg_ptr)); }
+    int64:msg_ptr = cast_unchecked<int64>(alloc(in_len + 8i64));
     int64->:MSG = cast_unchecked<int64->>(msg_ptr);
     drop raw write_le32(MSG, 0i64, out_len);
     
     int64->:IN = cast_unchecked<int64->>(in_ptr);
     int64:i = 0i64;
     while (i < in_len) {
-        drop (buf_put_u8(MSG, i + 4i64, (buf_get_u8(IN, i) ?! 1i32)) ?! 1i32);
+        drop raw buf_put_u8(MSG, i + 4i64, raw buf_get_u8(IN, i));
         i += 1i64;
     }
     
     if (out_len <= 64i64) {
         drop raw blake2b_hash(msg_ptr, in_len + 4i64, out_ptr, out_len, 0i64, 0i64);
+        drop dalloc(cast_unchecked<int8->>(msg_ptr));
         pass 0i32;
     }
     
     int64:r = (out_len + 31i64) / 32i64 - 2i64;
     int64:V_ptr = cast_unchecked<int64>(alloc(64i64));
-    defer { drop dalloc(cast_unchecked<int8->>(V_ptr)); }
     drop raw blake2b_hash(msg_ptr, in_len + 4i64, V_ptr, 64i64, 0i64, 0i64);
     
     int64->:OUT = cast_unchecked<int64->>(out_ptr);
@@ -234,7 +276,7 @@ func:H_prime = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len) {
     
     i = 0i64;
     while (i < 32i64) {
-        drop (buf_put_u8(OUT, out_idx, (buf_get_u8(V, i) ?! 1i32)) ?! 1i32);
+        drop raw buf_put_u8(OUT, out_idx, raw buf_get_u8(V, i));
         out_idx += 1i64;
         i += 1i64;
     }
@@ -244,7 +286,7 @@ func:H_prime = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len) {
         drop raw blake2b_hash(V_ptr, 64i64, V_ptr, 64i64, 0i64, 0i64);
         i = 0i64;
         while (i < 32i64) {
-            drop (buf_put_u8(OUT, out_idx, (buf_get_u8(V, i) ?! 1i32)) ?! 1i32);
+            drop raw buf_put_u8(OUT, out_idx, raw buf_get_u8(V, i));
             out_idx += 1i64;
             i += 1i64;
         }
@@ -255,11 +297,13 @@ func:H_prime = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len) {
     drop raw blake2b_hash(V_ptr, 64i64, V_ptr, rem, 0i64, 0i64);
     i = 0i64;
     while (i < rem) {
-        drop (buf_put_u8(OUT, out_idx, (buf_get_u8(V, i) ?! 1i32)) ?! 1i32);
+        drop raw buf_put_u8(OUT, out_idx, raw buf_get_u8(V, i));
         out_idx += 1i64;
         i += 1i64;
     }
     
+    drop dalloc(cast_unchecked<int8->>(msg_ptr));
+    drop dalloc(cast_unchecked<int8->>(V_ptr));
     pass 0i32;
 };
 
@@ -319,8 +363,7 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
     int64:memory_blocks = lane_length * lanes;
     
     // Compute initial hash H_0
-    int64:H0_input_ptr = cast_unchecked<int64>(alloc(pwd_len + salt_len + 40i64)); // enough space
-    defer { drop dalloc(cast_unchecked<int8->>(H0_input_ptr)); }
+    int64:H0_input_ptr = cast_unchecked<int64>(alloc(1000i64)); // enough space
     int64->:H0_IN = cast_unchecked<int64->>(H0_input_ptr);
     
     int64:h0_len = 0i64;
@@ -335,7 +378,7 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
     int64->:PWD = cast_unchecked<int64->>(pwd_ptr);
     int64:i = 0i64;
     while (i < pwd_len) {
-        drop (buf_put_u8(H0_IN, h0_len, (buf_get_u8(PWD, i) ?! 1i32)) ?! 1i32);
+        drop raw buf_put_u8(H0_IN, h0_len, raw buf_get_u8(PWD, i));
         h0_len += 1i64; i += 1i64;
     }
     
@@ -343,7 +386,7 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
     int64->:SALT = cast_unchecked<int64->>(salt_ptr);
     i = 0i64;
     while (i < salt_len) {
-        drop (buf_put_u8(H0_IN, h0_len, (buf_get_u8(SALT, i) ?! 1i32)) ?! 1i32);
+        drop raw buf_put_u8(H0_IN, h0_len, raw buf_get_u8(SALT, i));
         h0_len += 1i64; i += 1i64;
     }
     
@@ -351,20 +394,18 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
     drop raw write_le32(H0_IN, h0_len, 0i64); h0_len += 4i64; // ad len
     
     int64:h0_ptr = cast_unchecked<int64>(alloc(64i64));
-    defer { drop dalloc(cast_unchecked<int8->>(h0_ptr)); }
     drop raw blake2b_hash(H0_input_ptr, h0_len, h0_ptr, 64i64, 0i64, 0i64);
+    drop dalloc(cast_unchecked<int8->>(H0_input_ptr));
     
     int64:B_ptr = cast_unchecked<int64>(alloc(memory_blocks * 1024i64));
-    defer { drop dalloc(cast_unchecked<int8->>(B_ptr)); }
     int64->:B = cast_unchecked<int64->>(B_ptr);
     
     int64:block_in_ptr = cast_unchecked<int64>(alloc(72i64));
-    defer { drop dalloc(cast_unchecked<int8->>(block_in_ptr)); }
     int64->:BLOCK_IN = cast_unchecked<int64->>(block_in_ptr);
     int64->:H0 = cast_unchecked<int64->>(h0_ptr);
     i = 0i64;
     while (i < 64i64) {
-        drop (buf_put_u8(BLOCK_IN, i, (buf_get_u8(H0, i) ?! 1i32)) ?! 1i32);
+        drop raw buf_put_u8(BLOCK_IN, i, raw buf_get_u8(H0, i));
         i += 1i64;
     }
     
@@ -379,30 +420,18 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
         drop raw H_prime(block_in_ptr, 72i64, B_ptr + (l * lane_length + 1i64) * 1024i64, 1024i64);
         l += 1i64;
     }
+    drop dalloc(cast_unchecked<int8->>(block_in_ptr));
     
     int64:zero_ptr = cast_unchecked<int64>(alloc(1024i64));
-    defer { drop dalloc(cast_unchecked<int8->>(zero_ptr)); }
     int64->:ZERO = cast_unchecked<int64->>(zero_ptr);
     i = 0i64;
-    while (i < 1024i64) { drop (buf_put_u8(ZERO, i, 0i64) ?! 1i32); i += 1i64; }
+    while (i < 1024i64) { drop raw buf_put_u8(ZERO, i, 0i64); i += 1i64; }
     
     int64:address_block_ptr = cast_unchecked<int64>(alloc(1024i64));
-    defer { drop dalloc(cast_unchecked<int8->>(address_block_ptr)); }
     int64->:ADDR = cast_unchecked<int64->>(address_block_ptr);
     
     int64:input_block_ptr = cast_unchecked<int64>(alloc(1024i64));
-    defer { drop dalloc(cast_unchecked<int8->>(input_block_ptr)); }
     int64->:INP = cast_unchecked<int64->>(input_block_ptr);
-    
-    // Pre-allocate argon2_fill_block workspace buffers (eliminates heap thrashing)
-    int64:ws_r = cast_unchecked<int64>(alloc(1024i64));
-    defer { drop dalloc(cast_unchecked<int8->>(ws_r)); }
-    int64:ws_tmp = cast_unchecked<int64>(alloc(128i64));
-    defer { drop dalloc(cast_unchecked<int8->>(ws_tmp)); }
-    int64:ws_q = cast_unchecked<int64>(alloc(1024i64));
-    defer { drop dalloc(cast_unchecked<int8->>(ws_q)); }
-    int64:ws_z = cast_unchecked<int64>(alloc(1024i64));
-    defer { drop dalloc(cast_unchecked<int8->>(ws_z)); }
     
     int64:r = 0i64;
     while (r < t_cost) {
@@ -420,13 +449,13 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
                 
                 if (data_indep != 0i64) {
                     i = 0i64;
-                    while (i < 1024i64) { drop (buf_put_u8(INP, i, 0i64) ?! 1i32); i += 1i64; }
-                    drop (write_le64(INP, 0i64, r) ?! 1i32);
-                    drop (write_le64(INP, 8i64, l) ?! 1i32);
-                    drop (write_le64(INP, 16i64, s) ?! 1i32);
-                    drop (write_le64(INP, 24i64, memory_blocks) ?! 1i32);
-                    drop (write_le64(INP, 32i64, t_cost) ?! 1i32);
-                    drop (write_le64(INP, 40i64, 2i64) ?! 1i32); // type Argon2id
+                    while (i < 1024i64) { drop raw buf_put_u8(INP, i, 0i64); i += 1i64; }
+                    drop raw write_le64(INP, 0i64, r);
+                    drop raw write_le64(INP, 8i64, l);
+                    drop raw write_le64(INP, 16i64, s);
+                    drop raw write_le64(INP, 24i64, memory_blocks);
+                    drop raw write_le64(INP, 32i64, t_cost);
+                    drop raw write_le64(INP, 40i64, 2i64); // type Argon2id
                 }
                 
                 int64:start_idx = 0i64;
@@ -434,10 +463,10 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
                     if (s == 0i64) {
                         start_idx = 2i64;
                         if (data_indep != 0i64) {
-                            int64:cnt = (read_le64(INP, 48i64) ?! 1i32);
-                            drop (write_le64(INP, 48i64, cnt + 1i64) ?! 1i32);
-                            drop raw argon2_fill_block(zero_ptr, input_block_ptr, address_block_ptr, 0i64, ws_r, ws_tmp, ws_q, ws_z);
-                            drop raw argon2_fill_block(zero_ptr, address_block_ptr, address_block_ptr, 0i64, ws_r, ws_tmp, ws_q, ws_z);
+                            int64:cnt = raw read_le64(INP, 48i64);
+                            drop raw write_le64(INP, 48i64, cnt + 1i64);
+                            drop raw argon2_fill_block(zero_ptr, input_block_ptr, address_block_ptr, 0i64);
+                            drop raw argon2_fill_block(zero_ptr, address_block_ptr, address_block_ptr, 0i64);
                         }
                     }
                 }
@@ -459,14 +488,14 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
                     int64:pseudo_rand = 0i64;
                     if (data_indep != 0i64) {
                         if (idx - (idx / 128i64) * 128i64 == 0i64) {
-                            int64:cnt = (read_le64(INP, 48i64) ?! 1i32);
-                            drop (write_le64(INP, 48i64, cnt + 1i64) ?! 1i32);
-                            drop raw argon2_fill_block(zero_ptr, input_block_ptr, address_block_ptr, 0i64, ws_r, ws_tmp, ws_q, ws_z);
-                            drop raw argon2_fill_block(zero_ptr, address_block_ptr, address_block_ptr, 0i64, ws_r, ws_tmp, ws_q, ws_z);
+                            int64:cnt = raw read_le64(INP, 48i64);
+                            drop raw write_le64(INP, 48i64, cnt + 1i64);
+                            drop raw argon2_fill_block(zero_ptr, input_block_ptr, address_block_ptr, 0i64);
+                            drop raw argon2_fill_block(zero_ptr, address_block_ptr, address_block_ptr, 0i64);
                         }
-                        pseudo_rand = (read_le64(ADDR, (idx - (idx / 128i64) ?! 1i32) * 128i64) * 8i64);
+                        pseudo_rand = raw read_le64(ADDR, (idx - (idx / 128i64) * 128i64) * 8i64);
                     } else {
-                        pseudo_rand = (read_le64(B, prev_offset * 1024i64) ?! 1i32);
+                        pseudo_rand = raw read_le64(B, prev_offset * 1024i64);
                     }
                     
                     int64:ref_lane = (pseudo_rand >> 32i64);
@@ -487,7 +516,7 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
                     int64:with_xor = 0i64;
                     if (r != 0i64) { with_xor = 1i64; }
                     
-                    drop raw argon2_fill_block(B_ptr + prev_offset * 1024i64, B_ptr + ref_offset * 1024i64, B_ptr + curr_offset * 1024i64, with_xor, ws_r, ws_tmp, ws_q, ws_z);
+                    drop raw argon2_fill_block(B_ptr + prev_offset * 1024i64, B_ptr + ref_offset * 1024i64, B_ptr + curr_offset * 1024i64, with_xor);
                     
                     idx += 1i64;
                     curr_offset += 1i64;
@@ -502,11 +531,10 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
     }
     
     int64:final_block_ptr = cast_unchecked<int64>(alloc(1024i64));
-    defer { drop dalloc(cast_unchecked<int8->>(final_block_ptr)); }
     int64->:FINAL = cast_unchecked<int64->>(final_block_ptr);
     i = 0i64;
     while (i < 1024i64) {
-        drop (buf_put_u8(FINAL, i, (buf_get_u8(B, (lane_length - 1i64) ?! 1i32) * 1024i64 + i)) ?! 1i32);
+        drop raw buf_put_u8(FINAL, i, raw buf_get_u8(B, (lane_length - 1i64) * 1024i64 + i));
         i += 1i64;
     }
     
@@ -514,7 +542,7 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
     while (l < lanes) {
         i = 0i64;
         while (i < 1024i64) {
-            drop (buf_put_u8(FINAL, i, (buf_get_u8(FINAL, i) ?! 1i32) ^ (buf_get_u8(B, (l * lane_length + lane_length - 1i64) ?! 1i32) * 1024i64 + i)) ?! 1i32);
+            drop raw buf_put_u8(FINAL, i, raw buf_get_u8(FINAL, i) ^ raw buf_get_u8(B, (l * lane_length + lane_length - 1i64) * 1024i64 + i));
             i += 1i64;
         }
         l += 1i64;
@@ -525,6 +553,12 @@ pub func:argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int
     drop raw secure_zero(B_ptr, memory_blocks * 1024i64);
     drop raw secure_zero(h0_ptr, 64i64);
     
+    drop dalloc(cast_unchecked<int8->>(h0_ptr));
+    drop dalloc(cast_unchecked<int8->>(B_ptr));
+    drop dalloc(cast_unchecked<int8->>(zero_ptr));
+    drop dalloc(cast_unchecked<int8->>(address_block_ptr));
+    drop dalloc(cast_unchecked<int8->>(input_block_ptr));
+    drop dalloc(cast_unchecked<int8->>(final_block_ptr));
     
     pass 0i32;
 };
