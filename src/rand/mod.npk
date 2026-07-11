@@ -1,5 +1,5 @@
 // src/rand/mod.npk
 
 use "sys_rand.npk".*;
-use "src/util/bytes.npk".*;
+use "../util/bytes.npk".*;
 use "hmac_drbg.npk".*;

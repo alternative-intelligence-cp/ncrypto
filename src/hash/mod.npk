@@ -1,5 +1,5 @@
-use "src/hash/sha256.npk".*;
+use "sha256.npk".*;
 use "../util/bytes.npk".*;
-use "src/hash/sha512.npk".*;
-use "src/hash/sha3.npk".*;
-use "src/hash/blake2b.npk".*;
+use "sha512.npk".*;
+use "sha3.npk".*;
+use "blake2b.npk".*;

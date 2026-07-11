@@ -115,14 +115,14 @@ pub func:is_zero_byte = int32(int64->:buf64, int64:byte_off) {
 pub func:local_memcpy = int32(int64->:dst, int64:dst_off, int64:src_ptr, int64:len) {
     int8->:d = cast_unchecked<int8->>(cast_unchecked<int64>(dst) + dst_off);
     int8->:s = cast_unchecked<int8->>(src_ptr);
-    mcpy(d, s, len);
+    int8->:_ignored = mcpy(d, s, len);
     pass 0i32;
 };
 
 // local_memset: set `len` bytes to val starting at dst_off in dst.
 pub func:local_memset = int32(int64->:dst, int64:dst_off, int64:val, int64:len) {
     int8->:d = cast_unchecked<int8->>(cast_unchecked<int64>(dst) + dst_off);
-    memset(d, val, len);
+    int8->:_ignored = memset(d, val, len);
     pass 0i32;
 };
 
@@ -167,14 +167,14 @@ pub func:buf_set_u64_be = int32(int64->:buf64, int64:byte_off, uint64:val) {
 pub func:mem_copy = int32(int64:dst_ptr, int64:src_ptr, int64:len) {
     int8->:d = cast_unchecked<int8->>(dst_ptr);
     int8->:s = cast_unchecked<int8->>(src_ptr);
-    mcpy(d, s, len);
+    int8->:_ignored = mcpy(d, s, len);
     pass 0i32;
 };
 
 // mem_set: 3-arg variant with raw int64 address
 pub func:mem_set = int32(int64:dst_ptr, int64:val, int64:len) {
     int8->:d = cast_unchecked<int8->>(dst_ptr);
-    memset(d, val, len);
+    int8->:_ignored = memset(d, val, len);
     pass 0i32;
 };
 

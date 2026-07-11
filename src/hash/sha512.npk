@@ -98,16 +98,16 @@ func:sha512_k = uint64(int64:i) {
 pub func:sha512_init = int64() {
     int64:ctx = cast_unchecked<int64>(alloc(224i64));
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
-    drop raw buf_set_u64_be(ctx_64, 0i64,  0x6A09E667F3BCC908u64);
-    drop raw buf_set_u64_be(ctx_64, 8i64,  0xBB67AE8584CAA73Bu64);
-    drop raw buf_set_u64_be(ctx_64, 16i64, 0x3C6EF372FE94F82Bu64);
-    drop raw buf_set_u64_be(ctx_64, 24i64, 0xA54FF53A5F1D36F1u64);
-    drop raw buf_set_u64_be(ctx_64, 32i64, 0x510E527FADE682D1u64);
-    drop raw buf_set_u64_be(ctx_64, 40i64, 0x9B05688C2B3E6C1Fu64);
-    drop raw buf_set_u64_be(ctx_64, 48i64, 0x1F83D9ABFB41BD6Bu64);
-    drop raw buf_set_u64_be(ctx_64, 56i64, 0x5BE0CD19137E2179u64);
-    drop raw buf_set_u64_be(ctx_64, 64i64, 0u64);
-    drop raw buf_set_u64_be(ctx_64, 72i64, 0u64);
+    drop buf_set_u64_be(ctx_64, 0i64,  0x6A09E667F3BCC908u64);
+    drop buf_set_u64_be(ctx_64, 8i64,  0xBB67AE8584CAA73Bu64);
+    drop buf_set_u64_be(ctx_64, 16i64, 0x3C6EF372FE94F82Bu64);
+    drop buf_set_u64_be(ctx_64, 24i64, 0xA54FF53A5F1D36F1u64);
+    drop buf_set_u64_be(ctx_64, 32i64, 0x510E527FADE682D1u64);
+    drop buf_set_u64_be(ctx_64, 40i64, 0x9B05688C2B3E6C1Fu64);
+    drop buf_set_u64_be(ctx_64, 48i64, 0x1F83D9ABFB41BD6Bu64);
+    drop buf_set_u64_be(ctx_64, 56i64, 0x5BE0CD19137E2179u64);
+    drop buf_set_u64_be(ctx_64, 64i64, 0u64);
+    drop buf_set_u64_be(ctx_64, 72i64, 0u64);
     ctx_64[10i64] = 0i64; // buflen at offset 80
     ctx_64[27i64] = 0i64; // is384
     pass ctx;
@@ -168,14 +168,14 @@ pub func:sha512_transform = int32(int64:ctx, int64->:data, int64:offset) {
     }
 
     // Update state
-    drop raw buf_set_u64_be(ctx_64, 0i64,  raw buf_get_u64_be(ctx_64, 0i64)  + a);
-    drop raw buf_set_u64_be(ctx_64, 8i64,  raw buf_get_u64_be(ctx_64, 8i64)  + b);
-    drop raw buf_set_u64_be(ctx_64, 16i64, raw buf_get_u64_be(ctx_64, 16i64) + c);
-    drop raw buf_set_u64_be(ctx_64, 24i64, raw buf_get_u64_be(ctx_64, 24i64) + d);
-    drop raw buf_set_u64_be(ctx_64, 32i64, raw buf_get_u64_be(ctx_64, 32i64) + e);
-    drop raw buf_set_u64_be(ctx_64, 40i64, raw buf_get_u64_be(ctx_64, 40i64) + f);
-    drop raw buf_set_u64_be(ctx_64, 48i64, raw buf_get_u64_be(ctx_64, 48i64) + g);
-    drop raw buf_set_u64_be(ctx_64, 56i64, raw buf_get_u64_be(ctx_64, 56i64) + h);
+    drop buf_set_u64_be(ctx_64, 0i64,  raw buf_get_u64_be(ctx_64, 0i64)  + a);
+    drop buf_set_u64_be(ctx_64, 8i64,  raw buf_get_u64_be(ctx_64, 8i64)  + b);
+    drop buf_set_u64_be(ctx_64, 16i64, raw buf_get_u64_be(ctx_64, 16i64) + c);
+    drop buf_set_u64_be(ctx_64, 24i64, raw buf_get_u64_be(ctx_64, 24i64) + d);
+    drop buf_set_u64_be(ctx_64, 32i64, raw buf_get_u64_be(ctx_64, 32i64) + e);
+    drop buf_set_u64_be(ctx_64, 40i64, raw buf_get_u64_be(ctx_64, 40i64) + f);
+    drop buf_set_u64_be(ctx_64, 48i64, raw buf_get_u64_be(ctx_64, 48i64) + g);
+    drop buf_set_u64_be(ctx_64, 56i64, raw buf_get_u64_be(ctx_64, 56i64) + h);
 
     pass 0i32;
 };
@@ -183,17 +183,17 @@ pub func:sha512_transform = int32(int64:ctx, int64->:data, int64:offset) {
 pub func:sha384_init = int64() {
     int64:ctx = cast_unchecked<int64>(alloc(224i64)); 
     int64->:ctx_64 = cast_unchecked<int64->>(ctx);
-    drop raw buf_set_u64_be(ctx_64, 0i64, 14680500436340154072u64);
-    drop raw buf_set_u64_be(ctx_64, 8i64, 7105036623409894663u64);
-    drop raw buf_set_u64_be(ctx_64, 16i64, 10473403895298186519u64);
-    drop raw buf_set_u64_be(ctx_64, 24i64, 1526699215303891257u64);
-    drop raw buf_set_u64_be(ctx_64, 32i64, 7436329637833083697u64);
-    drop raw buf_set_u64_be(ctx_64, 40i64, 10282925794625328401u64);
-    drop raw buf_set_u64_be(ctx_64, 48i64, 15784041429090275239u64);
-    drop raw buf_set_u64_be(ctx_64, 56i64, 5167115440072839076u64);
+    drop buf_set_u64_be(ctx_64, 0i64, 14680500436340154072u64);
+    drop buf_set_u64_be(ctx_64, 8i64, 7105036623409894663u64);
+    drop buf_set_u64_be(ctx_64, 16i64, 10473403895298186519u64);
+    drop buf_set_u64_be(ctx_64, 24i64, 1526699215303891257u64);
+    drop buf_set_u64_be(ctx_64, 32i64, 7436329637833083697u64);
+    drop buf_set_u64_be(ctx_64, 40i64, 10282925794625328401u64);
+    drop buf_set_u64_be(ctx_64, 48i64, 15784041429090275239u64);
+    drop buf_set_u64_be(ctx_64, 56i64, 5167115440072839076u64);
     
-    drop raw buf_set_u64_be(ctx_64, 64i64, 0u64); // count high
-    drop raw buf_set_u64_be(ctx_64, 72i64, 0u64); // count low
+    drop buf_set_u64_be(ctx_64, 64i64, 0u64); // count high
+    drop buf_set_u64_be(ctx_64, 72i64, 0u64); // count low
     ctx_64[10i64] = 0i64; // buflen at offset 80
     ctx_64[27i64] = 1i64; // is384 at offset 216
     pass ctx;
@@ -215,8 +215,8 @@ pub func:sha512_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
         chigh = chigh + 1u64;
     }
     
-    drop raw buf_set_u64_be(ctx_64, 72i64, new_clow);
-    drop raw buf_set_u64_be(ctx_64, 64i64, chigh);
+    drop buf_set_u64_be(ctx_64, 72i64, new_clow);
+    drop buf_set_u64_be(ctx_64, 64i64, chigh);
     
     int64:buflen = ctx_64[10i64];
     int64:i = 0i64;
@@ -232,14 +232,14 @@ pub func:sha512_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
         i += copy;
 
         if (buflen == 128i64) {
-            drop raw sha512_transform(ctx, ctx_64, 88i64);
+            drop sha512_transform(ctx, ctx_64, 88i64);
             ctx_64[10i64] = 0i64;
         }
     }
 
     int64->:src_buf = cast_unchecked<int64->>(buf_ptr);
     while ((i + 128i64) <= length) {
-        drop raw sha512_transform(ctx, src_buf, i);
+        drop sha512_transform(ctx, src_buf, i);
         i += 128i64;
     }
 
@@ -269,7 +269,7 @@ pub func:sha512_finalize_raw = int32(int64:ctx, int64:out_ptr) {
 
     if (rem > 112i64) {
         drop (local_memset(fbuf_64, rem, 0i64, 128i64 - rem) ?! 1i32);
-        drop raw sha512_transform(ctx, fbuf_64, 0i64);
+        drop sha512_transform(ctx, fbuf_64, 0i64);
         rem = 0i64;
     }
 
@@ -278,10 +278,10 @@ pub func:sha512_finalize_raw = int32(int64:ctx, int64:out_ptr) {
     uint64:chigh = raw buf_get_u64_be(ctx_64, 64i64);
     uint64:clow = raw buf_get_u64_be(ctx_64, 72i64);
     
-    drop raw buf_set_u64_be(fbuf_64, 112i64, chigh);
-    drop raw buf_set_u64_be(fbuf_64, 120i64, clow);
+    drop buf_set_u64_be(fbuf_64, 112i64, chigh);
+    drop buf_set_u64_be(fbuf_64, 120i64, clow);
 
-    drop raw sha512_transform(ctx, fbuf_64, 0i64);
+    drop sha512_transform(ctx, fbuf_64, 0i64);
 
     int64:is384 = ctx_64[27i64];
     int64:words_to_output = 8i64;
@@ -323,7 +323,7 @@ pub func:sha512_finalize = string(int64:ctx) {
 
     if (rem > 112i64) {
         drop (local_memset(fbuf_64, rem, 0i64, 128i64 - rem) ?! 1i32);
-        drop raw sha512_transform(ctx, fbuf_64, 0i64);
+        drop sha512_transform(ctx, fbuf_64, 0i64);
         rem = 0i64;
     }
 
@@ -332,10 +332,10 @@ pub func:sha512_finalize = string(int64:ctx) {
     uint64:chigh = raw buf_get_u64_be(ctx_64, 64i64);
     uint64:clow = raw buf_get_u64_be(ctx_64, 72i64);
     
-    drop raw buf_set_u64_be(fbuf_64, 112i64, chigh);
-    drop raw buf_set_u64_be(fbuf_64, 120i64, clow);
+    drop buf_set_u64_be(fbuf_64, 112i64, chigh);
+    drop buf_set_u64_be(fbuf_64, 120i64, clow);
 
-    drop raw sha512_transform(ctx, fbuf_64, 0i64);
+    drop sha512_transform(ctx, fbuf_64, 0i64);
 
     int64:is384 = ctx_64[27i64];
     int64:words_to_output = 8i64;

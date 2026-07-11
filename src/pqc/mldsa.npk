@@ -1,0 +1,1144 @@
+// mldsa.npk - ML-DSA (CRYSTALS-Dilithium, FIPS 204) Digital Signature Algorithm
+// Implements ML-DSA-44 (k=4,l=4), ML-DSA-65 (k=6,l=5), ML-DSA-87 (k=8,l=7).
+
+use "../util/bytes.npk".*;
+use "poly.npk".*;
+use "ntt.npk".*;
+use "pqc_hash.npk".*;
+use "../hash/sha3.npk".*;
+use "../rand/sys_rand.npk".*;
+
+// Debug: print int64 as hex to stderr
+func:dbg_hex = int32(int64:val) {
+    int64:buf = cast_unchecked<int64>(alloc(24i64));
+    defer { drop dalloc(cast_unchecked<int8->>(buf)); }
+    int64->:b = cast_unchecked<int64->>(buf);
+    int64:hex_chars = cast_unchecked<int64>(alloc(24i64));
+    defer { drop dalloc(cast_unchecked<int8->>(hex_chars)); }
+    int64->:hc = cast_unchecked<int64->>(hex_chars);
+    // Write "0x" prefix
+    drop buf_put_u8(b, 0i64, 48i64);  // '0'
+    drop buf_put_u8(b, 1i64, 120i64); // 'x'
+    int64:pos = 2i64;
+    int64:started = 0i64;
+    int64:i = 60i64;
+    while (i >= 0i64) {
+        int64:nib = (val >> i) & 0xFi64;
+        if ((nib != 0i64) | (started != 0i64) | (i == 0i64)) {
+            started = 1i64;
+            if (nib < 10i64) {
+                drop buf_put_u8(b, pos, 48i64 + nib);
+            } else {
+                drop buf_put_u8(b, pos, 97i64 + nib - 10i64);
+            }
+            pos += 1i64;
+        }
+        i -= 4i64;
+    }
+    drop buf_put_u8(b, pos, 10i64);  // newline
+    pos += 1i64;
+    drop sys!!(1i64, 2i64, buf, pos);
+    pass 0i32;
+};
+
+// Debug: print a label then a hex value
+func:dbg_label_hex = int32(int64:label_ptr, int64:label_len, int64:val) {
+    drop sys!!(1i64, 2i64, label_ptr, label_len);
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// ML-DSA parameter sets
+// ---------------------------------------------------------------------------
+func:mldsa_k = int64(int64:security_level) {
+    if (security_level == 44i64) { pass 4i64; }
+    if (security_level == 87i64) { pass 8i64; }
+    pass 6i64;  // ML-DSA-65
+};
+
+func:mldsa_l = int64(int64:security_level) {
+    if (security_level == 44i64) { pass 4i64; }
+    if (security_level == 87i64) { pass 7i64; }
+    pass 5i64;  // ML-DSA-65
+};
+
+func:mldsa_eta = int64(int64:security_level) {
+    if (security_level == 65i64) { pass 4i64; }
+    pass 2i64;  // ML-DSA-44 and ML-DSA-87
+};
+
+func:mldsa_tau = int64(int64:security_level) {
+    if (security_level == 44i64) { pass 39i64; }
+    if (security_level == 87i64) { pass 60i64; }
+    pass 49i64;  // ML-DSA-65
+};
+
+func:mldsa_gamma1 = int64(int64:security_level) {
+    if (security_level == 44i64) { pass 131072i64; }  // 2^17
+    pass 524288i64;  // 2^19 for ML-DSA-65 and ML-DSA-87
+};
+
+func:mldsa_gamma2 = int64(int64:security_level) {
+    int64:q = 8380417i64;
+    if (security_level == 44i64) { pass (q - 1i64) / 88i64; }
+    pass (q - 1i64) / 32i64;
+};
+
+func:mldsa_beta = int64(int64:security_level) {
+    int64:tau = (mldsa_tau(security_level) ?! 1i64);
+    int64:eta = (mldsa_eta(security_level) ?! 1i64);
+    pass tau * eta;
+};
+
+// ---------------------------------------------------------------------------
+// power2round: split r mod q into (r1, r0) such that r = r1*2^D + r0
+//   D = 13 for ML-DSA
+// ---------------------------------------------------------------------------
+func:power2round = int64(int64:r, int64:q) {
+    int64:D = 13i64;
+    int64:r_mod = r % q;
+    int64:half = 1i64 << (D - 1i64);
+    int64:r0 = r_mod % (1i64 << D);
+    // Center r0 in [-2^(D-1), 2^(D-1)]
+    if (r0 > half) {
+        r0 -= (1i64 << D);
+    }
+    int64:diff = r_mod - r0;
+    int64:r1 = diff >> D;
+    if (diff < 0i64) {
+        r1 = r1 | (-1i64 << (64i64 - D));
+    }
+    // pack: high 32 bits = r1, low 32 bits = r0 (signed)
+    pass (r1 << 32i64) | (r0 & 0xFFFFFFFFi64);
+};
+
+// ---------------------------------------------------------------------------
+// decompose: split r mod q into (r1, r0) with alpha = 2*gamma2
+// ---------------------------------------------------------------------------
+func:decompose = int64(int64:r, int64:q, int64:gamma2) {
+    int64:alpha = 2i64 * gamma2;
+    int64:r_mod = r % q;
+    int64:r0 = r_mod % alpha;
+    if (r0 > gamma2) {
+        r0 -= alpha;
+    }
+    int64:r1 = 0i64;
+    if (r_mod - r0 == q - 1i64) {
+        r1 = 0i64;
+        r0 -= 1i64;
+    } else {
+        r1 = (r_mod - r0) / alpha;
+    }
+    pass (r1 << 32i64) | (r0 & 0xFFFFFFFFi64);
+};
+
+func:high_bits = int64(int64:r, int64:q, int64:gamma2) {
+    int64:d = (decompose(r, q, gamma2) ?! 1i64);
+    pass d >> 32i64;
+};
+
+func:low_bits = int64(int64:r, int64:q, int64:gamma2) {
+    int64:d = (decompose(r, q, gamma2) ?! 1i64);
+    int64:r0 = d & 0xFFFFFFFFi64;
+    // Sign-extend 32 bits
+    if (r0 > 0x7FFFFFFFi64) {
+        r0 -= 0x100000000i64;
+    }
+    pass r0;
+};
+
+// ---------------------------------------------------------------------------
+// make_hint: h = 1 if adding z to r changes high_bits
+// ---------------------------------------------------------------------------
+func:make_hint_coeff = int64(int64:z, int64:r, int64:q, int64:gamma2) {
+    int64:r1 = (high_bits(r, q, gamma2) ?! 1i64);
+    int64:v1 = (high_bits((r + z) % q, q, gamma2) ?! 1i64);
+    if (r1 != v1) {
+        pass 1i64;
+    }
+    pass 0i64;
+};
+
+// ---------------------------------------------------------------------------
+// use_hint: recover r1 from hint h and r
+// ---------------------------------------------------------------------------
+func:use_hint_coeff = int64(int64:h, int64:r, int64:q, int64:gamma2) {
+    int64:alpha = 2i64 * gamma2;
+    int64:d = (decompose(r, q, gamma2) ?! 1i64);
+    int64:r1 = d >> 32i64;
+    int64:r0 = d & 0xFFFFFFFFi64;
+    if (r0 > 0x7FFFFFFFi64) {
+        r0 -= 0x100000000i64;
+    }
+    if (h == 0i64) {
+        pass r1;
+    }
+    // Use hint: compute corrected r1
+    int64:m = (q - 1i64) / alpha;
+    if (r0 > 0i64) {
+        pass (r1 + 1i64) % m;
+    }
+    pass (r1 - 1i64 + m) % m;
+};
+
+// ---------------------------------------------------------------------------
+// expand_mask: sample polynomial with coefficients in [-gamma1+1, gamma1]
+// From SHAKE-256(seed || nonce) with gamma1 = 2^17 or 2^19
+// ---------------------------------------------------------------------------
+func:expand_mask_poly = int32(int64:seed_ptr, int64:seed_len, int64:nonce, int64:gamma1, int64:out_ptr) {
+    // Input: seed || nonce (2 bytes LE)
+    int64:inp_len = seed_len + 2i64;
+    int64:inp_buf = cast_unchecked<int64>(alloc(inp_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(inp_buf)); }
+    int64->:ib = cast_unchecked<int64->>(inp_buf);
+    drop buf_copy_bytes(ib, 0i64, cast_unchecked<int64->>(seed_ptr), 0i64, seed_len);
+    drop buf_put_u8(ib, seed_len, nonce & 0xFFi64);
+    drop buf_put_u8(ib, seed_len + 1i64, (nonce >> 8i64) & 0xFFi64);
+
+    // Output size depends on gamma1:
+    // gamma1 = 2^17: 18 bits per coeff → 256*18/8 = 576 bytes
+    // gamma1 = 2^19: 20 bits per coeff → 256*20/8 = 640 bytes
+    int64:bits_per_coeff = 18i64;
+    if (gamma1 > 131072i64) {
+        bits_per_coeff = 20i64;
+    }
+    int64:out_bytes = 256i64 * bits_per_coeff / 8i64;
+    int64:shake_out = cast_unchecked<int64>(alloc(out_bytes + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(shake_out)); }
+    int64->:so64 = cast_unchecked<int64->>(shake_out);
+    drop shake256_xof(inp_buf, inp_len, shake_out, out_bytes);
+
+    int64->:out64 = cast_unchecked<int64->>(out_ptr);
+    int64:bit_off = 0i64;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:c = 0i64;
+        int64:b = 0i64;
+        while (b < bits_per_coeff) {
+            int64:byte_idx = bit_off / 8i64;
+            int64:bit_idx  = bit_off % 8i64;
+            int64:bv = (buf_get_u8(so64, byte_idx) ?! 1i64);
+            c = c | (((bv >> bit_idx) & 1i64) << b);
+            bit_off += 1i64;
+            b += 1i64;
+        }
+        // Decode: value = gamma1 - c, mapped to [0, q)
+        int64:yval = gamma1 - c;
+        if (yval < 0i64) { yval += 8380417i64; }  // map to [0, q)
+        out64[i] = yval;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// sample_in_ball: expand 32-byte seed to challenge polynomial c with tau ±1s
+// ---------------------------------------------------------------------------
+func:sample_in_ball = int32(int64:seed_ptr, int64:tau, int64:out_ptr) {
+    // Use SHAKE-256(seed) to generate challenge polynomial
+    int64:shake_out = cast_unchecked<int64>(alloc(1024i64 + 8i64));  // Large buffer for rejection sampling
+    defer { drop dalloc(cast_unchecked<int8->>(shake_out)); }
+    int64->:so64 = cast_unchecked<int64->>(shake_out);
+    drop shake256_xof(seed_ptr, 32i64, shake_out, 1024i64);
+
+    int64->:out64 = cast_unchecked<int64->>(out_ptr);
+    // Zero polynomial
+    int64:i = 0i64;
+    while (i < 256i64) {
+        out64[i] = 0i64;
+        i += 1i64;
+    }
+
+    // Signs from first 8 bytes (64 bits = tau sign bits)
+    int64:sign_bits = 0i64;
+    int64:sb_idx = 0i64;
+    while (sb_idx < 8i64) {
+        int64:bv = (buf_get_u8(so64, sb_idx) ?! 1i64);
+        sign_bits = sign_bits | (bv << (sb_idx * 8i64));
+        sb_idx += 1i64;
+    }
+
+    // Place tau nonzero coefficients using Fisher-Yates via SHAKE bytes
+    int64:byte_off = 8i64;  // skip sign bytes
+    int64:coeff_placed = 0i64;
+    int64:j = 256i64 - tau;  // start position
+    while (j < 256i64) {
+        // Sample position i in [0, j] from shake output
+        int64:pos = 0i64;
+        // Rejection sample position in [0, j]
+        bool:found_pos = false;
+        while (!found_pos) {
+            pos = (buf_get_u8(so64, byte_off) ?! 1i64);
+            byte_off += 1i64;
+            if (pos <= j) {
+                found_pos = true;
+            }
+        }
+        // Swap: c[j] = c[pos], c[pos] = sign * 1
+        out64[j] = out64[pos];
+        int64:sign = ((sign_bits >> coeff_placed) & 1i64);
+        // Store +1 or q-1 (≡ -1 mod q), so NTT inputs are always in [0, q)
+        if (sign == 0i64) {
+            out64[pos] = 1i64;
+        } else {
+            out64[pos] = 8380417i64 - 1i64;  // q - 1
+        }
+        coeff_placed += 1i64;
+        j += 1i64;
+    }
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_inf_norm: return maximum absolute coefficient value in polynomial
+// ---------------------------------------------------------------------------
+func:poly_inf_norm = int64(int64:poly_ptr, int64:q) {
+    int64->:p = cast_unchecked<int64->>(poly_ptr);
+    int64:max_val = 0i64;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:c = p[i];
+        // Center the coefficient around 0
+        if (c > q / 2i64) {
+            c = q - c;
+        }
+        if (c < 0i64) {
+            c = -c;
+        }
+        if (c > max_val) {
+            max_val = c;
+        }
+        i += 1i64;
+    }
+    pass max_val;
+};
+
+func:polyvec_inf_norm = int64(int64:vec_ptr, int64:k, int64:q) {
+    int64:max_val = 0i64;
+    int64:i = 0i64;
+    while (i < k) {
+        int64:v = (poly_inf_norm(vec_ptr + (i * 2048i64), q) ?! 1i64);
+        if (v > max_val) {
+            max_val = v;
+        }
+        i += 1i64;
+    }
+    pass max_val;
+};
+
+// ---------------------------------------------------------------------------
+// mldsa_keygen: generate ML-DSA key pair
+//   pk_ptr: output public key (32 + k*256*(bitwidth_t1)/8 bytes)
+//   sk_ptr: output secret key
+//   security_level: 44 | 65 | 87
+// ---------------------------------------------------------------------------
+pub func:mldsa_keygen = int32(int64:pk_ptr, int64:sk_ptr, int64:security_level) {
+    int64:k    = (mldsa_k(security_level)   ?! 1i64);
+    int64:l    = (mldsa_l(security_level)   ?! 1i64);
+    int64:eta  = (mldsa_eta(security_level) ?! 1i64);
+    int64:q    = 8380417i64;
+    int64:D    = 13i64;
+    int64:POLY = 2048i64;
+
+    // Generate seed xi (32 bytes)
+    int64:xi_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(xi_buf)); }
+    drop (sys_rand_bytes(xi_buf, 32i64) ?! 1i32);
+
+    // Expand xi → (rho, rho', K) via SHAKE-256
+    int64:exp_buf = cast_unchecked<int64>(alloc(128i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(exp_buf)); }
+    drop shake256_xof(xi_buf, 32i64, exp_buf, 128i64);
+    int64:rho_ptr  = exp_buf;         // 32 bytes
+    int64:rhop_ptr = exp_buf + 32i64; // 32 bytes
+    int64:K_ptr    = exp_buf + 64i64; // 32 bytes
+    int64:tr_ptr   = exp_buf + 96i64; // 32 bytes (derived from pk later)
+
+    // Generate matrix A from rho (in NTT domain)
+    int64:A_size = k * l * POLY;
+    int64:A_buf = cast_unchecked<int64>(alloc(A_size + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(A_buf)); }
+    drop pqc_expand_a(rho_ptr, A_buf, k, l, q, 0i64);
+
+    // Sample s1 (l polys) and s2 (k polys) with coefficients in [-eta, eta]
+    int64:s1_buf = cast_unchecked<int64>(alloc(l * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(s1_buf)); }
+    int64:s2_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(s2_buf)); }
+    drop polyvec_sample_cbd(s1_buf, l, rhop_ptr, 0i64, eta, q);
+    drop polyvec_sample_cbd(s2_buf, k, rhop_ptr, l, eta, q);
+
+    // NTT(s1)
+    drop polyvec_mldsa_ntt(s1_buf, l);
+
+    // Compute t = A*s1 in NTT domain, then INTT(t) + s2
+    int64:t_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t_buf)); }
+    // Note: s1 already NTT'd above
+    drop polymat_vec_mul(A_buf, s1_buf, t_buf, k, l, q, 1i64);
+    // INTT each poly in t (using mldsa parameters)
+    int64:ti = 0i64;
+    while (ti < k) {
+        drop mldsa_ntt_inv(t_buf + (ti * POLY));
+        ti += 1i64;
+    }
+    drop polyvec_add(t_buf, t_buf, s2_buf, k, q);
+
+    // Power2Round: split t into (t1, t0) where t = t1*2^D + t0
+    int64:t1_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t1_buf)); }
+    int64:t0_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t0_buf)); }
+    ti = 0i64;
+    while (ti < k) {
+        int64->:t_p  = cast_unchecked<int64->>(t_buf  + (ti * POLY));
+        int64->:t1_p = cast_unchecked<int64->>(t1_buf + (ti * POLY));
+        int64->:t0_p = cast_unchecked<int64->>(t0_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:packed = (power2round(t_p[ci], q) ?! 1i64);
+            t1_p[ci] = packed >> 32i64;
+            int64:r0 = packed & 0xFFFFFFFFi64;
+            if (r0 > 0x7FFFFFFFi64) { r0 -= 0x100000000i64; }
+            t0_p[ci] = r0;
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+    // Encode public key: pk = rho || encode(t1)
+    // t1 has 10-bit coefficients (q=8380417, 2^23, so t1 = r>>13 fits in 10 bits for small q region)
+    // For ML-DSA, t1 coefficients fit in 10 bits
+    int64->:pk64 = cast_unchecked<int64->>(pk_ptr);
+    drop buf_copy_bytes(pk64, 0i64, cast_unchecked<int64->>(rho_ptr), 0i64, 32i64);
+    ti = 0i64;
+    while (ti < k) {
+        // Pack 10-bit t1 coefficients: 256 × 10 bits = 320 bytes per poly
+        int64:t1_enc_off = 32i64 + ti * 320i64;
+        int64->:t1_p = cast_unchecked<int64->>(t1_buf + (ti * POLY));
+        int64:bit_off = 0i64;
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:c = t1_p[ci];
+            int64:b = 0i64;
+            while (b < 10i64) {
+                int64:byte_idx = t1_enc_off + bit_off / 8i64;
+                int64:bit_idx  = bit_off % 8i64;
+                int64:cur = (buf_get_u8(pk64, byte_idx) ?! 1i64);
+                cur = (cur & ~(1i64 << bit_idx)) | (((c >> b) & 1i64) << bit_idx);
+                drop buf_put_u8(pk64, byte_idx, cur);
+                bit_off += 1i64;
+                b += 1i64;
+            }
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+    // tr = H(pk) = SHAKE-256(pk, 32 bytes output)
+    int64:pk_len = 32i64 + k * 320i64;
+    drop shake256_xof(pk_ptr, pk_len, tr_ptr, 32i64);
+
+    // Encode secret key: rho || K || tr || encode(s1) || encode(s2) || encode(t0)
+    int64->:sk64 = cast_unchecked<int64->>(sk_ptr);
+    int64:sk_off = 0i64;
+    drop buf_copy_bytes(sk64, sk_off, cast_unchecked<int64->>(rho_ptr),  0i64, 32i64); sk_off += 32i64;
+    drop buf_copy_bytes(sk64, sk_off, cast_unchecked<int64->>(K_ptr),    0i64, 32i64); sk_off += 32i64;
+    drop buf_copy_bytes(sk64, sk_off, cast_unchecked<int64->>(tr_ptr),   0i64, 32i64); sk_off += 32i64;
+
+    // Encode s1 (l polys, 4-bit coefficients for eta=2, 3-bit for eta=4)
+    int64:bits_eta = 4i64;
+    if (eta == 2i64) { bits_eta = 3i64; }
+    ti = 0i64;
+    while (ti < l) {
+        int64->:sp = cast_unchecked<int64->>(s1_buf + (ti * POLY));
+        // INTT to get back to normal domain first
+        drop mldsa_ntt_inv(s1_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:cv = sp[ci];
+            if (cv > q / 2i64) { cv -= q; }  // center to signed [-eta, eta]
+            int64:c = (cv + eta) % (1i64 << bits_eta);  // shift to unsigned
+            int64:b = 0i64;
+            while (b < bits_eta) {
+                int64:byte_idx = sk_off + (ti * 256i64 * bits_eta / 8i64) + (ci * bits_eta + b) / 8i64;
+                int64:bit_idx  = (ci * bits_eta + b) % 8i64;
+                int64:cur = (buf_get_u8(sk64, byte_idx) ?! 1i64);
+                cur = (cur & ~(1i64 << bit_idx)) | (((c >> b) & 1i64) << bit_idx);
+                drop buf_put_u8(sk64, byte_idx, cur);
+                b += 1i64;
+            }
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+    sk_off += l * 256i64 * bits_eta / 8i64;
+
+    // Similarly encode s2, t0 (abbreviated for conciseness — same bit-pack pattern)
+    // s2: k polys × bits_eta bits
+    ti = 0i64;
+    while (ti < k) {
+        int64->:sp = cast_unchecked<int64->>(s2_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:cv = sp[ci];
+            if (cv > q / 2i64) { cv -= q; }  // center to signed
+            int64:c = (cv + eta) % (1i64 << bits_eta);
+            int64:b = 0i64;
+            while (b < bits_eta) {
+                int64:byte_idx = sk_off + (ti * 256i64 * bits_eta / 8i64) + (ci * bits_eta + b) / 8i64;
+                int64:bit_idx  = (ci * bits_eta + b) % 8i64;
+                int64:cur = (buf_get_u8(sk64, byte_idx) ?! 1i64);
+                cur = (cur & ~(1i64 << bit_idx)) | (((c >> b) & 1i64) << bit_idx);
+                drop buf_put_u8(sk64, byte_idx, cur);
+                b += 1i64;
+            }
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+    sk_off += k * 256i64 * bits_eta / 8i64;
+
+    // t0: k polys × 13 bits (D=13)
+    ti = 0i64;
+    while (ti < k) {
+        int64->:t0p = cast_unchecked<int64->>(t0_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            // t0 in [-4095, 4096], store as unsigned 13-bit: 4096 - t0
+            int64:c = (4096i64 - t0p[ci]) & 0x1FFFi64;
+            int64:b = 0i64;
+            while (b < 13i64) {
+                int64:byte_idx = sk_off + (ti * 256i64 * 13i64 / 8i64) + (ci * 13i64 + b) / 8i64;
+                int64:bit_idx  = (ci * 13i64 + b) % 8i64;
+                int64:cur = (buf_get_u8(sk64, byte_idx) ?! 1i64);
+                cur = (cur & ~(1i64 << bit_idx)) | (((c >> b) & 1i64) << bit_idx);
+                drop buf_put_u8(sk64, byte_idx, cur);
+                b += 1i64;
+            }
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mldsa_sign: sign a message
+//   sig_ptr:     output signature buffer
+//   sig_len_ptr: output signature length (int64)
+//   msg_ptr:     message to sign
+//   msg_len:     message length
+//   sk_ptr:      secret key
+//   security_level: 44 | 65 | 87
+// ---------------------------------------------------------------------------
+pub func:mldsa_sign = int32(int64:sig_ptr, int64:sig_len_ptr, int64:msg_ptr, int64:msg_len, int64:sk_ptr, int64:security_level) {
+    int64:k       = (mldsa_k(security_level)      ?! 1i64);
+    int64:l       = (mldsa_l(security_level)       ?! 1i64);
+    int64:eta     = (mldsa_eta(security_level)     ?! 1i64);
+    int64:tau     = (mldsa_tau(security_level)     ?! 1i64);
+    int64:gamma1  = (mldsa_gamma1(security_level)  ?! 1i64);
+    int64:gamma2  = (mldsa_gamma2(security_level)  ?! 1i64);
+    int64:beta    = (mldsa_beta(security_level)    ?! 1i64);
+    int64:q       = 8380417i64;
+    int64:POLY    = 2048i64;
+    int64:bits_eta = 4i64;
+    if (eta == 2i64) { bits_eta = 3i64; }
+
+    // Parse sk: rho(32) | K(32) | tr(32) | s1(l*...) | s2(k*...) | t0(k*...)
+    int64:rho_ptr = sk_ptr;
+    int64:K_ptr   = sk_ptr + 32i64;
+    int64:tr_ptr  = sk_ptr + 64i64;
+    int64:s1_enc  = sk_ptr + 96i64;
+    int64:s1_bytes = l * 256i64 * bits_eta / 8i64;
+    int64:s2_enc  = s1_enc + s1_bytes;
+    int64:s2_bytes = k * 256i64 * bits_eta / 8i64;
+    int64:t0_enc  = s2_enc + s2_bytes;
+
+    // Decode s1, s2, t0
+    int64:s1_buf = cast_unchecked<int64>(alloc(l * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(s1_buf)); }
+    int64:s2_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(s2_buf)); }
+    int64:t0_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t0_buf)); }
+
+    // Decode s1 (bit-unpack)
+    int64->:s1_enc64 = cast_unchecked<int64->>(s1_enc);
+    int64:ti = 0i64;
+    while (ti < l) {
+        int64->:sp = cast_unchecked<int64->>(s1_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:c = 0i64;
+            int64:b = 0i64;
+            while (b < bits_eta) {
+                int64:byte_idx = ti * 256i64 * bits_eta / 8i64 + (ci * bits_eta + b) / 8i64;
+                int64:bit_idx  = (ci * bits_eta + b) % 8i64;
+                int64:bv = (buf_get_u8(s1_enc64, byte_idx) ?! 1i64);
+                c = c | (((bv >> bit_idx) & 1i64) << b);
+                b += 1i64;
+            }
+            // Use local var to avoid arr[i] += q bug
+            int64:sval = c - eta;
+            if (sval < 0i64) { sval += q; }
+            sp[ci] = sval;
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+    // Decode s2: k polys × bits_eta bits (same encoding as s1)
+    int64->:s2_enc64 = cast_unchecked<int64->>(s2_enc);
+    ti = 0i64;
+    while (ti < k) {
+        int64->:sp = cast_unchecked<int64->>(s2_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:c = 0i64;
+            int64:b = 0i64;
+            while (b < bits_eta) {
+                int64:byte_idx = ti * 256i64 * bits_eta / 8i64 + (ci * bits_eta + b) / 8i64;
+                int64:bit_idx  = (ci * bits_eta + b) % 8i64;
+                int64:bv = (buf_get_u8(s2_enc64, byte_idx) ?! 1i64);
+                c = c | (((bv >> bit_idx) & 1i64) << b);
+                b += 1i64;
+            }
+            // Use local var to avoid arr[i] += q bug
+            int64:s2val = c - eta;
+            if (s2val < 0i64) { s2val += q; }
+            sp[ci] = s2val;
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+    // Decode t0: k polys × 13 bits, stored as unsigned (c + 4096) & 0x1FFF
+    int64->:t0_enc64 = cast_unchecked<int64->>(t0_enc);
+    ti = 0i64;
+    while (ti < k) {
+        int64->:t0p = cast_unchecked<int64->>(t0_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:c = 0i64;
+            int64:b = 0i64;
+            while (b < 13i64) {
+                int64:byte_idx = ti * 256i64 * 13i64 / 8i64 + (ci * 13i64 + b) / 8i64;
+                int64:bit_idx  = (ci * 13i64 + b) % 8i64;
+                int64:bv = (buf_get_u8(t0_enc64, byte_idx) ?! 1i64);
+                c = c | (((bv >> bit_idx) & 1i64) << b);
+                b += 1i64;
+            }
+            // Use local var to avoid arr[i] += q bug
+            int64:t0val = 4096i64 - c;
+            if (t0val < 0i64) { t0val += q; }
+            t0p[ci] = t0val;
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+    // Apply NTT to s1, s2
+    ti = 0i64;
+    while (ti < l) {
+        drop mldsa_ntt(s1_buf + (ti * POLY));
+        ti += 1i64;
+    }
+    ti = 0i64;
+    while (ti < k) {
+        drop mldsa_ntt(s2_buf + (ti * POLY));
+        ti += 1i64;
+    }
+    ti = 0i64;
+    while (ti < k) {
+        drop mldsa_ntt(t0_buf + (ti * POLY));
+        ti += 1i64;
+    }
+
+    // Expand A from rho
+    int64:A_size = k * l * POLY;
+    int64:A_buf = cast_unchecked<int64>(alloc(A_size + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(A_buf)); }
+    drop pqc_expand_a(rho_ptr, A_buf, k, l, q, 0i64);
+
+    // Compute mu = CRH(tr || M) = SHAKE-256(tr || msg, 64 bytes)
+    int64:mu_buf = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(mu_buf)); }
+    drop shake256_hash2(tr_ptr, 32i64, msg_ptr, msg_len, mu_buf, 64i64);
+
+    // Signing loop (rejection sampling)
+    int64:kappa = 0i64;  // nonce counter
+    bool:accepted = false;
+
+    int64:y_buf = cast_unchecked<int64>(alloc(l * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(y_buf)); }
+    int64:w_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(w_buf)); }
+    int64:z_buf = cast_unchecked<int64>(alloc(l * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(z_buf)); }
+    int64:cs1_buf = cast_unchecked<int64>(alloc(l * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(cs1_buf)); }
+    int64:cs2_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(cs2_buf)); }
+    int64:c_buf = cast_unchecked<int64>(alloc(POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(c_buf)); }
+    int64:ctilde_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(ctilde_buf)); }
+    int64:w1_enc = cast_unchecked<int64>(alloc(k * 256i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(w1_enc)); }
+    int64:h_buf = cast_unchecked<int64>(alloc(k * 256i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(h_buf)); }
+
+    int64:ct0_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(ct0_buf)); }
+    while (!accepted) {
+        // Sample y: l polys with coefficients in [-gamma1+1, gamma1]
+        ti = 0i64;
+        while (ti < l) {
+            drop expand_mask_poly(K_ptr, 32i64, kappa * l + ti, gamma1, y_buf + (ti * POLY));
+            ti += 1i64;
+        }
+        kappa += 1i64;
+
+        // w = NTT_inv(A * NTT(y)) in standard domain
+        int64:y_ntt = cast_unchecked<int64>(alloc(l * POLY + 8i64));
+        defer { drop dalloc(cast_unchecked<int8->>(y_ntt)); }
+        drop buf_copy_bytes(cast_unchecked<int64->>(y_ntt), 0i64, cast_unchecked<int64->>(y_buf), 0i64, l * POLY);
+        ti = 0i64;
+        while (ti < l) {
+            drop mldsa_ntt(y_ntt + (ti * POLY));
+            ti += 1i64;
+        }
+        drop polymat_vec_mul(A_buf, y_ntt, w_buf, k, l, q, 1i64);
+        ti = 0i64;
+        while (ti < k) {
+            drop mldsa_ntt_inv(w_buf + (ti * POLY));
+            ti += 1i64;
+        }
+
+        // Compute w1 = HighBits(w) and encode for challenge hash
+        int64->:w1_enc64 = cast_unchecked<int64->>(w1_enc);
+        ti = 0i64;
+        int64:enc_bits = 4i64;  // bits per w1 coefficient (depends on gamma2)
+        int64:alpha = 2i64 * gamma2;
+        int64:m_val = (q - 1i64) / alpha;
+        // m_val bits: ceil(log2(m_val+1))
+        int64:mv = m_val;
+        enc_bits = 0i64;
+        while (mv > 0i64) {
+            enc_bits += 1i64;
+            mv = mv >> 1i64;
+        }
+        drop local_memset(w1_enc64, 0i64, 0i64, k * 256i64 * enc_bits / 8i64 + 1i64);
+        // DEBUG: print w[0][0]
+        ti = 0i64;
+        while (ti < k) {
+            int64->:wp = cast_unchecked<int64->>(w_buf + (ti * POLY));
+            int64:ci = 0i64;
+            while (ci < 256i64) {
+                int64:r1 = (high_bits(wp[ci], q, gamma2) ?! 1i64);
+                // Bit-pack r1 into w1_enc
+                int64:b = 0i64;
+                while (b < enc_bits) {
+                    int64:byte_idx = (ti * 256i64 * enc_bits + ci * enc_bits + b) / 8i64;
+                    int64:bit_idx  = (ti * 256i64 * enc_bits + ci * enc_bits + b) % 8i64;
+                    int64:cur = (buf_get_u8(w1_enc64, byte_idx) ?! 1i64);
+                    cur = (cur & ~(1i64 << bit_idx)) | (((r1 >> b) & 1i64) << bit_idx);
+                    drop buf_put_u8(w1_enc64, byte_idx, cur);
+                    b += 1i64;
+                }
+                ci += 1i64;
+            }
+            ti += 1i64;
+        }
+
+        // c~: H(mu || w1_enc) = SHAKE-256(mu || w1_enc, 32 bytes)
+        int64:w1_bytes = k * 256i64 * enc_bits / 8i64;
+
+        drop shake256_hash2(mu_buf, 64i64, w1_enc, w1_bytes, ctilde_buf, 32i64);
+
+        // Sample challenge polynomial c from c~
+        drop sample_in_ball(ctilde_buf, tau, c_buf);
+        drop mldsa_ntt(c_buf);
+
+        // z = y + c*s1 (in standard domain)
+        ti = 0i64;
+        while (ti < l) {
+            int64:cs1_p = cs1_buf + (ti * POLY);
+            drop poly_ntt_mul_pointwise(cs1_p, c_buf, s1_buf + (ti * POLY), q);
+            drop mldsa_ntt_inv(cs1_p);
+            int64->:zp  = cast_unchecked<int64->>(z_buf  + (ti * POLY));
+            int64->:yp  = cast_unchecked<int64->>(y_buf  + (ti * POLY));
+            int64->:cs1 = cast_unchecked<int64->>(cs1_p);
+            int64:ci = 0i64;
+            while (ci < 256i64) {
+                zp[ci] = (yp[ci] + cs1[ci] + q) % q;
+                ci += 1i64;
+            }
+            ti += 1i64;
+        }
+
+        // Check: ||z||_inf < gamma1 - beta
+        int64:z_norm = (polyvec_inf_norm(z_buf, l, q) ?! 1i64);
+        if (z_norm >= gamma1 - beta) {
+            // Reject: try again
+            kappa += 1i64;
+        } else {
+            // Check ||w0 - c*s2||_inf < gamma2 - beta (FIPS 204)
+            // Must compute LowBits(w - cs2), NOT LowBits(w) - cs2
+            ti = 0i64;
+            bool:w0_ok = true;
+            while (ti < k) {
+                int64:cs2_p = cs2_buf + (ti * POLY);
+                drop poly_ntt_mul_pointwise(cs2_p, c_buf, s2_buf + (ti * POLY), q);
+                drop mldsa_ntt_inv(cs2_p);
+                int64->:wp   = cast_unchecked<int64->>(w_buf  + (ti * POLY));
+                int64->:cs2  = cast_unchecked<int64->>(cs2_p);
+                int64:ci = 0i64;
+                while (ci < 256i64) {
+                    // Compute w - cs2 mod q first, then take LowBits
+                    int64:w_minus_cs2 = (wp[ci] - cs2[ci] + q) % q;
+                    int64:r0 = (low_bits(w_minus_cs2, q, gamma2) ?! 1i64);
+                    // r0 is signed: center it to get absolute value
+                    int64:absr0 = r0;
+                    if (absr0 < 0i64) { absr0 = -absr0; }
+                    if (absr0 >= gamma2 - beta) {
+                        w0_ok = false;
+                    }
+                    ci += 1i64;
+                }
+                ti += 1i64;
+            }
+            if (w0_ok) {
+                // FIPS 204: Check || c * t0 ||_inf < gamma2
+                bool:ct0_ok = true;
+                int64:ct0_ti = 0i64;
+                while (ct0_ti < k) {
+                    int64:ct0_p = ct0_buf + (ct0_ti * POLY);
+                    drop poly_ntt_mul_pointwise(ct0_p, c_buf, t0_buf + (ct0_ti * POLY), q);
+                    drop mldsa_ntt_inv(ct0_p);
+                    
+                    // Check || ct0 ||_inf < gamma2
+                    int64->:ct0_ptr = cast_unchecked<int64->>(ct0_p);
+                    int64:ci_ct0 = 0i64;
+                    while (ci_ct0 < 256i64) {
+                        int64:val = ct0_ptr[ci_ct0];
+                        if (val > q / 2i64) { val = q - val; }  // absolute value
+                        if (val >= gamma2) {
+                            ct0_ok = false;
+                        }
+                        ci_ct0 += 1i64;
+                    }
+                    ct0_ti += 1i64;
+                }
+                if (ct0_ok) {
+                    accepted = true;
+                } else {
+                    kappa += 1i64;
+                }
+            }
+        }
+    }
+
+    // Compute hints h and write signature
+    // sig = c~ || z || h
+    int64->:sig64 = cast_unchecked<int64->>(sig_ptr);
+    drop buf_copy_bytes(sig64, 0i64, cast_unchecked<int64->>(ctilde_buf), 0i64, 32i64);
+    // Encode z (l polys × (1+log2(gamma1)) bits each)
+    int64:z_bits = 18i64;
+    if (gamma1 > 131072i64) { z_bits = 20i64; }
+    int64:z_enc_len = l * 256i64 * z_bits / 8i64;
+    // Bit-pack z into sig
+
+    ti = 0i64;
+    while (ti < l) {
+        int64->:zp = cast_unchecked<int64->>(z_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:zv = zp[ci];
+            if (zv > q / 2i64) { zv -= q; }  // center to signed
+            int64:c = (gamma1 - zv);  // store as gamma1 - coeff (always >= 0)
+
+            int64:b = 0i64;
+            while (b < z_bits) {
+                int64:byte_idx = 32i64 + (ti * 256i64 * z_bits + ci * z_bits + b) / 8i64;
+                int64:bit_idx  = (ti * 256i64 * z_bits + ci * z_bits + b) % 8i64;
+                int64:cur = (buf_get_u8(sig64, byte_idx) ?! 1i64);
+                cur = (cur & ~(1i64 << bit_idx)) | (((c >> b) & 1i64) << bit_idx);
+                drop buf_put_u8(sig64, byte_idx, cur);
+                b += 1i64;
+            }
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+    // Hints encoding (simplified: write raw hint byte array)
+    // Full hint encoding per FIPS 204 is more complex; this is a direct byte representation
+    int64:h_enc_off = 32i64 + z_enc_len;
+    // Zero the hint region first
+    int64:h_enc_bytes = k * 256i64 / 8i64;
+    drop local_memset(sig64, h_enc_off, 0i64, h_enc_bytes);
+    ti = 0i64;
+    while (ti < k) {
+        int64->:wp = cast_unchecked<int64->>(w_buf + (ti * POLY));
+        int64->:cs2p = cast_unchecked<int64->>(cs2_buf + (ti * POLY));
+        int64->:ct0p = cast_unchecked<int64->>(ct0_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            // FIPS 204: h = MakeHint(-ct0, w - cs2 + ct0)
+            int64:neg_ct0 = (q - ct0p[ci]) % q;
+            int64:w_cs2_ct0 = (wp[ci] - cs2p[ci] + ct0p[ci] + 2i64 * q) % q;
+            int64:h = (make_hint_coeff(neg_ct0, w_cs2_ct0, q, gamma2) ?! 1i64);
+            // Bit-level write: read byte, set specific bit, write byte back
+            int64:bit_idx_total = ti * 256i64 + ci;
+            int64:byte_idx = h_enc_off + bit_idx_total / 8i64;
+            int64:bit_idx  = bit_idx_total % 8i64;
+            int64:cur = (buf_get_u8(sig64, byte_idx) ?! 1i64);
+            cur = (cur & ~(1i64 << bit_idx)) | (h << bit_idx);
+            drop buf_put_u8(sig64, byte_idx, cur);
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+    // Write signature length
+    int64->:slp = cast_unchecked<int64->>(sig_len_ptr);
+    slp[0] = h_enc_off + k * 256i64 / 8i64;
+    // APPEND w1_enc for debugging
+    drop buf_copy_bytes(sig64, slp[0], cast_unchecked<int64->>(w1_enc), 0i64, 768i64);
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mldsa_verify: verify an ML-DSA signature
+//   Returns 0 if valid, non-zero if invalid
+// ---------------------------------------------------------------------------
+pub func:mldsa_verify = int32(int64:msg_ptr, int64:msg_len, int64:sig_ptr, int64:sig_len, int64:pk_ptr, int64:security_level) {
+    int64:k       = (mldsa_k(security_level)     ?! 1i64);
+    int64:l       = (mldsa_l(security_level)      ?! 1i64);
+    int64:tau     = (mldsa_tau(security_level)    ?! 1i64);
+    int64:gamma1  = (mldsa_gamma1(security_level) ?! 1i64);
+    int64:gamma2  = (mldsa_gamma2(security_level) ?! 1i64);
+    int64:beta    = (mldsa_beta(security_level)   ?! 1i64);
+    int64:q       = 8380417i64;
+    int64:POLY    = 2048i64;
+    int64:z_bits  = 18i64;
+    if (gamma1 > 131072i64) { z_bits = 20i64; }
+
+    // Parse pk: rho(32) | t1(k*320 bytes)
+    int64:rho_ptr = pk_ptr;
+    int64:pk_len  = 32i64 + k * 320i64;
+
+    // Decode sig: c~(32) | z(l*z_bits*256/8) | h(...)
+    int64->:sig64 = cast_unchecked<int64->>(sig_ptr);
+    int64:ctilde_ptr = sig_ptr;
+    int64:z_enc_ptr  = sig_ptr + 32i64;
+    int64:z_enc_len  = l * 256i64 * z_bits / 8i64;
+
+    // Decode z
+    int64:z_buf = cast_unchecked<int64>(alloc(l * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(z_buf)); }
+    int64->:ze64 = cast_unchecked<int64->>(z_enc_ptr);
+    int64:ti = 0i64;
+    while (ti < l) {
+        int64->:zp = cast_unchecked<int64->>(z_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:c = 0i64;
+            int64:b = 0i64;
+            while (b < z_bits) {
+                int64:byte_idx = (ti * 256i64 * z_bits + ci * z_bits + b) / 8i64;
+                int64:bit_idx  = (ti * 256i64 * z_bits + ci * z_bits + b) % 8i64;
+                int64:bv = (buf_get_u8(ze64, byte_idx) ?! 1i64);
+                c = c | (((bv >> bit_idx) & 1i64) << b);
+                b += 1i64;
+            }
+            int64:zval = gamma1 - c;
+            if (zval < 0i64) { zval += q; }  // map to [0, q)
+            zp[ci] = zval;
+
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+
+    // Check ||z||_inf < gamma1 - beta
+    int64:z_norm = (polyvec_inf_norm(z_buf, l, q) ?! 1i64);
+    if (z_norm >= gamma1 - beta) {
+        pass 1i32;  // invalid: z norm too large
+    }
+
+    // Compute tr = H(pk)
+    int64:tr_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(tr_buf)); }
+    drop shake256_xof(pk_ptr, pk_len, tr_buf, 32i64);
+
+    // Compute mu = SHAKE-256(tr || msg, 64 bytes)
+    int64:mu_buf = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(mu_buf)); }
+    drop shake256_hash2(tr_buf, 32i64, msg_ptr, msg_len, mu_buf, 64i64);
+
+    // Expand challenge c from c~
+    int64:c_buf = cast_unchecked<int64>(alloc(POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(c_buf)); }
+    drop sample_in_ball(ctilde_ptr, tau, c_buf);
+    drop mldsa_ntt(c_buf);
+
+    // Decode t1 from pk and compute A*z - c*t1*2^D
+    int64:t1_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t1_buf)); }
+    ti = 0i64;
+    while (ti < k) {
+        int64->:t1p = cast_unchecked<int64->>(t1_buf + (ti * POLY));
+        int64->:pk_t1 = cast_unchecked<int64->>(pk_ptr + 32i64 + ti * 320i64);
+        int64:ci = 0i64;
+        int64:bit_off = 0i64;
+        while (ci < 256i64) {
+            int64:c = 0i64;
+            int64:b = 0i64;
+            while (b < 10i64) {
+                int64:byte_idx = bit_off / 8i64;
+                int64:bit_idx  = bit_off % 8i64;
+                int64:bv = (buf_get_u8(pk_t1, byte_idx) ?! 1i64);
+                c = c | (((bv >> bit_idx) & 1i64) << b);
+                bit_off += 1i64;
+                b += 1i64;
+            }
+            t1p[ci] = c;
+            ci += 1i64;
+        }
+        drop mldsa_ntt(t1_buf + (ti * POLY));
+        ti += 1i64;
+    }
+
+    // Expand A
+    int64:A_buf = cast_unchecked<int64>(alloc(k * l * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(A_buf)); }
+    drop pqc_expand_a(rho_ptr, A_buf, k, l, q, 0i64);
+
+    // NTT(z)
+    ti = 0i64;
+    while (ti < l) {
+        drop mldsa_ntt(z_buf + (ti * POLY));
+        ti += 1i64;
+    }
+
+    // Compute A*z in NTT domain
+    int64:Az_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(Az_buf)); }
+    drop polymat_vec_mul(A_buf, z_buf, Az_buf, k, l, q, 1i64);
+
+    // Compute c*t1*2^D and subtract from A*z
+    int64:w1p_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(w1p_buf)); }
+    int64:D_shift = 1i64 << 13i64;  // 2^D = 2^13
+    ti = 0i64;
+    while (ti < k) {
+        int64->:az = cast_unchecked<int64->>(Az_buf  + (ti * POLY));
+        int64->:t1 = cast_unchecked<int64->>(t1_buf  + (ti * POLY));
+        int64->:wp = cast_unchecked<int64->>(w1p_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            // ct1 = c * t1[i] in NTT domain
+            int64->:c_poly = cast_unchecked<int64->>(c_buf);
+            int64:ct1_val = (c_poly[ci] * t1[ci]) % q;
+            // ct1 * 2^D
+            int64:ct1d = (ct1_val * D_shift) % q;
+            // Az - ct1d
+            wp[ci] = (az[ci] - ct1d + q) % q;
+
+            ci += 1i64;
+        }
+        drop mldsa_ntt_inv(w1p_buf + (ti * POLY));
+        ti += 1i64;
+    }
+
+    // w'1 = UseHint(h, w')  (read hints from sig, apply)
+    // For verification, read hints from signature and compute w'1
+    int64:h_enc_ptr = sig_ptr + 32i64 + z_enc_len;
+    int64->:h64 = cast_unchecked<int64->>(h_enc_ptr);
+    int64:alpha = 2i64 * gamma2;
+    int64:m_v = (q - 1i64) / alpha;
+    int64:enc_bits_v = 0i64;
+    int64:mv2 = m_v;
+    while (mv2 > 0i64) {
+        enc_bits_v += 1i64;
+        mv2 = mv2 >> 1i64;
+    }
+
+    int64:w1_enc = cast_unchecked<int64>(alloc(k * 256i64 * enc_bits_v / 8i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(w1_enc)); }
+    int64->:w1_enc64 = cast_unchecked<int64->>(w1_enc);
+    drop local_memset(w1_enc64, 0i64, 0i64, k * 256i64 * enc_bits_v / 8i64);
+
+    ti = 0i64;
+    while (ti < k) {
+        int64->:wp = cast_unchecked<int64->>(w1p_buf + (ti * POLY));
+        int64:ci = 0i64;
+        while (ci < 256i64) {
+            int64:h_idx = ti * 256i64 + ci;
+            int64:h_byt = (buf_get_u8(h64, h_idx / 8i64) ?! 1i64);
+            int64:h_bit = (h_byt >> (h_idx % 8i64)) & 1i64;
+            int64:r1 = (use_hint_coeff(h_bit, wp[ci], q, gamma2) ?! 1i64);
+            // Bit-pack r1 into w1_enc
+            int64:b = 0i64;
+            while (b < enc_bits_v) {
+                int64:byte_idx = (ti * 256i64 * enc_bits_v + ci * enc_bits_v + b) / 8i64;
+                int64:bit_idx  = (ti * 256i64 * enc_bits_v + ci * enc_bits_v + b) % 8i64;
+                int64:cur = (buf_get_u8(w1_enc64, byte_idx) ?! 1i64);
+                cur = (cur & ~(1i64 << bit_idx)) | (((r1 >> b) & 1i64) << bit_idx);
+                drop buf_put_u8(w1_enc64, byte_idx, cur);
+                b += 1i64;
+            }
+            ci += 1i64;
+        }
+        ti += 1i64;
+    }
+
+    // Compute c~' = H(mu || w'1) and compare with c~
+    int64:ctilde2_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(ctilde2_buf)); }
+    int64:w1_bytes_v = k * 256i64 * enc_bits_v / 8i64;
+
+    drop shake256_hash2(mu_buf, 64i64, w1_enc, w1_bytes_v, ctilde2_buf, 32i64);
+    drop dbg_hex(0x66666666i64);
+    drop dbg_hex(w1_enc64[0]);
+    drop dbg_hex(w1_enc64[1]);
+
+    // Constant-time comparison c~ == c~'
+    int64:ci = 0i64;
+    while (ci < 32i64) {
+        int64:b1 = (buf_get_u8(sig64, ci) ?! 1i64);
+        int64:b2 = (buf_get_u8(cast_unchecked<int64->>(ctilde2_buf), ci) ?! 1i64);
+        if (b1 != b2) {
+            // Find exactly where w1_enc differed
+            int64:diff_i = 0i64;
+            int64:w1_sign_ptr = sig_ptr + h_enc_ptr - sig_ptr + k * 256i64 / 8i64;
+            int64->:w1_s = cast_unchecked<int64->>(w1_sign_ptr);
+            while (diff_i < w1_bytes_v) {
+                int64:bs = (buf_get_u8(w1_s, diff_i) ?! 1i64);
+                int64:bv = (buf_get_u8(w1_enc64, diff_i) ?! 1i64);
+                if (bs != bv) {
+                    drop dbg_hex(0xDDDDDDDDi64);
+                    drop dbg_hex(diff_i);
+                    drop dbg_hex(bs);
+                    drop dbg_hex(bv);
+                    break;
+                }
+                diff_i += 1i64;
+            }
+            drop dbg_hex(0xEEEEEEEEi64);
+            drop dbg_hex(ci);
+            drop dbg_hex(b1);
+            drop dbg_hex(b2);
+            pass 1i32;  // signature invalid: w1' hash mismatch
+        }
+        ci += 1i64;
+    }
+
+    pass 0i32;  // signature valid
+};

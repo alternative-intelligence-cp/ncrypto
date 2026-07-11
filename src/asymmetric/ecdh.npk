@@ -9,8 +9,11 @@ pub func:ecdh_derive = int4096(int4096:d, ECCPoint:Q_peer, Secp256k1Params:param
     ECCPoint:S = raw ecc_point_alloc();
     int4096:p_mod = params.p;
     
+    // Extract Q_peer to local so we can take its address
+    ECCPoint:Q_local = Q_peer;
+    
     // Constant-time scalar multiplication
-    drop raw ecc_scalar_mul_ct(d, Q_peer, p_mod, S);
+    drop ecc_scalar_mul_ct(d, @Q_local, p_mod, @S);
     
     if (S.is_infinity == 1i64) {
         pass cast_unchecked<int4096>(0i64);

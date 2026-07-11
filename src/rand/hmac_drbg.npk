@@ -1,7 +1,7 @@
-use "src/hash/sha256.npk".*;
-use "src/util/bytes.npk".*;
-use "src/mac/hmac.npk".*;
-use "src/util/hex.npk".*;
+use "../hash/sha256.npk".*;
+use "../util/bytes.npk".*;
+use "../mac/hmac.npk".*;
+use "../util/hex.npk".*;
 
 pub struct:HMAC_DRBG_State = {
     int64: V_ptr;
@@ -10,13 +10,13 @@ pub struct:HMAC_DRBG_State = {
 };
 
 // HMAC-DRBG Update function (SP 800-90A)
-pub func:hmac_drbg_update = int32(HMAC_DRBG_State:state, int64:provided_data_ptr, int64:provided_data_len) {
+pub func:hmac_drbg_update = int32(HMAC_DRBG_State->:state, int64:provided_data_ptr, int64:provided_data_len) {
     int64:hash_len = 32i64; // SHA-256
     int64:msg_buf = cast_unchecked<int64>(alloc(hash_len + 1i64 + provided_data_len + 8i64));
     int64->:msg_buf_64 = cast_unchecked<int64->>(msg_buf);
     
     // Copy V into msg_buf
-    int64->:V_64 = cast_unchecked<int64->>(state.V_ptr);
+    int64->:V_64 = cast_unchecked<int64->>(state->V_ptr);
     int64:i = 0i64;
     while (i < hash_len) {
         int64:shift = (i & 7i64) * 8i64;
@@ -47,10 +47,10 @@ pub func:hmac_drbg_update = int32(HMAC_DRBG_State:state, int64:provided_data_ptr
     }
     
     // Key = HMAC(Key, V || 0x00 || provided_data)
-    drop raw hmac_sha256_raw(state.Key_ptr, hash_len, msg_buf, hash_len + 1i64 + provided_data_len, state.Key_ptr);
+    drop hmac_sha256_raw(state->Key_ptr, hash_len, msg_buf, hash_len + 1i64 + provided_data_len, state->Key_ptr);
     
     // V = HMAC(Key, V)
-    drop raw hmac_sha256_raw(state.Key_ptr, hash_len, state.V_ptr, hash_len, state.V_ptr);
+    drop hmac_sha256_raw(state->Key_ptr, hash_len, state->V_ptr, hash_len, state->V_ptr);
     
     if (provided_data_len == 0i64) {
         drop dalloc(cast_unchecked<int8->>(msg_buf)); // free
@@ -72,10 +72,10 @@ pub func:hmac_drbg_update = int32(HMAC_DRBG_State:state, int64:provided_data_ptr
     // provided_data is still there
     
     // Key = HMAC(Key, V || 0x01 || provided_data)
-    drop raw hmac_sha256_raw(state.Key_ptr, hash_len, msg_buf, hash_len + 1i64 + provided_data_len, state.Key_ptr);
+    drop hmac_sha256_raw(state->Key_ptr, hash_len, msg_buf, hash_len + 1i64 + provided_data_len, state->Key_ptr);
     
     // V = HMAC(Key, V)
-    drop raw hmac_sha256_raw(state.Key_ptr, hash_len, state.V_ptr, hash_len, state.V_ptr);
+    drop hmac_sha256_raw(state->Key_ptr, hash_len, state->V_ptr, hash_len, state->V_ptr);
     
     drop dalloc(cast_unchecked<int8->>(msg_buf)); // free
     pass 0i32;
@@ -139,14 +139,14 @@ pub func:hmac_drbg_instantiate = HMAC_DRBG_State(int64:entropy_ptr, int64:entrop
         i += 1i64;
     }
     
-    drop raw hmac_drbg_update(state, seed_material, seed_material_len);
+    drop hmac_drbg_update(@state, seed_material, seed_material_len);
     
     drop dalloc(cast_unchecked<int8->>(seed_material));
     pass state;
 };
 
 // Reseed
-pub func:hmac_drbg_reseed = int32(HMAC_DRBG_State:state, int64:entropy_ptr, int64:entropy_len, int64:addi_ptr, int64:addi_len) {
+pub func:hmac_drbg_reseed = int32(HMAC_DRBG_State->:state, int64:entropy_ptr, int64:entropy_len, int64:addi_ptr, int64:addi_len) {
     int64:seed_material_len = entropy_len + addi_len;
     int64:seed_material = cast_unchecked<int64>(alloc(seed_material_len + 8i64));
     int64->:sm_64 = cast_unchecked<int64->>(seed_material);
@@ -174,32 +174,32 @@ pub func:hmac_drbg_reseed = int32(HMAC_DRBG_State:state, int64:entropy_ptr, int6
         i += 1i64;
     }
     
-    drop raw hmac_drbg_update(state, seed_material, seed_material_len);
-    state.reseed_counter = 1i64;
+    drop hmac_drbg_update(state, seed_material, seed_material_len);
+    state->reseed_counter = 1i64;
     
     drop dalloc(cast_unchecked<int8->>(seed_material));
     pass 0i32;
 };
 
 // Generate
-pub func:hmac_drbg_generate = int32(HMAC_DRBG_State:state, int64:out_ptr, int64:out_len, int64:addi_ptr, int64:addi_len) {
-    if (state.reseed_counter > 10000i64) {
+pub func:hmac_drbg_generate = int32(HMAC_DRBG_State->:state, int64:out_ptr, int64:out_len, int64:addi_ptr, int64:addi_len) {
+    if (state->reseed_counter > 10000i64) {
         // Must reseed
         fail(-1i32);
     }
     
     if (addi_len > 0i64) {
-        drop raw hmac_drbg_update(state, addi_ptr, addi_len);
+        drop hmac_drbg_update(state, addi_ptr, addi_len);
     }
     
     int64:hash_len = 32i64; // SHA-256
     int64->:out_64 = cast_unchecked<int64->>(out_ptr);
-    int64->:V_64 = cast_unchecked<int64->>(state.V_ptr);
+    int64->:V_64 = cast_unchecked<int64->>(state->V_ptr);
     
     int64:generated = 0i64;
     while (generated < out_len) {
         // V = HMAC(Key, V)
-        drop raw hmac_sha256_raw(state.Key_ptr, hash_len, state.V_ptr, hash_len, state.V_ptr);
+        drop hmac_sha256_raw(state->Key_ptr, hash_len, state->V_ptr, hash_len, state->V_ptr);
         
         // Copy to output
         int64:i = 0i64;
@@ -217,8 +217,8 @@ pub func:hmac_drbg_generate = int32(HMAC_DRBG_State:state, int64:out_ptr, int64:
         generated += hash_len;
     }
     
-    drop raw hmac_drbg_update(state, addi_ptr, addi_len);
-    state.reseed_counter += 1i64;
+    drop hmac_drbg_update(state, addi_ptr, addi_len);
+    state->reseed_counter += 1i64;
     
     pass 0i32;
 };

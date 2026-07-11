@@ -213,14 +213,14 @@ pub func:sha256_update = int32(int64:ctx, int64:buf_ptr, int64:length) {
         i += copy;
 
         if (buflen == 64i64) {
-            drop raw sha256_transform(ctx, ctx_64, 48i64);
+            drop sha256_transform(ctx, ctx_64, 48i64);
             ctx_64[5i64] = 0i64;
         }
     }
 
     int64->:src_buf = cast_unchecked<int64->>(buf_ptr);
     while ((i + 64i64) <= length) {
-        drop raw sha256_transform(ctx, src_buf, i);
+        drop sha256_transform(ctx, src_buf, i);
         i += 64i64;
     }
 
@@ -249,7 +249,7 @@ pub func:sha256_finalize_raw = int32(int64:ctx, int64:out_ptr) {
 
     if (rem > 56i64) {
         drop (local_memset(fbuf_64, rem, 0i64, 64i64 - rem) ?! 1i32);
-        drop raw sha256_transform(ctx, fbuf_64, 0i64);
+        drop sha256_transform(ctx, fbuf_64, 0i64);
         rem = 0i64;
     }
 
@@ -263,7 +263,7 @@ pub func:sha256_finalize_raw = int32(int64:ctx, int64:out_ptr) {
         j -= 1i64;
     }
 
-    drop raw sha256_transform(ctx, fbuf_64, 0i64);
+    drop sha256_transform(ctx, fbuf_64, 0i64);
 
     int64:is224 = ctx_64[14i64];
     int64:words_to_output = 8i64;
@@ -299,7 +299,7 @@ pub func:sha256_finalize = string(int64:ctx) {
 
     if (rem > 56i64) {
         drop (local_memset(fbuf_64, rem, 0i64, 64i64 - rem) ?! 1i32);
-        drop raw sha256_transform(ctx, fbuf_64, 0i64);
+        drop sha256_transform(ctx, fbuf_64, 0i64);
         rem = 0i64;
     }
 
@@ -313,7 +313,7 @@ pub func:sha256_finalize = string(int64:ctx) {
         j -= 1i64;
     }
 
-    drop raw sha256_transform(ctx, fbuf_64, 0i64);
+    drop sha256_transform(ctx, fbuf_64, 0i64);
 
     int64:is224 = ctx_64[14i64];
     int64:words_to_output = 8i64;
@@ -354,9 +354,9 @@ pub func:sha256 = string(string:data) {
     int64:ctx = raw sha256_init();
     int64:data_ptr = raw sha256_string_data_ptr(data);
     int64:data_len = string_length(data);
-    drop raw sha256_update(ctx, data_ptr, data_len);
+    drop sha256_update(ctx, data_ptr, data_len);
     string:res = raw sha256_finalize(ctx);
-    drop raw sha256_free(ctx);
+    drop sha256_free(ctx);
     pass res;
 };
 
@@ -364,8 +364,8 @@ pub func:sha224 = string(string:data) {
     int64:ctx = raw sha224_init();
     int64:data_ptr = raw sha256_string_data_ptr(data);
     int64:data_len = string_length(data);
-    drop raw sha256_update(ctx, data_ptr, data_len);
+    drop sha256_update(ctx, data_ptr, data_len);
     string:res = raw sha256_finalize(ctx);
-    drop raw sha256_free(ctx);
+    drop sha256_free(ctx);
     pass res;
 };

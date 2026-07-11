@@ -1,0 +1,266 @@
+// poly.npk - Polynomial ring arithmetic over Z_q[X]/(X^256 + 1)
+// Used by ML-KEM (q=3329) and ML-DSA (q=8380417).
+// Polynomials are stored as 256 int64 values (one per coefficient) in a heap buffer.
+// Buffer size: 256 * 8 = 2048 bytes.
+
+use "../util/bytes.npk".*;
+
+
+// POLY_BYTES: number of bytes in a polynomial buffer
+// 256 coefficients × 8 bytes each (stored as int64 for headroom in arithmetic)
+// pub func:poly_alloc allocates 2048 + 8 bytes (alignment pad)
+
+// ---------------------------------------------------------------------------
+// poly_alloc: allocate a zero-initialized polynomial buffer
+// Returns raw int64 address (caller must dalloc)
+// ---------------------------------------------------------------------------
+pub func:poly_alloc = int64() {
+    int64:ptr = cast_unchecked<int64>(alloc(2056i64));  // 256*8 + 8
+    // Zero all coefficients
+    int64->:p64 = cast_unchecked<int64->>(ptr);
+    int64:i = 0i64;
+    while (i < 256i64) {
+        p64[i] = 0i64;
+        i += 1i64;
+    }
+    pass ptr;
+};
+
+// ---------------------------------------------------------------------------
+// poly_free: free a polynomial buffer
+// ---------------------------------------------------------------------------
+pub func:poly_free = int32(int64:ptr) {
+    drop dalloc(cast_unchecked<int8->>(ptr));
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_get: get coefficient i of polynomial at ptr
+// ---------------------------------------------------------------------------
+pub func:poly_get = int64(int64:ptr, int64:i) {
+    int64->:p = cast_unchecked<int64->>(ptr);
+    pass p[i];
+};
+
+// ---------------------------------------------------------------------------
+// poly_set: set coefficient i of polynomial at ptr
+// ---------------------------------------------------------------------------
+pub func:poly_set = int32(int64:ptr, int64:i, int64:val) {
+    int64->:p = cast_unchecked<int64->>(ptr);
+    p[i] = val;
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_copy: copy polynomial from src to dst (256 coefficients)
+// ---------------------------------------------------------------------------
+pub func:poly_copy = int32(int64:dst, int64:src) {
+    int64->:d = cast_unchecked<int64->>(dst);
+    int64->:s = cast_unchecked<int64->>(src);
+    int64:i = 0i64;
+    while (i < 256i64) {
+        d[i] = s[i];
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_add: dst[i] = (a[i] + b[i]) mod q, for i in 0..255
+// ---------------------------------------------------------------------------
+pub func:poly_add = int32(int64:dst, int64:a, int64:b, int64:q) {
+    int64->:D = cast_unchecked<int64->>(dst);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:s = A[i] + B[i];
+        // Reduce mod q (s is in [0, 2q-2])
+        if (s >= q) {
+            s -= q;
+        }
+        D[i] = s;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_sub: dst[i] = (a[i] - b[i] + q) mod q
+// ---------------------------------------------------------------------------
+pub func:poly_sub = int32(int64:dst, int64:a, int64:b, int64:q) {
+    int64->:D = cast_unchecked<int64->>(dst);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:s = A[i] - B[i] + q;
+        if (s >= q) {
+            s -= q;
+        }
+        D[i] = s;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_reduce: reduce each coefficient mod q (Barrett reduction for q < 2^23)
+// For q = 3329 or q = 8380417, simple modulo is sufficient at this stage.
+// ---------------------------------------------------------------------------
+pub func:poly_reduce = int32(int64:ptr, int64:q) {
+    int64->:p = cast_unchecked<int64->>(ptr);
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:c = p[i] % q;
+        if (c < 0i64) {
+            c += q;
+        }
+        p[i] = c;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_ntt_mul_pointwise: dst[i] = (a[i] * b[i]) mod q  (NTT-domain multiplication)
+// In NTT domain, polynomial multiplication becomes element-wise.
+// ---------------------------------------------------------------------------
+pub func:poly_ntt_mul_pointwise = int32(int64:dst, int64:a, int64:b, int64:q) {
+    int64->:D = cast_unchecked<int64->>(dst);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
+    int64:i = 0i64;
+    while (i < 256i64) {
+        D[i] = (A[i] * B[i]) % q;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// poly_ntt_mul_acc moved to ntt.npk
+
+// ---------------------------------------------------------------------------
+// poly_add_ntt_acc: finalize accumulated NTT-domain inner product by reducing
+// (called after poly_ntt_mul_acc loop to ensure all coefficients in [0, q))
+// ---------------------------------------------------------------------------
+pub func:poly_finalize_acc = int32(int64:dst, int64:q) {
+    pass (poly_reduce(dst, q) ?! 1i32);
+};
+
+// ---------------------------------------------------------------------------
+// Montgomery multiplication helper:
+// montgomery_reduce(a, q, qinv) = a * R^-1 mod q where R = 2^32
+// For ML-KEM (q=3329): qinv = -3329^(-1) mod 2^32 = 3327489  (precomputed)
+// For ML-DSA (q=8380417): qinv = 58728449 (precomputed)
+// ---------------------------------------------------------------------------
+pub func:montgomery_reduce = int64(int64:a, int64:q, int64:qinv) {
+    // t = (a * qinv) mod 2^32
+    int64:t = (a * qinv) & 0xFFFFFFFFi64;
+    // u = (a - t*q) >> 32
+    int64:diff = a - t * q;
+    int64:u = diff >> 32i64;
+    if (diff < 0i64) {
+        u = u | (-1i64 << 32i64);
+    }
+    // Conditionally add q if negative
+    if (u < 0i64) {
+        u += q;
+    }
+    pass u;
+};
+
+// ---------------------------------------------------------------------------
+// barrett_reduce: reduce a mod q using Barrett reduction
+// For q < 2^23, we can use: a mod q = a - q * floor(a * v / 2^26)
+// where v = floor(2^26 / q)
+// ---------------------------------------------------------------------------
+pub func:barrett_reduce = int64(int64:a, int64:q, int64:v) {
+    // t = floor(a * v / 2^26)
+    int64:t = (a * v) >> 26i64;
+    int64:r = a - t * q;
+    // Final conditional subtract
+    if (r >= q) {
+        r -= q;
+    }
+    if (r < 0i64) {
+        r += q;
+    }
+    pass r;
+};
+
+// ---------------------------------------------------------------------------
+// poly_compress: compress polynomial coefficients to d bits each (ML-KEM)
+// compress(x, d) = round(2^d / q * x) mod 2^d
+// Result stored as int64 per coefficient (actual packing done in pqc_encode.npk)
+// ---------------------------------------------------------------------------
+pub func:poly_compress = int32(int64:dst, int64:src, int64:d, int64:q) {
+    int64->:D = cast_unchecked<int64->>(dst);
+    int64->:S = cast_unchecked<int64->>(src);
+    int64:mask = (1i64 << d) - 1i64;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        // round(2^d / q * x) = ((x * 2^d + q/2) / q) mod 2^d
+        int64:c = ((S[i] * (1i64 << d) + (q / 2i64)) / q) & mask;
+        D[i] = c;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_decompress: decompress d-bit coefficients back to [0, q)
+// decompress(x, d) = round(q / 2^d * x)
+// ---------------------------------------------------------------------------
+pub func:poly_decompress = int32(int64:dst, int64:src, int64:d, int64:q) {
+    int64->:D = cast_unchecked<int64->>(dst);
+    int64->:S = cast_unchecked<int64->>(src);
+    int64:shift = 1i64 << d;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        // round(q / 2^d * x) = (x * q + 2^(d-1)) / 2^d
+        int64:c = (S[i] * q + (shift / 2i64)) / shift;
+        D[i] = c;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_encode_bytes: pack polynomial coefficients (each fits in 12 bits for ML-KEM)
+// into byte buffer (for key serialization)
+// 256 coefficients × 12 bits = 384 bytes
+// ---------------------------------------------------------------------------
+pub func:poly_encode_12bit = int32(int64:out_ptr, int64:poly_ptr) {
+    int64->:P = cast_unchecked<int64->>(poly_ptr);
+    int64->:out64 = cast_unchecked<int64->>(out_ptr);
+    int64:i = 0i64;
+    while (i < 128i64) {
+        // Pack two 12-bit coefficients into 3 bytes
+        int64:c0 = P[2i64 * i];
+        int64:c1 = P[2i64 * i + 1i64];
+        drop buf_put_u8(out64, 3i64 * i,       c0 & 0xFFi64);
+        drop buf_put_u8(out64, 3i64 * i + 1i64, ((c0 >> 8i64) | (c1 << 4i64)) & 0xFFi64);
+        drop buf_put_u8(out64, 3i64 * i + 2i64, (c1 >> 4i64) & 0xFFi64);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_decode_12bit: unpack 384 bytes into polynomial (12-bit coefficients)
+// ---------------------------------------------------------------------------
+pub func:poly_decode_12bit = int32(int64:poly_ptr, int64:in_ptr) {
+    int64->:P   = cast_unchecked<int64->>(poly_ptr);
+    int64->:in64 = cast_unchecked<int64->>(in_ptr);
+    int64:i = 0i64;
+    while (i < 128i64) {
+        int64:b0 = (buf_get_u8(in64, 3i64 * i)       ?! 1i64);
+        int64:b1 = (buf_get_u8(in64, 3i64 * i + 1i64) ?! 1i64);
+        int64:b2 = (buf_get_u8(in64, 3i64 * i + 2i64) ?! 1i64);
+        P[2i64 * i]       = b0 | ((b1 & 0x0Fi64) << 8i64);
+        P[2i64 * i + 1i64] = (b1 >> 4i64) | (b2 << 4i64);
+        i += 1i64;
+    }
+    pass 0i32;
+};

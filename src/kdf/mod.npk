@@ -1,6 +1,6 @@
 // src/kdf/mod.npk
 
-use "src/kdf/pbkdf2.npk".*;
-use "src/util/bytes.npk".*;
-use "src/kdf/hkdf.npk".*;
-use "src/kdf/argon2.npk".*;
+use "pbkdf2.npk".*;
+use "../util/bytes.npk".*;
+use "hkdf.npk".*;
+use "argon2.npk".*;

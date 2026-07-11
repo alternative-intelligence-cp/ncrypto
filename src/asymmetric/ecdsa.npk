@@ -22,8 +22,59 @@ pub func:ecdsa_signature_free = int32(ECDSASignature:sig) {
     pass 0i32;
 };
 
+// One attempt at finding valid (r, s) for ECDSA signing.
+// Extracted into its own function so the compiler reclaims all int4096
+// temporaries (dynamic allocas for cast_unchecked, *, %, +) on return.
+// Without this, each while-loop iteration accumulates ~13KB of dynamic
+// stack allocations that are never freed, causing stack overflow.
+pub func:ecdsa_sign_try_k = int32(
+    HMAC_DRBG_State->:drbg, int64:k_bytes, 
+    int4096:z, int4096:d,
+    int4096:p_mod, int4096:n_mod,
+    ECCPoint->:G_local, ECDSASignature->:sig) {
+    
+    int4096:zero = cast_unchecked<int4096>(0i64);
+    
+    drop hmac_drbg_generate(drbg, k_bytes, 32i64, 0i64, 0i64);
+    int4096:k = raw int4096_from_bytes(k_bytes, 32i64);
+    
+    if (raw int4096_gt(k, zero) == 1i32) {
+        if (raw int4096_lt(k, n_mod) == 1i32) {
+            ECCPoint:R = raw ecc_point_alloc();
+            R.is_infinity = 1i64;
+            R.x = cast_unchecked<int4096>(0i64);
+            R.y = cast_unchecked<int4096>(0i64);
+            R.z = cast_unchecked<int4096>(1i64);
+            drop ecc_scalar_mul_ct(k, G_local, p_mod, @R);
+            
+            int4096:rx = R.x;
+            sig->r = (rx % n_mod);
+            
+            if (raw int4096_gt(sig->r, zero) == 1i32) {
+                int4096:k_inv = raw ecc_mod_inv(k, n_mod);
+                
+                int4096:dr = (sig->r * d);
+                int4096:dr_mod = (dr % n_mod);
+                int4096:z_mod = (z % n_mod);
+                
+                int4096:sum = (z_mod + dr_mod);
+                int4096:sum_mod = (sum % n_mod);
+                
+                int4096:s_tmp = (k_inv * sum_mod);
+                sig->s = (s_tmp % n_mod);
+                
+                if (raw int4096_gt(sig->s, zero) == 1i32) {
+                    pass 1i32; // success
+                }
+            }
+        }
+    }
+    
+    pass 0i32; // try again
+};
+
 // RFC 6979 deterministic ECDSA sign
-pub func:ecdsa_sign = int32(int4096:z, int4096:d, Secp256k1Params:params, ECDSASignature:sig) {
+pub func:ecdsa_sign = int32(int4096:z, int4096:d, Secp256k1Params:params, ECDSASignature->:sig) {
     int4096:p_mod = params.p;
     int4096:n_mod = params.n;
     int4096:zero = cast_unchecked<int4096>(0i64);
@@ -34,8 +85,8 @@ pub func:ecdsa_sign = int32(int4096:z, int4096:d, Secp256k1Params:params, ECDSAS
     int64:z_bytes = cast_unchecked<int64>(alloc(32i64));
     defer { drop dalloc(cast_unchecked<int8->>(z_bytes)); }
     
-    drop raw int4096_to_bytes(d, d_bytes, 32i64);
-    drop raw int4096_to_bytes(z, z_bytes, 32i64);
+    drop int4096_to_bytes(d, d_bytes, 32i64);
+    drop int4096_to_bytes(z, z_bytes, 32i64);
     
     HMAC_DRBG_State:drbg = raw hmac_drbg_instantiate(d_bytes, 32i64, z_bytes, 32i64, 0i64, 0i64);
     defer { drop dalloc(cast_unchecked<int8->>(drbg.V_ptr)); }
@@ -44,37 +95,14 @@ pub func:ecdsa_sign = int32(int4096:z, int4096:d, Secp256k1Params:params, ECDSAS
     int64:k_bytes = cast_unchecked<int64>(alloc(32i64));
     defer { drop dalloc(cast_unchecked<int8->>(k_bytes)); }
     
+    // Extract params.G to a local so we can take its address
+    ECCPoint:G_local = params.G;
+    
     int64:done = 0i64;
     while (done == 0i64) {
-        drop raw hmac_drbg_generate(drbg, k_bytes, 32i64, 0i64, 0i64);
-        int4096:k = raw int4096_from_bytes(k_bytes, 32i64);
-        
-        if (raw int4096_gt(k, zero) == 1i32) {
-            if (raw int4096_lt(k, n_mod) == 1i32) {
-                ECCPoint:R = raw ecc_point_alloc();
-                drop raw ecc_scalar_mul_ct(k, params.G, p_mod, R);
-                
-                int4096:rx = R.x;
-                sig.r = (rx % n_mod) ?! -1i32;
-                
-                if (raw int4096_gt(sig.r, zero) == 1i32) {
-                    int4096:k_inv = raw ecc_mod_inv(k, n_mod);
-                    
-                    int4096:dr = (sig.r * d) ?! -1i32;
-                    int4096:dr_mod = (dr % n_mod) ?! -1i32;
-                    int4096:z_mod = (z % n_mod) ?! -1i32;
-                    
-                    int4096:sum = (z_mod + dr_mod);
-                    int4096:sum_mod = (sum % n_mod) ?! -1i32;
-                    
-                    int4096:s_tmp = (k_inv * sum_mod);
-                    sig.s = (s_tmp % n_mod) ?! -1i32;
-                    
-                    if (raw int4096_gt(sig.s, zero) == 1i32) {
-                        done = 1i64;
-                    }
-                }
-            }
+        int32:try_result = raw ecdsa_sign_try_k(@drbg, k_bytes, z, d, p_mod, n_mod, @G_local, sig);
+        if (try_result == 1i32) {
+            done = 1i64;
         }
     }
     
@@ -96,31 +124,35 @@ pub func:ecdsa_verify = int32(int4096:z, ECDSASignature:sig, ECCPoint:Q, Secp256
     
     int4096:s_inv = raw ecc_mod_inv(sig.s, n_mod);
     
-    int4096:z_mod_n = (z % n_mod) ?! -1i32;
+    int4096:z_mod_n = (z % n_mod);
     
     int4096:u1_tmp = (z_mod_n * s_inv);
-    int4096:u1 = (u1_tmp % n_mod) ?! -1i32;
+    int4096:u1 = (u1_tmp % n_mod);
     
-    int4096:u2_tmp = (sig.r * s_inv) ?! -1i32;
-    int4096:u2 = (u2_tmp % n_mod) ?! -1i32;
+    int4096:u2_tmp = (sig.r * s_inv);
+    int4096:u2 = (u2_tmp % n_mod);
+    
+    // Extract params.G and Q to locals so we can take their addresses
+    ECCPoint:G_local = params.G;
+    ECCPoint:Q_local = Q;
     
     ECCPoint:R1 = raw ecc_point_alloc();
-    drop raw ecc_scalar_mul_ct(u1, params.G, p_mod, R1);
+    drop ecc_scalar_mul_ct(u1, @G_local, p_mod, @R1);
     
     ECCPoint:R2 = raw ecc_point_alloc();
-    drop raw ecc_scalar_mul_ct(u2, Q, p_mod, R2);
+    drop ecc_scalar_mul_ct(u2, @Q_local, p_mod, @R2);
     
     ECCPoint:R = raw ecc_point_alloc();
-    drop raw ecc_point_add(R1, R2, p_mod, R);
+    drop ecc_point_add(@R1, @R2, p_mod, @R);
     
     // R is now in Jacobian coordinates! We must convert to Affine to check x.
     ECCPoint:R_aff = raw ecc_point_alloc();
-    drop raw ecc_to_affine(R, p_mod, R_aff);
+    drop ecc_to_affine(@R, p_mod, @R_aff);
     
     int32:valid = 0i32;
     if (R_aff.is_infinity == 0i64) {
         int4096:rx = R_aff.x;
-        int4096:r_calc = (rx % n_mod) ?! -1i32;
+        int4096:r_calc = (rx % n_mod);
         if (raw int4096_eq(sig.r, r_calc) == 1i32) {
             valid = 1i32;
         }

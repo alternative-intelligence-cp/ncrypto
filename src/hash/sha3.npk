@@ -2270,7 +2270,7 @@ pub func:sha3_process = int32(
             s8[j] = s8[j] ^ m8[m_idx + j];
             j += 1i64;
         }
-        drop raw keccak_f1600(state_ptr);
+        drop keccak_f1600(state_ptr);
         m_idx += rate_bytes;
     }
 
@@ -2286,7 +2286,7 @@ pub func:sha3_process = int32(
     s8[rem] = s8[rem] ^ padding_byte;
     s8[rate_bytes - 1i64] = s8[rate_bytes - 1i64] ^ 128i8;
 
-    drop raw keccak_f1600(state_ptr);
+    drop keccak_f1600(state_ptr);
 
     // Squeeze
     int8->:out8 = cast_unchecked<int8->>(out_ptr);
@@ -2303,7 +2303,7 @@ pub func:sha3_process = int32(
         }
         out_idx += take;
         if (out_idx < out_len) {
-            drop raw keccak_f1600(state_ptr);
+            drop keccak_f1600(state_ptr);
         }
     }
 
@@ -2313,30 +2313,40 @@ pub func:sha3_process = int32(
 
 // SHA-3 224
 pub func:sha3_224_hash = int32(int64:msg_ptr, int64:msg_len, int64:out_ptr) {
-    drop raw sha3_process(144i64, 6i8, msg_ptr, msg_len, out_ptr, 28i64);
+    drop sha3_process(144i64, 6i8, msg_ptr, msg_len, out_ptr, 28i64);
     pass 0i32;
 };
 
 // SHA-3 256
 pub func:sha3_256_hash = int32(int64:msg_ptr, int64:msg_len, int64:out_ptr) {
-    drop raw sha3_process(136i64, 6i8, msg_ptr, msg_len, out_ptr, 32i64);
+    drop sha3_process(136i64, 6i8, msg_ptr, msg_len, out_ptr, 32i64);
     pass 0i32;
 };
 
 // SHA-3 384
 pub func:sha3_384_hash = int32(int64:msg_ptr, int64:msg_len, int64:out_ptr) {
-    drop raw sha3_process(104i64, 6i8, msg_ptr, msg_len, out_ptr, 48i64);
+    drop sha3_process(104i64, 6i8, msg_ptr, msg_len, out_ptr, 48i64);
     pass 0i32;
 };
 
 // SHA-3 512
 pub func:sha3_512_hash = int32(int64:msg_ptr, int64:msg_len, int64:out_ptr) {
-    drop raw sha3_process(72i64, 6i8, msg_ptr, msg_len, out_ptr, 64i64);
+    drop sha3_process(72i64, 6i8, msg_ptr, msg_len, out_ptr, 64i64);
     pass 0i32;
 };
 
 // Keccak-256 (Ethereum)
 pub func:keccak_256_hash = int32(int64:msg_ptr, int64:msg_len, int64:out_ptr) {
-    drop raw sha3_process(136i64, 1i8, msg_ptr, msg_len, out_ptr, 32i64);
+    drop sha3_process(136i64, 1i8, msg_ptr, msg_len, out_ptr, 32i64);
     pass 0i32;
+};
+
+// SHAKE-128
+pub func:shake128_xof = int32(int64:msg_ptr, int64:msg_len, int64:out_ptr, int64:out_len) {
+    pass sha3_process(168i64, 31i8, msg_ptr, msg_len, out_ptr, out_len);
+};
+
+// SHAKE-256
+pub func:shake256_xof = int32(int64:msg_ptr, int64:msg_len, int64:out_ptr, int64:out_len) {
+    pass sha3_process(136i64, 31i8, msg_ptr, msg_len, out_ptr, out_len);
 };

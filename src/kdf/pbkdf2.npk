@@ -1,8 +1,8 @@
-use "src/hash/sha256.npk".*;
-use "src/util/bytes.npk".*;
-use "src/hash/sha512.npk".*;
-use "src/mac/hmac.npk".*;
-use "src/util/hex.npk".*;
+use "../hash/sha256.npk".*;
+use "../util/bytes.npk".*;
+use "../hash/sha512.npk".*;
+use "../mac/hmac.npk".*;
+use "../util/hex.npk".*;
 
 func:int32_to_be_bytes = int32(int64:val, int64:out_ptr) {
     int64->:out_64 = cast_unchecked<int64->>(out_ptr);

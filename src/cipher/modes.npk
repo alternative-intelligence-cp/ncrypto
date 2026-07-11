@@ -1,5 +1,5 @@
 // src/cipher/modes.npk
-use "src/cipher/aes.npk".*;
+use "aes.npk".*;
 use "../util/bytes.npk".*;
 
 func:inc_counter = int32(int64:ctr_ptr) {
@@ -41,7 +41,7 @@ pub func:aes_ecb_decrypt = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr,
     if ((in_len % 16i64) != 0i64) { fail(-1i32); }
     int64:i = 0i64;
     while (i < in_len) {
-        drop raw aes_decrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
+        drop aes_decrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
         i += 16i64;
     }
     pass 0i32;
@@ -132,7 +132,7 @@ pub func:aes_cbc_decrypt = int32(int64:exp_key_ptr, int64:key_len, int64:iv_ptr,
             j += 1i64;
         }
         
-        drop raw aes_decrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
+        drop aes_decrypt_block(exp_key_ptr, key_len, in_ptr + i, out_ptr + i);
         
         j = 0i64;
         while (j < 16i64) {
@@ -202,7 +202,7 @@ pub func:aes_ctr_process = int32(int64:exp_key_ptr, int64:key_len, int64:nonce_p
             j += 1i64;
         }
         
-        drop raw inc_counter(tmp_ctr);
+        drop inc_counter(tmp_ctr);
         i += chunk;
     }
     

@@ -1,8 +1,8 @@
-use "src/hash/sha256.npk".*;
-use "src/util/bytes.npk".*;
-use "src/hash/sha512.npk".*;
-use "src/mac/hmac.npk".*;
-use "src/util/hex.npk".*;
+use "../hash/sha256.npk".*;
+use "../util/bytes.npk".*;
+use "../hash/sha512.npk".*;
+use "../mac/hmac.npk".*;
+use "../util/hex.npk".*;
 
 // HKDF-Extract SHA-256
 pub func:hkdf_extract_sha256 = int32(int64:salt_ptr, int64:salt_len, int64:ikm_ptr, int64:ikm_len, int64:prk_out_ptr) {
@@ -105,7 +105,7 @@ pub func:hkdf_expand_sha256 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
         msg_len += 1i64;
         
         // T(i) = HMAC(PRK, msg)
-        drop raw hmac_sha256_raw(prk_ptr, prk_len, msg_buf, msg_len, T_buf);
+        drop hmac_sha256_raw(prk_ptr, prk_len, msg_buf, msg_len, T_buf);
         
         // Copy T(i) to output
         int64:k = 0i64;
@@ -230,7 +230,7 @@ pub func:hkdf_expand_sha512 = int32(int64:prk_ptr, int64:prk_len, int64:info_ptr
         msg_len += 1i64;
         
         // T(i) = HMAC(PRK, msg)
-        drop raw hmac_sha512_raw(prk_ptr, prk_len, msg_buf, msg_len, T_buf);
+        drop hmac_sha512_raw(prk_ptr, prk_len, msg_buf, msg_len, T_buf);
         
         // Copy T(i) to output
         int64:k = 0i64;

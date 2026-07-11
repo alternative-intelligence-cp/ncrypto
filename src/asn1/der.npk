@@ -1,6 +1,6 @@
 // src/asn1/der.npk
 use "stdlib/core.npk".*;
-use "src/util/bytes.npk".*;
+use "../util/bytes.npk".*;
 
 // ASN1Node structure (pointers and arrays managed manually)
 // Offset 0: tag (int64)
@@ -40,7 +40,7 @@ pub func:asn1_node_free = int32(int64:ptr) {
         int64->:child_arr = cast_unchecked<int64->>(children);
         int64:i = 0i64;
         while (i < num_children) {
-            drop raw asn1_node_free(child_arr[i]);
+            drop asn1_node_free(child_arr[i]);
             i += 1i64;
         }
         if (children != 0i64) {
@@ -289,7 +289,7 @@ pub func:asn1_parse_internal = int64(int64:buf_ptr, int64:buf_len, int64:offset,
             int64:child_len = cast_unchecked<int64>(alloc(8i64));
             int64:child = raw asn1_parse_internal(buf_ptr, buf_len, cur_off, child_len);
             if (child == 0i64) {
-                drop raw asn1_node_free(node);
+                drop asn1_node_free(node);
                 drop dalloc(cast_unchecked<int8->>(child_len));
                 pass 0i64;
             }
@@ -297,7 +297,7 @@ pub func:asn1_parse_internal = int64(int64:buf_ptr, int64:buf_len, int64:offset,
             cur_off += c_len;
             drop dalloc(cast_unchecked<int8->>(child_len));
             
-            drop raw asn1_node_add_child(node, child);
+            drop asn1_node_add_child(node, child);
         }
     } else {
         if (content_len > 0i64) {
@@ -309,7 +309,7 @@ pub func:asn1_parse_internal = int64(int64:buf_ptr, int64:buf_len, int64:offset,
                 drop (buf_put_u8(td_64, i, b) ?! 1i32);
                 i += 1i64;
             }
-            drop raw asn1_node_set_data(node, tmp_data, content_len);
+            drop asn1_node_set_data(node, tmp_data, content_len);
             drop dalloc(cast_unchecked<int8->>(tmp_data));
         }
         cur_off += content_len;

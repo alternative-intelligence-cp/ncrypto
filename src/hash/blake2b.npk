@@ -52,972 +52,972 @@ pub func:blake2b_compress = int32(int64:h_ptr, int64:m_ptr, int64:t0, int64:t1, 
 
 
     v0 = (v0 + v4 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v4 + m14) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v4 + m10) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v5 + m4) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v5 + m8) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v6 + m9) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v6 + m15) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v7 + m13) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v7 + m6) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v0 = (v0 + v5 + m1) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 32i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 24i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v5 ^ v10) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v0 = (v0 + v5 + m12) & 0xFFFFFFFFFFFFFFFFi64;
-    v15 = (((v15 ^ v0) >> 16i64) & 0xffffffffffffffffi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v15 = (((v15 ^ v0) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v15 ^ v0) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v10 = (v10 + v15) & 0xFFFFFFFFFFFFFFFFi64;
-    v5 = (((v5 ^ v10) >> 63i64) & 0xffffffffffffffffi64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v5 = (((v5 ^ v10) >> 63i64) & 0x0000000000000001i64) | (((v5 ^ v10) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v1 = (v1 + v6 + m0) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 32i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 24i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v6 ^ v11) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v1 = (v1 + v6 + m2) & 0xFFFFFFFFFFFFFFFFi64;
-    v12 = (((v12 ^ v1) >> 16i64) & 0xffffffffffffffffi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v12 = (((v12 ^ v1) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v12 ^ v1) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v11 = (v11 + v12) & 0xFFFFFFFFFFFFFFFFi64;
-    v6 = (((v6 ^ v11) >> 63i64) & 0xffffffffffffffffi64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v6 = (((v6 ^ v11) >> 63i64) & 0x0000000000000001i64) | (((v6 ^ v11) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v2 = (v2 + v7 + m11) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 32i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 24i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v7 ^ v8) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v2 = (v2 + v7 + m7) & 0xFFFFFFFFFFFFFFFFi64;
-    v13 = (((v13 ^ v2) >> 16i64) & 0xffffffffffffffffi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v13 = (((v13 ^ v2) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v13 ^ v2) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v8 = (v8 + v13) & 0xFFFFFFFFFFFFFFFFi64;
-    v7 = (((v7 ^ v8) >> 63i64) & 0xffffffffffffffffi64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v7 = (((v7 ^ v8) >> 63i64) & 0x0000000000000001i64) | (((v7 ^ v8) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
 
     v3 = (v3 + v4 + m5) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 32i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 32i64) & 0x00000000FFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 32i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 24i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 24i64) & 0x000000FFFFFFFFFFi64) | (((v4 ^ v9) << (64i64 - 24i64)) & 0xffffffffffffffffi64);
     v3 = (v3 + v4 + m3) & 0xFFFFFFFFFFFFFFFFi64;
-    v14 = (((v14 ^ v3) >> 16i64) & 0xffffffffffffffffi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
+    v14 = (((v14 ^ v3) >> 16i64) & 0x0000FFFFFFFFFFFFi64) | (((v14 ^ v3) << (64i64 - 16i64)) & 0xffffffffffffffffi64);
     v9 = (v9 + v14) & 0xFFFFFFFFFFFFFFFFi64;
-    v4 = (((v4 ^ v9) >> 63i64) & 0xffffffffffffffffi64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
+    v4 = (((v4 ^ v9) >> 63i64) & 0x0000000000000001i64) | (((v4 ^ v9) << (64i64 - 63i64)) & 0xffffffffffffffffi64);
     
-    drop (write_le64(H, 0i64, h0 ^ v0 ^ v8) ?! 1i32);
-    drop (write_le64(H, 8i64, h1 ^ v1 ^ v9) ?! 1i32);
-    drop (write_le64(H, 16i64, h2 ^ v2 ^ v10) ?! 1i32);
-    drop (write_le64(H, 24i64, h3 ^ v3 ^ v11) ?! 1i32);
-    drop (write_le64(H, 32i64, h4 ^ v4 ^ v12) ?! 1i32);
-    drop (write_le64(H, 40i64, h5 ^ v5 ^ v13) ?! 1i32);
-    drop (write_le64(H, 48i64, h6 ^ v6 ^ v14) ?! 1i32);
-    drop (write_le64(H, 56i64, h7 ^ v7 ^ v15) ?! 1i32);
+    drop (write_le64(H, 0i64, cast_unchecked<int64>(h0 ^ v0 ^ v8)) ?! 1i32);
+    drop (write_le64(H, 8i64, cast_unchecked<int64>(h1 ^ v1 ^ v9)) ?! 1i32);
+    drop (write_le64(H, 16i64, cast_unchecked<int64>(h2 ^ v2 ^ v10)) ?! 1i32);
+    drop (write_le64(H, 24i64, cast_unchecked<int64>(h3 ^ v3 ^ v11)) ?! 1i32);
+    drop (write_le64(H, 32i64, cast_unchecked<int64>(h4 ^ v4 ^ v12)) ?! 1i32);
+    drop (write_le64(H, 40i64, cast_unchecked<int64>(h5 ^ v5 ^ v13)) ?! 1i32);
+    drop (write_le64(H, 48i64, cast_unchecked<int64>(h6 ^ v6 ^ v14)) ?! 1i32);
+    drop (write_le64(H, 56i64, cast_unchecked<int64>(h7 ^ v7 ^ v15)) ?! 1i32);
     pass 0i32;
 };
 
@@ -1041,7 +1041,7 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
     // Parameter block xor
     int64:param = 0x01010000i64 | (key_len << 8i64) | out_len;
     int64:h0 = (read_le64(H, 0i64) ?! 1i32);
-    drop (write_le64(H, 0i64, h0 ^ param) ?! 1i32);
+    drop (write_le64(H, 0i64, cast_unchecked<int64>(h0 ^ param)) ?! 1i32);
     
     int64:block = cast_unchecked<int64>(alloc(128i64));
     int64->:B = cast_unchecked<int64->>(block);
@@ -1067,13 +1067,13 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
             f0 = 0xFFFFFFFFFFFFFFFFi64;
         }
         t0 = 128i64; // Block size
-        drop raw blake2b_compress(h_ptr, block, t0, 0i64, f0);
+        drop blake2b_compress(h_ptr, block, t0, 0i64, f0);
     }
     
     if (in_len == 0i64) {
         if (key_len == 0i64) {
             f0 = 0xFFFFFFFFFFFFFFFFi64;
-            drop raw blake2b_compress(h_ptr, block, 0i64, 0i64, f0);
+            drop blake2b_compress(h_ptr, block, 0i64, 0i64, f0);
         }
     } else {
         while (rem > 128i64) {
@@ -1086,7 +1086,7 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
             rem -= 128i64;
             t0 = (t0 + 128i64) & 0xFFFFFFFFFFFFFFFFi64;
             if (t0 < 128i64) { t1 += 1i64; }
-            drop raw blake2b_compress(h_ptr, block, t0, t1, 0i64);
+            drop blake2b_compress(h_ptr, block, t0, t1, 0i64);
         }
         
         i = 0i64;
@@ -1101,7 +1101,7 @@ pub func:blake2b_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:o
         t0 = (t0 + rem) & 0xFFFFFFFFFFFFFFFFi64;
         if (t0 < rem) { t1 += 1i64; }
         f0 = 0xFFFFFFFFFFFFFFFFi64;
-        drop raw blake2b_compress(h_ptr, block, t0, t1, f0);
+        drop blake2b_compress(h_ptr, block, t0, t1, f0);
     }
     
     int64->:OUT = cast_unchecked<int64->>(out_ptr);

@@ -1,13 +1,14 @@
-use "src/hash/sha512.npk".*;
+use "hash/sha512.npk".*;
 use "util/bytes.npk".*;
-use "src/kdf/argon2.npk".*;
-use "src/asymmetric/ed25519.npk".*;
-use "src/cipher/gcm.npk".*;
-use "src/util/hex.npk".*;
-use "src/util/base64.npk".*;
+use "kdf/argon2.npk".*;
+use "asymmetric/ed25519.npk".*;
+use "cipher/gcm.npk".*;
+use "util/hex.npk".*;
+use "util/base64.npk".*;
 
-// TODO: Implement BLAKE3 hashing, leveraging native async coroutines for parallel tree hashing.
-// TODO: Implement Lattice-based Post-Quantum Cryptography algorithms (Kyber/Dilithium), leveraging native tbb and tensor/matrix computation types.
+use "hash/blake3.npk".*;
+use "pqc/mlkem.npk".*;
+use "pqc/mldsa.npk".*;
 
 pub func:ncrypto_argon2id_hash = int32(int64:pwd_ptr, int64:pwd_len, int64:salt_ptr, int64:salt_len, int64:out_ptr, int64:out_len, int64:t_cost, int64:m_cost, int64:lanes) {
     pass (argon2id_hash(pwd_ptr, pwd_len, salt_ptr, salt_len, out_ptr, out_len, t_cost, m_cost, lanes) ?! 1i32);
@@ -47,4 +48,44 @@ pub func:ncrypto_base64_encode = int64(int64:in_ptr, int64:in_len, int64:out_ptr
 
 pub func:ncrypto_base64_decode = int64(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_cap) {
     pass (base64_decode(in_ptr, in_len, out_ptr, out_cap) ?! 1i64);
+};
+
+pub func:ncrypto_blake3_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len) {
+    pass (blake3_hash(in_ptr, in_len, out_ptr, out_len) ?! 1i32);
+};
+
+pub func:ncrypto_blake3_keyed_hash = int32(int64:key_ptr, int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len) {
+    pass (blake3_keyed_hash(key_ptr, in_ptr, in_len, out_ptr, out_len) ?! 1i32);
+};
+
+pub func:ncrypto_blake3_derive_key = int32(int64:context_ptr, int64:ctx_len, int64:ikm_ptr, int64:ikm_len, int64:out_ptr, int64:out_len) {
+    pass (blake3_derive_key(context_ptr, ctx_len, ikm_ptr, ikm_len, out_ptr, out_len) ?! 1i32);
+};
+
+pub func:ncrypto_mlkem_keygen = int32(int64:pk_ptr, int64:sk_ptr, int64:security_level) {
+    pass (mlkem_keygen(pk_ptr, sk_ptr, security_level) ?! 1i32);
+};
+
+pub func:ncrypto_mlkem_encrypt = int32(int64:ct_ptr, int64:pk_ptr, int64:m_buf, int64:r_ptr, int64:security_level) {
+    pass (mlkem_encrypt(ct_ptr, pk_ptr, m_buf, r_ptr, security_level) ?! 1i32);
+};
+
+pub func:ncrypto_mlkem_encapsulate = int32(int64:ct_ptr, int64:ss_ptr, int64:pk_ptr, int64:security_level) {
+    pass (mlkem_encapsulate(ct_ptr, ss_ptr, pk_ptr, security_level) ?! 1i32);
+};
+
+pub func:ncrypto_mlkem_decapsulate = int32(int64:ss_ptr, int64:ct_ptr, int64:sk_ptr, int64:security_level) {
+    pass (mlkem_decapsulate(ss_ptr, ct_ptr, sk_ptr, security_level) ?! 1i32);
+};
+
+pub func:ncrypto_mldsa_keygen = int32(int64:pk_ptr, int64:sk_ptr, int64:security_level) {
+    pass (mldsa_keygen(pk_ptr, sk_ptr, security_level) ?! 1i32);
+};
+
+pub func:ncrypto_mldsa_sign = int32(int64:sig_ptr, int64:sig_len_ptr, int64:msg_ptr, int64:msg_len, int64:sk_ptr, int64:security_level) {
+    pass (mldsa_sign(sig_ptr, sig_len_ptr, msg_ptr, msg_len, sk_ptr, security_level) ?! 1i32);
+};
+
+pub func:ncrypto_mldsa_verify = int32(int64:msg_ptr, int64:msg_len, int64:sig_ptr, int64:sig_len, int64:pk_ptr, int64:security_level) {
+    pass (mldsa_verify(msg_ptr, msg_len, sig_ptr, sig_len, pk_ptr, security_level) ?! 1i32);
 };

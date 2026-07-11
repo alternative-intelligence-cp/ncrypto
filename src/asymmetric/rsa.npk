@@ -1,9 +1,8 @@
-// TODO: Implement RSA-OAEP (for encryption) and RSA-PSS (for signatures) padding schemes.
-// The current implementation is basic RSA, but modern padding is required for security.
 use "../math/int4096_bytes.npk".*;
 use "../util/bytes.npk".*;
 use "../math/int4096_bridge.npk".*;
 use "../rand/sys_rand.npk".*;
+use "../hash/sha256.npk".*;
 use "stdlib/core.npk".*;
 
 pub struct:RSAPublicKey = {
@@ -114,7 +113,7 @@ func:int4096_is_prime = int32(int4096:n, int32:k) {
         
         int4096:x = raw int4096_modexp(a, d, n);
         
-        if (raw int4096_neq((x, one) == 1i32) && (x != n_minus_1)) {
+        if ((raw int4096_neq(x, one) == 1i32) && (raw int4096_neq(x, n_minus_1) == 1i32)) {
             int64:j = 0i64;
             int32:passed_inner = 0i32;
             while ((j < (r - 1i64)) && (passed_inner == 0i32)) {
@@ -168,9 +167,9 @@ pub func:rsa_generate_key = RSAPrivateKey(int64:bits) {
         int4096:phi = (p_minus_1 * q_minus_1);
         
         // Let's ensure gcd(e, phi) == 1 by trying modinv
-        int4096:d_res = int4096_modinv(e, phi) ?! (cast_unchecked<int4096>(0i64) - cast_unchecked<int4096>(1i64));
-        if (d_res != (cast_unchecked<int4096>(0i64) - cast_unchecked<int4096>(1i64))) {
-            d = d_res;
+        Result<int4096>:d_res_res = int4096_modinv(e, phi);
+        if (!d_res_res.is_error) {
+            d = d_res_res.value;
             found = 1i32;
         }
     }
@@ -183,123 +182,278 @@ pub func:rsa_generate_key = RSAPrivateKey(int64:bits) {
     };
 };
 
-pub func:rsa_encrypt_pkcs1v15 = int64(RSAPublicKey:pub_key, int64:msg_ptr, int64:msg_len, int64:out_ptr, int64:out_len) {
-    int4096:pub_n = pub_key.n;
-    int4096:pub_e = pub_key.e;
-    int64:k = raw int4096_bit_len(pub_n);
-    int64:k_bytes = (k + 7i64) / 8i64;
-    
-    if (out_len < k_bytes) { fail(-1i64); }
-    if (msg_len > (k_bytes - 11i64)) { fail(-2i64); } // Message too long
-    
-    int64:em_buf = cast_unchecked<int64>(alloc(k_bytes + 8i64));
-    defer { drop dalloc(cast_unchecked<int8->>(em_buf)); }
-    int64->:em_64 = cast_unchecked<int64->>(em_buf);
-    
-    int64:i = 0i64;
-    while (i < k_bytes) { drop (buf_put_u8(em_64, i, 0i64) ?! 1i32); i += 1i64; }
-    
-    drop (buf_put_u8(em_64, 1i64, 2i64) ?! 1i32); // 0x02
-    
-    int64:ps_len = k_bytes - msg_len - 3i64;
-    int64:ps_buf = cast_unchecked<int64>(alloc(ps_len + 8i64));
-    defer { drop dalloc(cast_unchecked<int8->>(ps_buf)); }
-    int64->:ps_64 = cast_unchecked<int64->>(ps_buf);
-    
-    int64:ps_idx = 0i64;
-    while (raw int4096_lt(ps_idx, ps_len) == 1i32) {
-        int64:read_bytes_ps = sys_rand_bytes(ps_buf, 1i64) ?! -1i32;
-        int64:r = (buf_get_u8(ps_64, 0i64) ?! 1i32);
-        if (r != 0i64) {
-            drop (buf_put_u8(em_64, 2i64 + ps_idx, r) ?! 1i32);
-            ps_idx += 1i64;
+
+
+
+pub func:mgf1_sha256 = int32(int64:seed_ptr, int64:seed_len, int64:out_ptr, int64:mask_len) {
+    int64:h_len = 32i64;  // SHA-256 output: 32 bytes
+
+    // Allocate combined buffer: seed || counter (4 bytes big-endian)
+    int64:buf_len = seed_len + 4i64;
+    int64:in_buf = cast_unchecked<int64>(alloc(buf_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(in_buf)); }
+    int64->:in64 = cast_unchecked<int64->>(in_buf);
+    drop (buf_copy_bytes(in64, 0i64, cast_unchecked<int64->>(seed_ptr), 0i64, seed_len) ?! 1i32);
+
+    // Allocate temporary SHA-256 output buffer
+    int64:h_buf = cast_unchecked<int64>(alloc(h_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(h_buf)); }
+    int64->:h64 = cast_unchecked<int64->>(h_buf);
+
+    int64->:out64 = cast_unchecked<int64->>(out_ptr);
+    int64:out_off = 0i64;
+    int64:counter = 0i64;
+
+    while (out_off < mask_len) {
+        // Encode counter as 4-byte big-endian
+        drop (buf_put_u8(in64, seed_len,       (counter >> 24i64) & 255i64) ?! 1i32);
+        drop (buf_put_u8(in64, seed_len + 1i64, (counter >> 16i64) & 255i64) ?! 1i32);
+        drop (buf_put_u8(in64, seed_len + 2i64, (counter >> 8i64)  & 255i64) ?! 1i32);
+        drop (buf_put_u8(in64, seed_len + 3i64, counter & 255i64) ?! 1i32);
+
+        // SHA-256(seed || counter)
+        int64:ctx = raw sha256_init();
+        drop sha256_update(ctx, in_buf, buf_len);
+        drop sha256_finalize_raw(ctx, h_buf);
+        drop sha256_free(ctx);
+
+        // Copy as many hash bytes as needed
+        int64:take = h_len;
+        if ((out_off + h_len) > mask_len) {
+            take = mask_len - out_off;
         }
+        drop (buf_copy_bytes(out64, out_off, h64, 0i64, take) ?! 1i32);
+        out_off += take;
+        counter += 1i64;
     }
-    
-    drop (buf_put_u8(em_64, 2i64 + ps_len, 0i64) ?! 1i32);
-    
-    int64->:msg_64 = cast_unchecked<int64->>(msg_ptr);
-    i = 0i64;
-    while (i < msg_len) {
-        int64:b = (buf_get_u8(msg_64, i) ?! 1i32);
-        drop (buf_put_u8(em_64, 3i64 + ps_len + i, b) ?! 1i32);
-        i += 1i64;
-    }
-    
-    int4096:m_bi = raw int4096_from_bytes(em_buf, k_bytes);
-    int4096:c_bi = raw int4096_modexp(m_bi, pub_e, pub_n);
-    drop raw int4096_to_bytes(c_bi, out_ptr, k_bytes);
-    
-    pass k_bytes;
+    pass 0i32;
 };
 
+// ---------------------------------------------------------------------------
+// rsa_encrypt_oaep: RSA-OAEP encryption (PKCS#1 v2.2, MGF1-SHA256, empty label)
+//   pub_key : RSAPublicKey
+//   msg_ptr : plaintext message pointer
+//   msg_len : plaintext length (must be <= k - 2*hLen - 2 = k - 66 bytes)
+//   out_ptr : output buffer (must be >= k bytes, where k = modulus byte length)
+//   out_len : output buffer size
+// Returns: number of bytes written (= k), or fails with negative code
+// ---------------------------------------------------------------------------
+pub func:rsa_encrypt_oaep = int64(RSAPublicKey:pub_key, int64:msg_ptr, int64:msg_len, int64:out_ptr, int64:out_len) {
+    int4096:pub_n = pub_key.n;
+    int4096:pub_e = pub_key.e;
+    int64:k_bits = raw int4096_bit_len(pub_n);
+    int64:k = (k_bits + 7i64) / 8i64;
+    int64:h_len = 32i64;
 
-pub func:rsa_decrypt_pkcs1v15 = int64(RSAPrivateKey:priv_key, int64:msg_ptr, int64:msg_len, int64:out_ptr, int64:out_len) {
-    int4096:priv_n = priv_key.n;
-    int4096:priv_d = priv_key.d;
-    int64:k = raw int4096_bit_len(priv_n);
-    int64:k_bytes = (k + 7i64) / 8i64;
-    
-    if (msg_len != k_bytes) { fail(-1i64); }
-    
-    int4096:c_bi = raw int4096_from_bytes(msg_ptr, msg_len);
-    int4096:m_bi = raw int4096_modexp(c_bi, priv_d, priv_n);
-    
-    int64:em_buf = cast_unchecked<int64>(alloc(k_bytes + 8i64));
+    // Message length check: mLen <= k - 2*hLen - 2
+    if (msg_len > (k - 2i64 * h_len - 2i64)) { fail(-1i64); }
+    if (out_len < k) { fail(-2i64); }
+
+    // Allocate EM buffer (k bytes), zero-initialized
+    int64:em_buf = cast_unchecked<int64>(alloc(k + 8i64));
     defer { drop dalloc(cast_unchecked<int8->>(em_buf)); }
-    drop raw int4096_to_bytes(m_bi, em_buf, k_bytes);
-    
-    int64->:em_64 = cast_unchecked<int64->>(em_buf);
-    
-    int64:valid = 1i64;
-    int64:b0 = (buf_get_u8(em_64, 0i64) ?! 1i32);
-    int64:b1 = (buf_get_u8(em_64, 1i64) ?! 1i32);
-    
-    valid = valid & raw is_zero_byte(b0);
-    valid = valid & raw is_zero_byte(b1 ^ 2i64);
-    
-    int64:zero_idx = 0i64;
-    int64:found_zero = 0i64;
-    
-    int64:i = 2i64;
-    while (i < k_bytes) {
-        int64:b = (buf_get_u8(em_64, i) ?! 1i32);
-        int64:is_zero = raw is_zero_byte(b);
-        
-        int64:update_idx = is_zero & (found_zero ^ 1i64);
-        zero_idx = (zero_idx * (update_idx ^ 1i64)) + (i * update_idx);
-        found_zero = found_zero | is_zero;
-        
+    int64->:em64 = cast_unchecked<int64->>(em_buf);
+    drop (local_memset(em64, 0i64, 0i64, k) ?! 1i32);
+
+    // lHash = SHA-256("") — SHA-256 of the empty label
+    int64:l_hash_buf = cast_unchecked<int64>(alloc(h_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(l_hash_buf)); }
+    int64->:lh64 = cast_unchecked<int64->>(l_hash_buf);
+    {
+        int64:empty_ctx = raw sha256_init();
+        drop sha256_finalize_raw(empty_ctx, l_hash_buf);
+        drop sha256_free(empty_ctx);
+    }
+
+    // Build DB: lHash || PS (zeros) || 0x01 || M
+    int64:db_len = k - h_len - 1i64;
+    int64:db_buf = cast_unchecked<int64>(alloc(db_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(db_buf)); }
+    int64->:db64 = cast_unchecked<int64->>(db_buf);
+    drop (local_memset(db64, 0i64, 0i64, db_len) ?! 1i32);
+    drop (buf_copy_bytes(db64, 0i64, lh64, 0i64, h_len) ?! 1i32);
+    drop (buf_put_u8(db64, db_len - msg_len - 1i64, 1i64) ?! 1i32);
+    drop (buf_copy_bytes(db64, db_len - msg_len, cast_unchecked<int64->>(msg_ptr), 0i64, msg_len) ?! 1i32);
+
+    // Generate random seed (hLen bytes)
+    int64:seed_buf = cast_unchecked<int64>(alloc(h_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(seed_buf)); }
+    drop (sys_rand_bytes(seed_buf, h_len) ?! 1i32);
+    int64->:seed64 = cast_unchecked<int64->>(seed_buf);
+
+    // dbMask = MGF1(seed, db_len) ; maskedDB = DB XOR dbMask
+    int64:db_mask_buf = cast_unchecked<int64>(alloc(db_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(db_mask_buf)); }
+    int64->:dbm64 = cast_unchecked<int64->>(db_mask_buf);
+    drop (mgf1_sha256(seed_buf, h_len, db_mask_buf, db_len) ?! 1i32);
+    int64:i = 0i64;
+    while (i < db_len) {
+        int64:a = (buf_get_u8(db64,  i) ?! 1i64);
+        int64:b = (buf_get_u8(dbm64, i) ?! 1i64);
+        drop (buf_put_u8(db64, i, a ^ b) ?! 1i32);
         i += 1i64;
     }
-    
-    valid = valid & found_zero;
-    
-    int64:ps_len = zero_idx - 2i64;
-    int64:ps_diff = ps_len - 8i64;
-    int64:ps_valid = 1i64 - cast_unchecked<int64>(cast_unchecked<uint64>(ps_diff) >> 63u64);
-    valid = valid & ps_valid;
-    
-    int64:msg_len_out = k_bytes - zero_idx - 1i64;
-    
-    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
-    int64:j = 0i64;
-    while (raw int4096_lt(j, out_len) == 1i32) {
-        int64:read_idx = zero_idx + 1i64 + j;
-        if (read_idx >= k_bytes) { read_idx = k_bytes - 1i64; }
-        
-        int64:b = (buf_get_u8(em_64, read_idx) ?! 1i32);
-        int64:j_diff = j - msg_len_out;
-        int64:is_less = cast_unchecked<int64>(cast_unchecked<uint64>(j_diff) >> 63u64);
-        int64:do_write = valid & is_less;
-        
-        int64:old_b = (buf_get_u8(out_64, j) ?! 1i32);
-        int64:new_b = (b * do_write) + (old_b * (do_write ^ 1i64));
-        
-        drop (buf_put_u8(out_64, j, new_b) ?! 1i32);
-        j += 1i64;
+
+    // seedMask = MGF1(maskedDB, hLen) ; maskedSeed = seed XOR seedMask
+    int64:seed_mask_buf = cast_unchecked<int64>(alloc(h_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(seed_mask_buf)); }
+    int64->:sm64 = cast_unchecked<int64->>(seed_mask_buf);
+    drop (mgf1_sha256(db_buf, db_len, seed_mask_buf, h_len) ?! 1i32);
+    i = 0i64;
+    while (i < h_len) {
+        int64:a = (buf_get_u8(seed64, i) ?! 1i64);
+        int64:b = (buf_get_u8(sm64,   i) ?! 1i64);
+        drop (buf_put_u8(seed64, i, a ^ b) ?! 1i32);
+        i += 1i64;
     }
-    
-    int64:actual_len = (msg_len_out * valid) + (-1i64 * (valid ^ 1i64));
-    pass actual_len;
+
+    // EM = 0x00 || maskedSeed || maskedDB
+    drop (buf_put_u8(em64, 0i64, 0i64) ?! 1i32);
+    drop (buf_copy_bytes(em64, 1i64, seed64, 0i64, h_len) ?! 1i32);
+    drop (buf_copy_bytes(em64, 1i64 + h_len, db64, 0i64, db_len) ?! 1i32);
+
+    // RSA primitive: c = m^e mod n
+    int4096:m_bi = raw int4096_from_bytes(em_buf, k);
+    int4096:c_bi = raw int4096_modexp(m_bi, pub_e, pub_n);
+    drop int4096_to_bytes(c_bi, out_ptr, k);
+
+    pass k;
+};
+
+// ---------------------------------------------------------------------------
+// rsa_decrypt_oaep: RSA-OAEP decryption (PKCS#1 v2.2, MGF1-SHA256, empty label)
+//   priv_key : RSAPrivateKey
+//   ct_ptr   : ciphertext pointer (exactly k bytes)
+//   ct_len   : ciphertext length (must equal k)
+//   out_ptr  : output plaintext buffer
+//   out_len  : output buffer capacity
+// Returns: number of plaintext bytes, or fails with negative code
+// Uses constant-time validation to resist Bleichenbacher-style oracle attacks.
+// ---------------------------------------------------------------------------
+pub func:rsa_decrypt_oaep = int64(RSAPrivateKey:priv_key, int64:ct_ptr, int64:ct_len, int64:out_ptr, int64:out_len) {
+    int4096:priv_n = priv_key.n;
+    int4096:priv_d = priv_key.d;
+    int64:k_bits = raw int4096_bit_len(priv_n);
+    int64:k = (k_bits + 7i64) / 8i64;
+    int64:h_len = 32i64;
+
+    if (ct_len != k) { fail(-1i64); }
+    if (k < (2i64 * h_len + 2i64)) { fail(-2i64); }
+
+    // RSA primitive: m = c^d mod n
+    int4096:c_bi = raw int4096_from_bytes(ct_ptr, k);
+    int4096:m_bi = raw int4096_modexp(c_bi, priv_d, priv_n);
+
+    int64:em_buf = cast_unchecked<int64>(alloc(k + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(em_buf)); }
+    int64->:em64 = cast_unchecked<int64->>(em_buf);
+    drop int4096_to_bytes(m_bi, em_buf, k);
+
+    // lHash = SHA-256("")
+    int64:l_hash_buf = cast_unchecked<int64>(alloc(h_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(l_hash_buf)); }
+    int64->:lh64 = cast_unchecked<int64->>(l_hash_buf);
+    {
+        int64:empty_ctx = raw sha256_init();
+        drop sha256_finalize_raw(empty_ctx, l_hash_buf);
+        drop sha256_free(empty_ctx);
+    }
+
+    // Split EM: Y=EM[0], maskedSeed=EM[1..hLen], maskedDB=EM[hLen+1..k-1]
+    int64:db_len = k - h_len - 1i64;
+    int64:masked_seed_buf = cast_unchecked<int64>(alloc(h_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(masked_seed_buf)); }
+    int64->:ms64 = cast_unchecked<int64->>(masked_seed_buf);
+    drop (buf_copy_bytes(ms64, 0i64, em64, 1i64, h_len) ?! 1i32);
+
+    int64:db_buf = cast_unchecked<int64>(alloc(db_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(db_buf)); }
+    int64->:db64 = cast_unchecked<int64->>(db_buf);
+    drop (buf_copy_bytes(db64, 0i64, em64, 1i64 + h_len, db_len) ?! 1i32);
+
+    // seedMask = MGF1(maskedDB, hLen) ; seed = maskedSeed XOR seedMask
+    int64:seed_mask_buf = cast_unchecked<int64>(alloc(h_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(seed_mask_buf)); }
+    int64->:sm64 = cast_unchecked<int64->>(seed_mask_buf);
+    drop (mgf1_sha256(db_buf, db_len, seed_mask_buf, h_len) ?! 1i32);
+
+    int64:seed_buf = cast_unchecked<int64>(alloc(h_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(seed_buf)); }
+    int64->:seed64 = cast_unchecked<int64->>(seed_buf);
+    int64:i = 0i64;
+    while (i < h_len) {
+        int64:a = (buf_get_u8(ms64, i) ?! 1i64);
+        int64:b = (buf_get_u8(sm64, i) ?! 1i64);
+        drop (buf_put_u8(seed64, i, a ^ b) ?! 1i32);
+        i += 1i64;
+    }
+
+    // dbMask = MGF1(seed, db_len) ; DB = maskedDB XOR dbMask
+    int64:db_mask_buf = cast_unchecked<int64>(alloc(db_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(db_mask_buf)); }
+    int64->:dbm64 = cast_unchecked<int64->>(db_mask_buf);
+    drop (mgf1_sha256(seed_buf, h_len, db_mask_buf, db_len) ?! 1i32);
+    i = 0i64;
+    while (i < db_len) {
+        int64:a = (buf_get_u8(db64,  i) ?! 1i64);
+        int64:b = (buf_get_u8(dbm64, i) ?! 1i64);
+        drop (buf_put_u8(db64, i, a ^ b) ?! 1i32);
+        i += 1i64;
+    }
+
+    // Constant-time validation:
+    // 1. Y byte (EM[0]) must be 0x00
+    int64:y_byte = (buf_get_u8(em64, 0i64) ?! 1i64);
+    int64:valid = (ct_eq(y_byte, 0i64) ?! 1i64);
+
+    // 2. DB[0..hLen-1] must equal lHash (constant-time compare)
+    int64:lhash_diff = 0i64;
+    i = 0i64;
+    while (i < h_len) {
+        int64:a = (buf_get_u8(db64, i) ?! 1i64);
+        int64:b = (buf_get_u8(lh64, i) ?! 1i64);
+        lhash_diff = lhash_diff | (a ^ b);
+        i += 1i64;
+    }
+    valid = valid & (ct_eq(lhash_diff, 0i64) ?! 1i64);
+
+    // 3. Find 0x01 separator: scan DB[hLen..] in constant time
+    //    PS bytes must all be 0x00; any non-zero non-separator byte is invalid
+    int64:sep_idx = 0i64;
+    int64:found_sep = 0i64;
+    i = h_len;
+    while (i < db_len) {
+        int64:db_b = (buf_get_u8(db64, i) ?! 1i64);
+        int64:is_sep  = (ct_eq(db_b, 1i64) ?! 1i64) & (found_sep ^ 1i64);
+        int64:is_zero = (ct_eq(db_b, 0i64) ?! 1i64);
+        // CT-update sep_idx to first sep occurrence
+        sep_idx = (sep_idx * (is_sep ^ 1i64)) + (i * is_sep);
+        found_sep = found_sep | is_sep;
+        // PS byte must be 0 (before sep) or sep (at sep) or after sep
+        int64:ps_valid = is_zero | is_sep | found_sep;
+        valid = valid & ps_valid;
+        i += 1i64;
+    }
+    valid = valid & found_sep;
+
+    // Message = DB[sep_idx+1 .. db_len-1]
+    int64:msg_start = sep_idx + 1i64;
+    int64:msg_len_out = db_len - msg_start;
+    if (out_len < msg_len_out) { fail(-3i64); }
+
+    // Constant-time output: write 0 if invalid (no oracle leak)
+    int64->:out64 = cast_unchecked<int64->>(out_ptr);
+    i = 0i64;
+    while (i < msg_len_out) {
+        int64:b = (buf_get_u8(db64, msg_start + i) ?! 1i64);
+        int64:old_b = (buf_get_u8(out64, i) ?! 1i64);
+        int64:new_b = (b * valid) + (old_b * (valid ^ 1i64));
+        drop (buf_put_u8(out64, i, new_b) ?! 1i32);
+        i += 1i64;
+    }
+
+    // Return plaintext length on success, fail on any validation error
+    int64:ret = (msg_len_out * valid) + (-1i64 * (valid ^ 1i64));
+    if (ret < 0i64) { fail(-4i64); }
+    pass ret;
 };

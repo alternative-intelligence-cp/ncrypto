@@ -1,0 +1,465 @@
+// mlkem.npk - ML-KEM (CRYSTALS-Kyber, FIPS 203) Key Encapsulation Mechanism
+// Implements ML-KEM-512 (k=2), ML-KEM-768 (k=3), ML-KEM-1024 (k=4).
+// Uses IND-CCA2 security via Fujisaki-Okamoto (FO) transform.
+
+use "../util/bytes.npk".*;
+use "poly.npk".*;
+use "ntt.npk".*;
+use "pqc_hash.npk".*;
+use "../rand/sys_rand.npk".*;
+
+// ---------------------------------------------------------------------------
+// ML-KEM parameter sets
+// security_level: 512 | 768 | 1024
+// Returns k (matrix dimension)
+// ---------------------------------------------------------------------------
+func:mlkem_k = int64(int64:security_level) {
+    if (security_level == 512i64)  { pass 2i64; }
+    if (security_level == 1024i64) { pass 4i64; }
+    pass 3i64;  // default: ML-KEM-768
+};
+
+func:mlkem_eta1 = int64(int64:security_level) {
+    if (security_level == 512i64) { pass 3i64; }
+    pass 2i64;
+};
+
+func:mlkem_eta2 = int64(int64:security_level) {
+    pass 2i64;  // eta_2 = 2 for all ML-KEM variants
+};
+
+func:mlkem_du = int64(int64:security_level) {
+    if (security_level == 1024i64) { pass 11i64; }
+    pass 10i64;
+};
+
+func:mlkem_dv = int64(int64:security_level) {
+    if (security_level == 1024i64) { pass 5i64; }
+    pass 4i64;
+};
+
+// ---------------------------------------------------------------------------
+// mlkem_poly_compress_v: compress a single polynomial to d_v bits
+//   Writes (256 * d_v / 8) bytes to out_ptr
+// ---------------------------------------------------------------------------
+func:mlkem_poly_encode_compressed = int32(int64:out_ptr, int64:poly_ptr, int64:d) {
+    int64->:P = cast_unchecked<int64->>(poly_ptr);
+    int64->:out64 = cast_unchecked<int64->>(out_ptr);
+    int64:q = 3329i64;
+    int64:mask = (1i64 << d) - 1i64;
+    // Pack d bits per coefficient; we work byte by byte
+    int64:bit_off = 0i64;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:c = ((P[i] * (1i64 << d) + q / 2i64) / q) & mask;
+        // Write d bits at bit_off
+        int64:b = 0i64;
+        while (b < d) {
+            int64:byte_idx = bit_off / 8i64;
+            int64:bit_idx  = bit_off % 8i64;
+            int64:cur_byte = (buf_get_u8(out64, byte_idx) ?! 1i64);
+            int64:bit_val  = (c >> b) & 1i64;
+            cur_byte = (cur_byte & ~(1i64 << bit_idx)) | (bit_val << bit_idx);
+            drop buf_put_u8(out64, byte_idx, cur_byte);
+            bit_off += 1i64;
+            b += 1i64;
+        }
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+func:mlkem_poly_decode_compressed = int32(int64:poly_ptr, int64:in_ptr, int64:d) {
+    int64->:P = cast_unchecked<int64->>(poly_ptr);
+    int64->:in64 = cast_unchecked<int64->>(in_ptr);
+    int64:q = 3329i64;
+    int64:shift = 1i64 << d;
+    int64:mask = shift - 1i64;
+    int64:bit_off = 0i64;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:c = 0i64;
+        int64:b = 0i64;
+        while (b < d) {
+            int64:byte_idx = bit_off / 8i64;
+            int64:bit_idx  = bit_off % 8i64;
+            int64:byte_val = (buf_get_u8(in64, byte_idx) ?! 1i64);
+            c = c | (((byte_val >> bit_idx) & 1i64) << b);
+            bit_off += 1i64;
+            b += 1i64;
+        }
+        c = c & mask;
+        P[i] = (c * q + shift / 2i64) / shift;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mlkem_keygen: generate ML-KEM public/private key pair
+//   pk_ptr: output public key buffer
+//   sk_ptr: output secret key buffer
+//   security_level: 512 | 768 | 1024
+//
+// Public key size:  32 + k*384 bytes (rho + encoded(t))
+// Secret key size:  k*384 + (32 + k*384) + 32 + 32 bytes (s + pk + H(pk) + z)
+// ---------------------------------------------------------------------------
+
+
+pub func:mlkem_keygen = int32(int64:pk_ptr, int64:sk_ptr, int64:security_level) {
+    int64:k    = (mlkem_k(security_level)    ?! 1i64);
+    int64:eta1 = (mlkem_eta1(security_level) ?! 1i64);
+    int64:q    = 3329i64;
+    int64:POLY = 2048i64;  // bytes per polynomial buffer
+
+    // Generate random seed d (32 bytes)
+    int64:d_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(d_buf)); }
+    int64->:d64 = cast_unchecked<int64->>(d_buf);
+    // Use secure random via sys!! getentropy equivalent
+    // Nitpick: use sys!!(GETRANDOM, buf, 32, 0)
+    // GETRANDOM syscall number (linux x86_64) = 318
+    drop (sys_rand_bytes(d_buf, 32i64) ?! 1i32);
+
+    // Expand d → (rho, sigma) via G = SHA3-512
+    int64:rho_sigma = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(rho_sigma)); }
+    drop pqc_g(d_buf, 32i64, rho_sigma);
+    int64:rho_ptr   = rho_sigma;          // first 32 bytes = rho
+    int64:sigma_ptr = rho_sigma + 32i64;  // next 32 bytes  = sigma
+
+    // Generate matrix A from rho (in NTT domain)
+    int64:A_size = k * k * POLY;
+    int64:A_buf = cast_unchecked<int64>(alloc(A_size + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(A_buf)); }
+    drop pqc_expand_a(rho_ptr, A_buf, k, k, q, 0i64);
+
+    // Sample secret s1 (k polys) and error e1 (k polys) via CBD(sigma, nonce)
+    int64:s_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(s_buf)); }
+    int64:e_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(e_buf)); }
+    drop polyvec_sample_cbd(s_buf, k, sigma_ptr, 0i64, eta1, q);
+    drop polyvec_sample_cbd(e_buf, k, sigma_ptr, k, eta1, q);
+
+    // NTT forward on s and e
+    drop polyvec_mlkem_ntt(s_buf, k);
+    drop polyvec_mlkem_ntt(e_buf, k);
+
+    // Compute t = A*s + e (all in NTT domain)
+
+    int64:t_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t_buf)); }
+    drop polymat_vec_mul(A_buf, s_buf, t_buf, k, k, q, 0i64);
+    drop polyvec_add(t_buf, t_buf, e_buf, k, q);
+
+    // Encode public key: pk = encode(t) || rho
+    // Each poly encoded as 384 bytes (12 bits × 256 coefficients)
+    int64->:pk64 = cast_unchecked<int64->>(pk_ptr);
+    int64:i = 0i64;
+    while (i < k) {
+        int64:enc_off = i * 384i64;
+        drop poly_encode_12bit(pk_ptr + enc_off, t_buf + (i * POLY));
+        i += 1i64;
+    }
+    // Append rho (32 bytes)
+    drop buf_copy_bytes(pk64, k * 384i64, cast_unchecked<int64->>(rho_ptr), 0i64, 32i64);
+
+    // Compute H(pk)
+    int64:pk_len = k * 384i64 + 32i64;
+    int64:hpk_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(hpk_buf)); }
+    drop pqc_h(pk_ptr, pk_len, hpk_buf);
+
+    // Generate z (implicit rejection randomness, 32 bytes)
+    int64:z_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(z_buf)); }
+    drop (sys_rand_bytes(z_buf, 32i64) ?! 1i32);
+
+    // Encode secret key: s_encoded || pk || H(pk) || z
+    int64->:sk64 = cast_unchecked<int64->>(sk_ptr);
+    int64:s_enc_len = k * 384i64;
+    int64:sk_off = 0i64;
+    i = 0i64;
+    while (i < k) {
+        drop poly_encode_12bit(sk_ptr + (i * 384i64), s_buf + (i * POLY));
+        i += 1i64;
+    }
+    sk_off = s_enc_len;
+    drop buf_copy_bytes(sk64, sk_off, pk64, 0i64, pk_len);
+    sk_off += pk_len;
+    drop buf_copy_bytes(sk64, sk_off, cast_unchecked<int64->>(hpk_buf), 0i64, 32i64);
+    sk_off += 32i64;
+    drop buf_copy_bytes(sk64, sk_off, cast_unchecked<int64->>(z_buf), 0i64, 32i64);
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mlkem_encrypt: core encryption function (deterministic)
+// ---------------------------------------------------------------------------
+pub func:mlkem_encrypt = int32(int64:ct_ptr, int64:pk_ptr, int64:m_buf, int64:r_ptr, int64:security_level) {
+    int64:k    = (mlkem_k(security_level)    ?! 1i64);
+    int64:eta1 = (mlkem_eta1(security_level) ?! 1i64);
+    int64:eta2 = (mlkem_eta2(security_level) ?! 1i64);
+    int64:d_u  = (mlkem_du(security_level)   ?! 1i64);
+    int64:d_v  = (mlkem_dv(security_level)   ?! 1i64);
+    int64:q    = 3329i64;
+    int64:POLY = 2048i64;
+
+    // Decode t from pk
+    int64:t_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t_buf)); }
+    int64:i = 0i64;
+    while (i < k) {
+        drop poly_decode_12bit(t_buf + (i * POLY), pk_ptr + (i * 384i64));
+        i += 1i64;
+    }
+
+    // rho is at pk + k*384
+    int64:rho_ptr = pk_ptr + k * 384i64;
+
+    // Expand A^T from rho
+    int64:AT_size = k * k * POLY;
+    int64:AT_buf = cast_unchecked<int64>(alloc(AT_size + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(AT_buf)); }
+    drop pqc_expand_a(rho_ptr, AT_buf, k, k, q, 1i64);  // transpose
+
+    // Sample r, e1, e2 from r_ptr
+    int64:r_polys = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(r_polys)); }
+    int64:e1_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(e1_buf)); }
+    int64:e2_buf = cast_unchecked<int64>(alloc(1i64 * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(e2_buf)); }
+    drop polyvec_sample_cbd(r_polys, k, r_ptr, 0i64, eta1, q);
+    drop polyvec_sample_cbd(e1_buf,  k, r_ptr, k, eta2, q);
+    drop sample_cbd(r_ptr, k * 2i64, eta2, q, e2_buf);
+
+    // NTT forward on r
+    drop polyvec_mlkem_ntt(r_polys, k);
+
+    // u = A^T * r + e1
+    int64:u_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(u_buf)); }
+    drop polymat_vec_mul(AT_buf, r_polys, u_buf, k, k, q, 0i64);
+    drop polyvec_mlkem_ntt_inv(u_buf, k);  // back to normal domain
+    drop polyvec_add(u_buf, u_buf, e1_buf, k, q);
+
+    // v = t^T * r + e2 + round(q/2) * m
+    int64:v_buf = cast_unchecked<int64>(alloc(POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(v_buf)); }
+    drop polyvec_mlkem_inner_product(v_buf, t_buf, r_polys, k);
+    drop mlkem_ntt_inv(v_buf);
+    drop poly_add(v_buf, v_buf, e2_buf, q);
+
+    // Add round(q/2)*m to v: decode m bits and add q/2 per bit=1
+    int64->:ptr_T = cast_unchecked<int64->>(t_buf);
+    int64->:ptr_A = cast_unchecked<int64->>(AT_buf);
+    int64->:ptr_R = cast_unchecked<int64->>(r_polys);
+    int64->:ptr_E1 = cast_unchecked<int64->>(e1_buf);
+    int64->:ptr_E2 = cast_unchecked<int64->>(e2_buf);
+    int64->:ptr_U = cast_unchecked<int64->>(u_buf);
+    int64->:ptr_V = cast_unchecked<int64->>(v_buf);
+    int64->:m64 = cast_unchecked<int64->>(m_buf);
+    int64->:v64 = cast_unchecked<int64->>(v_buf);
+    i = 0i64;
+    while (i < 256i64) {
+        int64:byte_idx = i / 8i64;
+        int64:bit_idx  = i % 8i64;
+        int64:m_byte   = (buf_get_u8(m64, byte_idx) ?! 1i64);
+        int64:m_bit    = (m_byte >> bit_idx) & 1i64;
+        v64[i] = (v64[i] + m_bit * ((q + 1i64) / 2i64)) % q;
+        i += 1i64;
+    }
+
+    // Compress and encode ciphertext
+    int64->:ct64 = cast_unchecked<int64->>(ct_ptr);
+    int64:ct_off = 0i64;
+    int64:ct_u_bytes = k * (256i64 * d_u / 8i64);
+    drop local_memset(ct64, 0i64, 0i64, ct_u_bytes + 256i64 * d_v / 8i64);
+
+    i = 0i64;
+    while (i < k) {
+        drop mlkem_poly_encode_compressed(ct_ptr + ct_off, u_buf + (i * POLY), d_u);
+        ct_off += 256i64 * d_u / 8i64;
+        i += 1i64;
+    }
+    drop mlkem_poly_encode_compressed(ct_ptr + ct_off, v_buf, d_v);
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mlkem_encapsulate: generate shared secret and ciphertext
+// ---------------------------------------------------------------------------
+pub func:mlkem_encapsulate = int32(int64:ct_ptr, int64:ss_ptr, int64:pk_ptr, int64:security_level) {
+    int64:k    = (mlkem_k(security_level)    ?! 1i64);
+    int64:d_u  = (mlkem_du(security_level)   ?! 1i64);
+    int64:d_v  = (mlkem_dv(security_level)   ?! 1i64);
+    int64:pk_len = k * 384i64 + 32i64;
+
+    // Generate random message m (32 bytes)
+    int64:m_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(m_buf)); }
+    drop (sys_rand_bytes(m_buf, 32i64) ?! 1i32);
+
+    // Compute H(pk)
+    int64:hpk_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(hpk_buf)); }
+    drop pqc_h(pk_ptr, pk_len, hpk_buf);
+
+    // (K_bar, r) = G(m || H(pk))
+    int64:kr_buf = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(kr_buf)); }
+    int64:gh_input = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(gh_input)); }
+    int64->:ghi64 = cast_unchecked<int64->>(gh_input);
+    drop buf_copy_bytes(ghi64, 0i64, cast_unchecked<int64->>(m_buf), 0i64, 32i64);
+    drop buf_copy_bytes(ghi64, 32i64, cast_unchecked<int64->>(hpk_buf), 0i64, 32i64);
+    drop pqc_g(gh_input, 64i64, kr_buf);
+
+    int64:kbar_ptr = kr_buf;
+    int64:r_ptr    = kr_buf + 32i64;
+
+    // Call deterministic encryption using m and r
+    drop mlkem_encrypt(ct_ptr, pk_ptr, m_buf, r_ptr, security_level);
+
+    // Compute shared secret: K = KDF(K_bar || H(ct))
+    int64:ct_len = k * (256i64 * d_u / 8i64) + 256i64 * d_v / 8i64;
+    int64:hct_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(hct_buf)); }
+    drop pqc_h(ct_ptr, ct_len, hct_buf);
+    drop shake256_hash2(kbar_ptr, 32i64, hct_buf, 32i64, ss_ptr, 32i64);
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mlkem_decapsulate: recover shared secret from ciphertext
+//   ss_ptr: output shared secret (32 bytes)
+//   ct_ptr: ciphertext
+//   sk_ptr: secret key
+//   security_level: 512 | 768 | 1024
+// ---------------------------------------------------------------------------
+pub func:mlkem_decapsulate = int32(int64:ss_ptr, int64:ct_ptr, int64:sk_ptr, int64:security_level) {
+    int64:k    = (mlkem_k(security_level)    ?! 1i64);
+    int64:d_u  = (mlkem_du(security_level)   ?! 1i64);
+    int64:d_v  = (mlkem_dv(security_level)   ?! 1i64);
+    int64:q    = 3329i64;
+    int64:POLY = 2048i64;
+    int64:pk_len = k * 384i64 + 32i64;
+    int64:ct_len = k * (256i64 * d_u / 8i64) + 256i64 * d_v / 8i64;
+
+    // Parse sk: s_encoded(k*384) | pk(pk_len) | H(pk)(32) | z(32)
+    int64:s_enc_len = k * 384i64;
+    int64:pk_ptr    = sk_ptr + s_enc_len;
+    int64:hpk_ptr   = pk_ptr + pk_len;
+    int64:z_ptr     = hpk_ptr + 32i64;
+
+    // Decode s
+    int64:s_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(s_buf)); }
+    int64:i = 0i64;
+    while (i < k) {
+        drop poly_decode_12bit(s_buf + (i * POLY), sk_ptr + (i * 384i64));
+        i += 1i64;
+    }
+
+    // Decode ciphertext: u (k polys) and v (1 poly)
+    int64:u_buf = cast_unchecked<int64>(alloc(k * POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(u_buf)); }
+    int64:v_buf = cast_unchecked<int64>(alloc(POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(v_buf)); }
+    int64:ct_off = 0i64;
+    i = 0i64;
+    while (i < k) {
+        drop mlkem_poly_decode_compressed(u_buf + (i * POLY), ct_ptr + ct_off, d_u);
+        ct_off += 256i64 * d_u / 8i64;
+        i += 1i64;
+    }
+    drop mlkem_poly_decode_compressed(v_buf, ct_ptr + ct_off, d_v);
+
+    // Compute m' = v - s^T * u (in polynomial ring)
+    // NTT(u), compute s^T*u in NTT domain, then INTT
+    drop polyvec_mlkem_ntt(u_buf, k);
+    int64:su_buf = cast_unchecked<int64>(alloc(POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(su_buf)); }
+    drop polyvec_mlkem_inner_product(su_buf, s_buf, u_buf, k);
+    drop mlkem_ntt_inv(su_buf);
+
+    // m' = v - s^T*u (reduce mod q, center)
+    int64:mp_buf = cast_unchecked<int64>(alloc(POLY + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(mp_buf)); }
+    drop poly_sub(mp_buf, v_buf, su_buf, q);
+
+    // Decode m' bits: round each coeff to 0 or 1
+    int64:m_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(m_buf)); }
+    int64->:m64  = cast_unchecked<int64->>(m_buf);
+    int64->:mp64 = cast_unchecked<int64->>(mp_buf);
+    drop local_memset(m64, 0i64, 0i64, 32i64);
+    i = 0i64;
+    while (i < 256i64) {
+        // Round: if coeff is closer to q/2 than to 0, bit = 1
+        int64:c = mp64[i];
+        int64:half_q = (q + 1i64) / 2i64;
+        
+        // Compute distance to q/2 vs 0 (constant-time approach)
+        // bit = 1 if c > q/4 && c <= 3*q/4
+        int64:bit = (ct_lt(q / 4i64, c) ?! 1i64) & (ct_lt(c, (3i64 * q / 4i64) + 1i64) ?! 1i64);
+        
+        int64:byte_idx = i / 8i64;
+        int64:bit_idx  = i % 8i64;
+        int64:cur_byte = (buf_get_u8(m64, byte_idx) ?! 1i64);
+        cur_byte = cur_byte | (bit << bit_idx);
+        drop buf_put_u8(m64, byte_idx, cur_byte);
+        i += 1i64;
+    }
+
+    // Compute r' = G(m' || H(pk))
+    int64:kr_buf = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(kr_buf)); }
+    int64:gh_input = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(gh_input)); }
+    int64->:ghi64 = cast_unchecked<int64->>(gh_input);
+    drop buf_copy_bytes(ghi64, 0i64, m64, 0i64, 32i64);
+    drop buf_copy_bytes(ghi64, 32i64, cast_unchecked<int64->>(hpk_ptr), 0i64, 32i64);
+    drop pqc_g(gh_input, 64i64, kr_buf);
+
+    // Re-encapsulate to get ct' (implicit rejection check)
+    int64:ct2_buf = cast_unchecked<int64>(alloc(ct_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(ct2_buf)); }
+
+    // Call deterministic encryption using m' and r'
+    int64:r_ptr = kr_buf + 32i64;
+    drop mlkem_encrypt(ct2_buf, pk_ptr, m_buf, r_ptr, security_level);
+
+    // Constant-time comparison of ct and ct2
+    // Accumulate XOR differences — never branch on individual bytes
+    int64:diff_acc = 0i64;
+    int64:ci = 0i64;
+    while (ci < ct_len) {
+        int64:b1 = (raw buf_get_u8(cast_unchecked<int64->>(ct2_buf), ci));
+        int64:b2 = (raw buf_get_u8(cast_unchecked<int64->>(ct_ptr), ci));
+        diff_acc = diff_acc | (b1 ^ b2);
+        ci += 1i64;
+    }
+    // ct_match = 1 if diff_acc == 0, else 0 (constant-time)
+    int64:ct_match = (ct_eq(diff_acc, 0i64) ?! 1i64);
+
+    // Compute H(ct)
+    int64:hct_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(hct_buf)); }
+    drop pqc_h(ct_ptr, ct_len, hct_buf);
+
+    // Constant-time seed selection:
+    //   If ct_match==1: ss = KDF(K_bar || H(ct))
+    //   If ct_match==0: ss = KDF(z    || H(ct))  [implicit rejection]
+    // Uses arithmetic to avoid secret-dependent branching or pointer leakage.
+    int64:kbar_ptr = kr_buf;
+    int64:seed_ptr = (ct_match * kbar_ptr) + ((1i64 - ct_match) * z_ptr);
+    drop shake256_hash2(seed_ptr, 32i64, hct_buf, 32i64, ss_ptr, 32i64);
+
+    pass 0i32;
+};

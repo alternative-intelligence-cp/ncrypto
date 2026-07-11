@@ -1,10 +1,13 @@
 // src/asymmetric/ed25519.npk
 use "stdlib/core.npk".*;
 use "../util/bytes.npk".*;
-use "src/asymmetric/curve25519.npk".*;
-use "src/hash/sha512.npk".*;
+use "curve25519.npk".*;
+use "../hash/sha512.npk".*;
 
 
+func:gf4_alloc = int64() {
+    pass cast_unchecked<int64>(alloc(512i64));
+};
 
 func:gf4_free = int32(int64:p) {
     if (p != 0i64) { drop dalloc(cast_unchecked<int8->>(p)); }
@@ -71,47 +74,47 @@ func:ed25519_add = int32(int64:p, int64:q, int64:D2) {
     int64:g = raw gf_alloc();
     int64:h = raw gf_alloc();
     
-    drop raw gf_sub(a, p1, p0);
-    drop raw gf_sub(t, q1, q0);
-    drop raw gf_mul(a, a, t);
+    drop gf_sub(a, p1, p0);
+    drop gf_sub(t, q1, q0);
+    drop gf_mul(a, a, t);
     
-    drop raw gf_add(b, p0, p1);
-    drop raw gf_add(t, q0, q1);
-    drop raw gf_mul(b, b, t);
+    drop gf_add(b, p0, p1);
+    drop gf_add(t, q0, q1);
+    drop gf_mul(b, b, t);
     
-    drop raw gf_mul(c, p3, q3);
-    drop raw gf_mul(c, c, D2);
+    drop gf_mul(c, p3, q3);
+    drop gf_mul(c, c, D2);
     
-    drop raw gf_mul(d, p2, q2);
-    drop raw gf_add(d, d, d);
+    drop gf_mul(d, p2, q2);
+    drop gf_add(d, d, d);
     
-    drop raw gf_sub(e, b, a);
-    drop raw gf_sub(f, d, c);
-    drop raw gf_add(g, d, c);
-    drop raw gf_add(h, b, a);
+    drop gf_sub(e, b, a);
+    drop gf_sub(f, d, c);
+    drop gf_add(g, d, c);
+    drop gf_add(h, b, a);
     
-    drop raw gf_mul(p0, e, f);
-    drop raw gf_mul(p1, h, g);
-    drop raw gf_mul(p2, g, f);
-    drop raw gf_mul(p3, e, h);
+    drop gf_mul(p0, e, f);
+    drop gf_mul(p1, h, g);
+    drop gf_mul(p2, g, f);
+    drop gf_mul(p3, e, h);
     
-    drop raw gf_free(a); drop raw gf_free(b); drop raw gf_free(c);
-    drop raw gf_free(d); drop raw gf_free(t); drop raw gf_free(e);
-    drop raw gf_free(f); drop raw gf_free(g); drop raw gf_free(h);
+    drop gf_free(a); drop gf_free(b); drop gf_free(c);
+    drop gf_free(d); drop gf_free(t); drop gf_free(e);
+    drop gf_free(f); drop gf_free(g); drop gf_free(h);
     pass 0i32;
 };
 
 func:ed25519_cswap = int32(int64:p, int64:q, int64:b) {
-    drop raw sel25519(p, q, b);
-    drop raw sel25519(p + 128i64, q + 128i64, b);
-    drop raw sel25519(p + 256i64, q + 256i64, b);
-    drop raw sel25519(p + 384i64, q + 384i64, b);
+    drop sel25519(p, q, b);
+    drop sel25519(p + 128i64, q + 128i64, b);
+    drop sel25519(p + 256i64, q + 256i64, b);
+    drop sel25519(p + 384i64, q + 384i64, b);
     pass 0i32;
 };
 
 func:par25519 = int64(int64:a) {
     int64:t_ptr = cast_unchecked<int64>(alloc(32i64));
-    drop raw gf_pack(t_ptr, a);
+    drop gf_pack(t_ptr, a);
     int64->:T = cast_unchecked<int64->>(t_ptr);
     int64:res = (buf_get_u8(T, 0i64) ?! 1i32) & 1i64;
     drop dalloc(cast_unchecked<int8->>(t_ptr));
@@ -123,36 +126,36 @@ func:ed25519_pack = int32(int64:r_ptr, int64:p) {
     int64:ty = raw gf_alloc();
     int64:zi = raw gf_alloc();
     
-    drop raw gf_inv(zi, p + 256i64);
-    drop raw gf_mul(tx, p, zi);
-    drop raw gf_mul(ty, p + 128i64, zi);
+    drop gf_inv(zi, p + 256i64);
+    drop gf_mul(tx, p, zi);
+    drop gf_mul(ty, p + 128i64, zi);
     
-    drop raw gf_pack(r_ptr, ty);
+    drop gf_pack(r_ptr, ty);
     
     int64:parity = raw par25519(tx);
     int64->:R = cast_unchecked<int64->>(r_ptr);
     int64:r31 = (buf_get_u8(R, 31i64) ?! 1i32);
     drop (buf_put_u8(R, 31i64, r31 ^ (parity << 7i64)) ?! 1i32);
     
-    drop raw gf_free(tx); drop raw gf_free(ty); drop raw gf_free(zi);
+    drop gf_free(tx); drop gf_free(ty); drop gf_free(zi);
     pass 0i32;
 };
 
 func:ed25519_scalarmult = int32(int64:p, int64:q, int64:s_ptr, int64:D2) {
-    drop raw gf_set0(p);
-    drop raw gf_set1(p + 128i64);
-    drop raw gf_set1(p + 256i64);
-    drop raw gf_set0(p + 384i64);
+    drop gf_set0(p);
+    drop gf_set1(p + 128i64);
+    drop gf_set1(p + 256i64);
+    drop gf_set0(p + 384i64);
     
     int64->:S = cast_unchecked<int64->>(s_ptr);
     int64:i = 255i64;
     int64:b = 0i64;
     while (i >= 0i64) {
         b = ((buf_get_u8(S, i / 8i64) ?! 1i32) >> (i & 7i64)) & 1i64;
-        drop raw ed25519_cswap(p, q, b);
-        drop raw ed25519_add(q, p, D2);
-        drop raw ed25519_add(p, p, D2);
-        drop raw ed25519_cswap(p, q, b);
+        drop ed25519_cswap(p, q, b);
+        drop ed25519_add(q, p, D2);
+        drop ed25519_add(p, p, D2);
+        drop ed25519_cswap(p, q, b);
         i -= 1i64;
     }
     pass 0i32;
@@ -160,14 +163,14 @@ func:ed25519_scalarmult = int32(int64:p, int64:q, int64:s_ptr, int64:D2) {
 
 func:ed25519_scalarbase = int32(int64:p, int64:s_ptr, int64:X, int64:Y, int64:D2) {
     int64:q = raw gf4_alloc();
-    drop raw gf_copy(q, X);
-    drop raw gf_copy(q + 128i64, Y);
-    drop raw gf_set1(q + 256i64);
-    drop raw gf_mul(q + 384i64, X, Y);
+    drop gf_copy(q, X);
+    drop gf_copy(q + 128i64, Y);
+    drop gf_set1(q + 256i64);
+    drop gf_mul(q + 384i64, X, Y);
     
-    drop raw ed25519_scalarmult(p, q, s_ptr, D2);
+    drop ed25519_scalarmult(p, q, s_ptr, D2);
     
-    drop raw gf4_free(q);
+    drop gf4_free(q);
     pass 0i32;
 };
 
@@ -177,7 +180,7 @@ pub func:ed25519_sign_keypair = int32(int64:pk_ptr, int64:sk_ptr) {
     int64:X = raw gf_alloc();
     int64:Y = raw gf_alloc();
     int64:I = raw gf_alloc();
-    drop raw ed25519_init_constants(D, D2, X, Y, I);
+    drop ed25519_init_constants(D, D2, X, Y, I);
     
     int64:d_hash = cast_unchecked<int64>(alloc(64i64));
     
@@ -193,8 +196,8 @@ pub func:ed25519_sign_keypair = int32(int64:pk_ptr, int64:sk_ptr) {
     drop (buf_put_u8(Dbuf, 31i64, (buf_get_u8(Dbuf, 31i64) ?! 1i32) | 64i64) ?! 1i32);
     
     int64:p = raw gf4_alloc();
-    drop raw ed25519_scalarbase(p, d_hash, X, Y, D2);
-    drop raw ed25519_pack(pk_ptr, p);
+    drop ed25519_scalarbase(p, d_hash, X, Y, D2);
+    drop ed25519_pack(pk_ptr, p);
     
     // copy pk to sk[32..64]
     int64->:SK = cast_unchecked<int64->>(sk_ptr);
@@ -206,8 +209,8 @@ pub func:ed25519_sign_keypair = int32(int64:pk_ptr, int64:sk_ptr) {
     }
     
     drop dalloc(cast_unchecked<int8->>(d_hash));
-    drop raw gf4_free(p);
-    drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
+    drop gf4_free(p);
+    drop gf_free(D); drop gf_free(D2); drop gf_free(X); drop gf_free(Y); drop gf_free(I);
     pass 0i32;
 };
 
@@ -287,7 +290,7 @@ func:reduce = int32(int64:r_ptr) {
         drop (buf_put_u8(R, i, 0i64) ?! 1i32);
         i += 1i64;
     }
-    drop raw modL(r_ptr, x_arr);
+    drop modL(r_ptr, x_arr);
     drop dalloc(cast_unchecked<int8->>(x_arr));
     pass 0i32;
 };
@@ -298,7 +301,7 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
     int64:X = raw gf_alloc();
     int64:Y = raw gf_alloc();
     int64:I = raw gf_alloc();
-    drop raw ed25519_init_constants(D, D2, X, Y, I);
+    drop ed25519_init_constants(D, D2, X, Y, I);
 
     int64:d = cast_unchecked<int64>(alloc(64i64));
     int64:h = cast_unchecked<int64>(alloc(64i64));
@@ -340,9 +343,9 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
     drop (sha512_finalize_raw(ctx, r) ?! 1i32);
     drop (sha512_free(ctx) ?! 1i32);
     
-    drop raw reduce(r);
-    drop raw ed25519_scalarbase(p, r, X, Y, D2);
-    drop raw ed25519_pack(sm_ptr, p);
+    drop reduce(r);
+    drop ed25519_scalarbase(p, r, X, Y, D2);
+    drop ed25519_pack(sm_ptr, p);
     
     i = 0i64;
     while (i < 32i64) {
@@ -355,7 +358,7 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
     drop (sha512_finalize_raw(ctx, h) ?! 1i32);
     drop (sha512_free(ctx) ?! 1i32);
     
-    drop raw reduce(h);
+    drop reduce(h);
     
     int64->:Xbuf = cast_unchecked<int64->>(x);
     int64->:Hbuf = cast_unchecked<int64->>(h);
@@ -378,12 +381,12 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
         i += 1i64;
     }
     
-    drop raw modL(sm_ptr + 32i64, x);
+    drop modL(sm_ptr + 32i64, x);
     
     drop dalloc(cast_unchecked<int8->>(d)); drop dalloc(cast_unchecked<int8->>(h));
     drop dalloc(cast_unchecked<int8->>(r)); drop dalloc(cast_unchecked<int8->>(x));
-    drop raw gf4_free(p);
-    drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
+    drop gf4_free(p);
+    drop gf_free(D); drop gf_free(D2); drop gf_free(X); drop gf_free(Y); drop gf_free(I);
     
     pass 0i32;
 };
@@ -393,8 +396,8 @@ pub func:ed25519_sign = int32(int64:sm_ptr, int64:smlen_ptr, int64:m_ptr, int64:
 func:neq25519 = int64(int64:a, int64:b) {
     int64:c_ptr = cast_unchecked<int64>(alloc(32i64));
     int64:d_ptr = cast_unchecked<int64>(alloc(32i64));
-    drop raw gf_pack(c_ptr, a);
-    drop raw gf_pack(d_ptr, b);
+    drop gf_pack(c_ptr, a);
+    drop gf_pack(d_ptr, b);
     
     int64->:C = cast_unchecked<int64->>(c_ptr);
     int64->:Dbuf = cast_unchecked<int64->>(d_ptr);
@@ -415,17 +418,17 @@ func:neq25519 = int64(int64:a, int64:b) {
 
 func:pow2523 = int32(int64:o, int64:i) {
     int64:c = raw gf_alloc();
-    drop raw gf_copy(c, i);
+    drop gf_copy(c, i);
     int64:a = 250i64;
     while (a >= 0i64) {
-        drop raw gf_sqr(c, c);
+        drop gf_sqr(c, c);
         if (a != 1i64) {
-            drop raw gf_mul(c, c, i);
+            drop gf_mul(c, c, i);
         }
         a -= 1i64;
     }
-    drop raw gf_copy(o, c);
-    drop raw gf_free(c);
+    drop gf_copy(o, c);
+    drop gf_free(c);
     pass 0i32;
 };
 
@@ -443,39 +446,39 @@ func:unpackneg = int64(int64:r, int64:p_ptr, int64:D, int64:I) {
     int64:r2 = r + 256i64;
     int64:r3 = r + 384i64;
     
-    drop raw gf_set1(r2);
-    drop raw gf_unpack(r1, p_ptr);
-    drop raw gf_sqr(num, r1);
-    drop raw gf_mul(den, num, D);
-    drop raw gf_sub(num, num, r2);
-    drop raw gf_add(den, r2, den);
+    drop gf_set1(r2);
+    drop gf_unpack(r1, p_ptr);
+    drop gf_sqr(num, r1);
+    drop gf_mul(den, num, D);
+    drop gf_sub(num, num, r2);
+    drop gf_add(den, r2, den);
     
-    drop raw gf_sqr(den2, den);
-    drop raw gf_sqr(den4, den2);
-    drop raw gf_mul(den6, den4, den2);
-    drop raw gf_mul(t, den6, num);
-    drop raw gf_mul(t, t, den);
+    drop gf_sqr(den2, den);
+    drop gf_sqr(den4, den2);
+    drop gf_mul(den6, den4, den2);
+    drop gf_mul(t, den6, num);
+    drop gf_mul(t, t, den);
     
-    drop raw pow2523(t, t);
-    drop raw gf_mul(t, t, num);
-    drop raw gf_mul(t, t, den);
-    drop raw gf_mul(t, t, den);
-    drop raw gf_mul(r0, t, den);
+    drop pow2523(t, t);
+    drop gf_mul(t, t, num);
+    drop gf_mul(t, t, den);
+    drop gf_mul(t, t, den);
+    drop gf_mul(r0, t, den);
     
-    drop raw gf_sqr(chk, r0);
-    drop raw gf_mul(chk, chk, den);
+    drop gf_sqr(chk, r0);
+    drop gf_mul(chk, chk, den);
     
     int64:r0_I = raw gf_alloc();
-    drop raw gf_mul(r0_I, r0, I);
+    drop gf_mul(r0_I, r0, I);
     int64:neq = raw neq25519(chk, num);
-    drop raw sel25519(r0, r0_I, neq);
-    drop raw gf_free(r0_I);
+    drop sel25519(r0, r0_I, neq);
+    drop gf_free(r0_I);
     
-    drop raw gf_sqr(chk, r0);
-    drop raw gf_mul(chk, chk, den);
+    drop gf_sqr(chk, r0);
+    drop gf_mul(chk, chk, den);
     if (raw neq25519(chk, num) == 1i64) {
-        drop raw gf_free(t); drop raw gf_free(chk); drop raw gf_free(num);
-        drop raw gf_free(den); drop raw gf_free(den2); drop raw gf_free(den4); drop raw gf_free(den6);
+        drop gf_free(t); drop gf_free(chk); drop gf_free(num);
+        drop gf_free(den); drop gf_free(den2); drop gf_free(den4); drop gf_free(den6);
         fail(-1i64);
     }
     
@@ -484,19 +487,19 @@ func:unpackneg = int64(int64:r, int64:p_ptr, int64:D, int64:I) {
     
     int64:neg_r0 = raw gf_alloc();
     int64:gf0_val = raw gf_alloc();
-    drop raw gf_set0(gf0_val);
-    drop raw gf_sub(neg_r0, gf0_val, r0);
+    drop gf_set0(gf0_val);
+    drop gf_sub(neg_r0, gf0_val, r0);
     
     int64:parity_match = 1i64 - ((raw par25519(r0) ^ p31_7) & 1i64);
-    drop raw sel25519(r0, neg_r0, parity_match);
+    drop sel25519(r0, neg_r0, parity_match);
     
-    drop raw gf_free(neg_r0);
-    drop raw gf_free(gf0_val);
+    drop gf_free(neg_r0);
+    drop gf_free(gf0_val);
     
-    drop raw gf_mul(r3, r0, r1);
+    drop gf_mul(r3, r0, r1);
     
-    drop raw gf_free(t); drop raw gf_free(chk); drop raw gf_free(num);
-    drop raw gf_free(den); drop raw gf_free(den2); drop raw gf_free(den4); drop raw gf_free(den6);
+    drop gf_free(t); drop gf_free(chk); drop gf_free(num);
+    drop gf_free(den); drop gf_free(den2); drop gf_free(den4); drop gf_free(den6);
     pass 0i64;
 };
 
@@ -519,20 +522,20 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
     int64:X = raw gf_alloc();
     int64:Y = raw gf_alloc();
     int64:I = raw gf_alloc();
-    drop raw ed25519_init_constants(D, D2, X, Y, I);
+    drop ed25519_init_constants(D, D2, X, Y, I);
 
     int64->:Mlen = cast_unchecked<int64->>(mlen_ptr);
     Mlen[0i64] = -1i64;
     
     if (n < 64i64) { 
-        drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
+        drop gf_free(D); drop gf_free(D2); drop gf_free(X); drop gf_free(Y); drop gf_free(I);
         fail(-1i32); 
     }
     
     int64:q = raw gf4_alloc();
     if (raw unpackneg(q, pk_ptr, D, I) != 0i64) {
-        drop raw gf4_free(q);
-        drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
+        drop gf4_free(q);
+        drop gf_free(D); drop gf_free(D2); drop gf_free(X); drop gf_free(Y); drop gf_free(I);
         fail(-2i32);
     }
     
@@ -558,15 +561,15 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
     drop (sha512_finalize_raw(ctx, h) ?! 1i32);
     drop (sha512_free(ctx) ?! 1i32);
     
-    drop raw reduce(h);
+    drop reduce(h);
     
     int64:p = raw gf4_alloc();
-    drop raw ed25519_scalarmult(p, q, h, D2);
-    drop raw ed25519_scalarbase(q, sm_ptr + 32i64, X, Y, D2);
-    drop raw ed25519_add(p, q, D2);
+    drop ed25519_scalarmult(p, q, h, D2);
+    drop ed25519_scalarbase(q, sm_ptr + 32i64, X, Y, D2);
+    drop ed25519_add(p, q, D2);
     
     int64:t = cast_unchecked<int64>(alloc(32i64));
-    drop raw ed25519_pack(t, p);
+    drop ed25519_pack(t, p);
     
     int64:n_new = n - 64i64;
     if (raw crypto_verify_32(sm_ptr, t) != 0i64) {
@@ -575,8 +578,8 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
         while (i < n_new) { drop (buf_put_u8(Mout, i, 0i64) ?! 1i32); i += 1i64; }
         
         drop dalloc(cast_unchecked<int8->>(m_buf)); drop dalloc(cast_unchecked<int8->>(h)); drop dalloc(cast_unchecked<int8->>(t));
-        drop raw gf4_free(p); drop raw gf4_free(q);
-        drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
+        drop gf4_free(p); drop gf4_free(q);
+        drop gf_free(D); drop gf_free(D2); drop gf_free(X); drop gf_free(Y); drop gf_free(I);
         fail(-3i32);
     }
     
@@ -589,8 +592,8 @@ pub func:ed25519_verify = int32(int64:m_ptr, int64:mlen_ptr, int64:sm_ptr, int64
     Mlen[0i64] = n_new;
     
     drop dalloc(cast_unchecked<int8->>(m_buf)); drop dalloc(cast_unchecked<int8->>(h)); drop dalloc(cast_unchecked<int8->>(t));
-    drop raw gf4_free(p); drop raw gf4_free(q);
-    drop raw gf_free(D); drop raw gf_free(D2); drop raw gf_free(X); drop raw gf_free(Y); drop raw gf_free(I);
+    drop gf4_free(p); drop gf4_free(q);
+    drop gf_free(D); drop gf_free(D2); drop gf_free(X); drop gf_free(Y); drop gf_free(I);
     
     pass 0i32;
 };

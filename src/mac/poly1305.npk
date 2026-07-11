@@ -2,7 +2,7 @@
 // RFC 8439 Poly1305 MAC
 
 use "stdlib/core.npk".*;
-use "src/util/bytes.npk".*;
+use "../util/bytes.npk".*;
 
 // Unpack 17 bytes (or up to 16 bytes padded with 1 at byte_len) into 5 limbs of 26 bits
 // buf_ptr is a pointer to the bytes. len is the number of bytes (up to 17).
@@ -132,7 +132,7 @@ pub func:poly1305_init = int32(int64:state_ptr, int64:key_ptr) {
     int64:limbs_ptr = cast_unchecked<int64>(alloc(40i64));
     int64->:limbs = cast_unchecked<int64->>(limbs_ptr);
 
-    drop raw poly1305_unpack(tmp_ptr, 16i64, limbs_ptr);
+    drop poly1305_unpack(tmp_ptr, 16i64, limbs_ptr);
     state[0i64] = limbs[0i64];
     state[1i64] = limbs[1i64];
     state[2i64] = limbs[2i64];
@@ -154,7 +154,7 @@ pub func:poly1305_init = int32(int64:state_ptr, int64:key_ptr) {
     tmp[1i64] = key[3i64];
     tmp[2i64] = 0i64;
 
-    drop raw poly1305_unpack(tmp_ptr, 16i64, limbs_ptr);
+    drop poly1305_unpack(tmp_ptr, 16i64, limbs_ptr);
     state[14i64] = limbs[0i64];
     state[15i64] = limbs[1i64];
     state[16i64] = limbs[2i64];
@@ -237,7 +237,7 @@ pub func:poly1305_blocks = int32(int64:state_ptr, int64:msg_ptr, int64:length) {
         int64:t_sh = (chunk & 7i64) * 8i64;
         tmp[t_wi] = (tmp[t_wi] & ~(255i64 << t_sh)) | (1i64 << t_sh);
 
-        drop raw poly1305_unpack(tmp_ptr, chunk + 1i64, limbs_ptr);
+        drop poly1305_unpack(tmp_ptr, chunk + 1i64, limbs_ptr);
 
         h0 = h0 + cast_unchecked<uint64>(limbs[0i64]);
         h1 = h1 + cast_unchecked<uint64>(limbs[1i64]);
@@ -296,7 +296,7 @@ pub func:poly1305_update = int32(int64:state_ptr, int64:msg_ptr, int64:length) {
         if (buf_len == 0i64 && rem >= 16i64) {
             // Process directly from msg_ptr
             int64:blocks = rem / 16i64;
-            drop raw poly1305_blocks(state_ptr, msg_ptr + i, blocks * 16i64);
+            drop poly1305_blocks(state_ptr, msg_ptr + i, blocks * 16i64);
             i += blocks * 16i64;
         } else {
             // Copy byte to block_buf
@@ -312,7 +312,7 @@ pub func:poly1305_update = int32(int64:state_ptr, int64:msg_ptr, int64:length) {
             i += 1i64;
 
             if (buf_len == 16i64) {
-                drop raw poly1305_blocks(state_ptr, block_ptr, 16i64);
+                drop poly1305_blocks(state_ptr, block_ptr, 16i64);
                 buf_len = 0i64;
             }
         }
@@ -329,7 +329,7 @@ pub func:poly1305_finish = int32(int64:state_ptr, int64:out_ptr) {
     int64:buf_len = state[22i64];
     if (buf_len > 0i64) {
         int64:block_ptr = state_ptr + 19i64 * 8i64;
-        drop raw poly1305_blocks(state_ptr, block_ptr, buf_len);
+        drop poly1305_blocks(state_ptr, block_ptr, buf_len);
     }
 
     uint64:h0 = cast_unchecked<uint64>(state[9i64]);
@@ -396,9 +396,9 @@ pub func:poly1305_finish = int32(int64:state_ptr, int64:out_ptr) {
 
 pub func:poly1305_mac = int32(int64:key_ptr, int64:msg_ptr, int64:length, int64:out_ptr) {
     int64:state_ptr = cast_unchecked<int64>(alloc(192i64));
-    drop raw poly1305_init(state_ptr, key_ptr);
-    drop raw poly1305_update(state_ptr, msg_ptr, length);
-    drop raw poly1305_finish(state_ptr, out_ptr);
+    drop poly1305_init(state_ptr, key_ptr);
+    drop poly1305_update(state_ptr, msg_ptr, length);
+    drop poly1305_finish(state_ptr, out_ptr);
     drop dalloc(cast_unchecked<int8->>(state_ptr));
     pass 0i32;
 };

@@ -1,10 +1,10 @@
 use "stdlib/core.npk".*;
 use "../util/bytes.npk".*;
-use "src/cipher/aes.npk".*;
-use "src/util/secure.npk".*;
+use "aes.npk".*;
+use "../util/secure.npk".*;
 
 
-use "src/cipher/aes.npk".*;
+use "aes.npk".*;
 
 
 
@@ -201,9 +201,9 @@ pub func:gcm_encrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:i
         i += 1i64;
     }
     
-    drop raw secure_zero(exp_key, 240i64);
-    drop raw secure_zero(zero_block, 16i64);
-    drop raw secure_zero(h_ptr, 16i64);
+    drop secure_zero(exp_key, 240i64);
+    drop secure_zero(zero_block, 16i64);
+    drop secure_zero(h_ptr, 16i64);
     
     
     pass 0i32;
@@ -332,9 +332,9 @@ pub func:gcm_decrypt = int32(int64:key_ptr, int64:key_len, int64:iv_ptr, int64:i
         
     }
     
-    drop raw secure_zero(exp_key, 240i64);
-    drop raw secure_zero(zero_block, 16i64);
-    drop raw secure_zero(h_ptr, 16i64);
+    drop secure_zero(exp_key, 240i64);
+    drop secure_zero(zero_block, 16i64);
+    drop secure_zero(h_ptr, 16i64);
     
     
     pass res;

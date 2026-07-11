@@ -1,5 +1,74 @@
 use "stdlib/core.npk".*;
 use "../util/bytes.npk".*;
+
+// ========================================================================
+// int4096 shift workarounds
+// ========================================================================
+// The compiler's << and >> operators for int4096 are broken (always return 0).
+// These functions implement shifts using multiplication/division by powers of 2.
+
+// Left shift by a fixed number of bits (0..4095).
+// Uses repeated doubling: val * 2^n
+pub func:int4096_shl = int4096(int4096:val, int64:nbits) {
+    int4096:res = val;
+    int64:i = 0i64;
+    while (i < nbits) {
+        int4096:two = cast_unchecked<int4096>(2i64);
+        res = (res * two);
+        i += 1i64;
+    }
+    pass res;
+};
+
+// Right shift by a fixed number of bits (0..4095).
+// Uses repeated halving: val / 2^n
+pub func:int4096_shr = int4096(int4096:val, int64:nbits) {
+    int4096:two = cast_unchecked<int4096>(2i64);
+    int4096:res = val;
+    int64:i = 0i64;
+    while (i < nbits) {
+        res = (res / two);
+        i += 1i64;
+    }
+    pass res;
+};
+
+// Get bit at position `bit_index` from int4096 value.
+// Returns 0 or 1 as int4096.
+// More efficient than shr for single-bit extraction: uses heap to extract via byte access.
+pub func:int4096_get_bit = int4096(int4096:val, int64:bit_index) {
+    int4096:one_4 = cast_unchecked<int4096>(1i64);
+    int4096:zero_4 = cast_unchecked<int4096>(0i64);
+    // Store val on heap, extract the byte containing bit_index, mask out the bit
+    int64:byte_idx = bit_index / 8i64;
+    int64:bit_in_byte = bit_index - (byte_idx * 8i64);
+    
+    // Store int4096 on heap (512 bytes in little-endian layout)
+    int4096->:heap = cast_unchecked<int4096->>(alloc(512i64));
+    defer { drop dalloc(cast_unchecked<int8->>(heap)); }
+    heap[0i64] = val;
+    
+    // Read the byte at byte_idx
+    int64->:h64 = cast_unchecked<int64->>(heap);
+    int64:the_byte = (buf_get_u8(h64, byte_idx) ?! 0i64);
+    
+    // Extract the bit using int64 shift (which works fine)
+    int64:bit_val = (the_byte / 1i64);
+    // Shift right by bit_in_byte positions using int64 (works)
+    int64:shift_count = 0i64;
+    while (shift_count < bit_in_byte) {
+        bit_val = bit_val / 2i64;
+        shift_count += 1i64;
+    }
+    bit_val = bit_val & 1i64;
+    
+    if (bit_val == 1i64) {
+        pass one_4;
+    }
+    pass zero_4;
+};
+
+// int4096_eq (reexport for convenience)
 pub func:int4096_eq = int32(int4096:a, int4096:b) {
     if (a == b) { pass 1i32; }
     pass 0i32;
@@ -20,27 +89,53 @@ pub func:int4096_gt = int32(int4096:a, int4096:b) {
     pass 0i32;
 };
 
-// int4096_modexp: constant-time modular exponentiation.
-// Iterates exactly 4096 bits regardless of exponent, preventing timing leakage.
-pub func:int4096_modexp = int4096(int4096:base, int4096:exp, int4096:m) {
+// int4096_modexp: constant-time modular exponentiation (right-to-left binary method).
+// Iterates all num_bits bits from LSB to MSB regardless of exponent value, preventing timing leakage.
+// Uses heap-allocated temporaries to avoid stack overflow (each int4096 is 512 bytes,
+// and the compiler doesn't reuse stack slots across loop iterations).
+pub func:int4096_modexp_n = int4096(int4096:base, int4096:exp, int4096:m, int64:num_bits) {
     int4096:zero = cast_unchecked<int4096>(0i64);
     if (raw int4096_eq(m, zero) == 1i32) { pass zero; }
+    int4096:one = cast_unchecked<int4096>(1i64);
+
+    // Heap-allocate scratch space for loop temporaries to avoid stack overflow.
+    // Layout: 6 int4096 slots * 512 bytes each = 3072 bytes
+    int64:scratch_size = 3072i64;
+    int4096->:scratch = cast_unchecked<int4096->>(alloc(scratch_size));
+    defer { drop dalloc(cast_unchecked<int8->>(scratch)); }
+
     int4096:res = cast_unchecked<int4096>(1i64);
     int4096:base_m = (base % m);
-    int4096:one = cast_unchecked<int4096>(1i64);
-    int64:bit = 4095i64;
-    while (bit >= 0i64) {
-        int4096:bit4 = cast_unchecked<int4096>(cast_unchecked<int64>(bit));
-        int4096:e_bit = (exp >> bit4) & one;
-        int4096:mul_mod = ((res * base_m) % m);
-        int4096:mask = (zero - e_bit);
-        int4096:not_mask = (zero - one) - mask;
-        res = (mul_mod & mask) | (res & not_mask);
+    int64:max_bit = num_bits - 1i64;
+    int64:bit = 0i64;
+    while (bit <= max_bit) {
+        // e_bit = get_bit(exp, bit) — uses heap-based byte extraction (no broken shifts)
+        scratch[1] = raw int4096_get_bit(exp, bit);
+
+        // mul_mod = (res * base_m) % m
+        scratch[2] = ((res * base_m) % m);
+
+        // mask = 0 - e_bit (all 1s if bit set, all 0s otherwise)
+        scratch[3] = (zero - scratch[1]);
+
+        // not_mask = ~mask = (-1) - mask
+        scratch[4] = (zero - one) - scratch[3];
+
+        // res = (mul_mod & mask) | (res & not_mask)  — constant-time select
+        res = (scratch[2] & scratch[3]) | (res & scratch[4]);
+
+        // base_m = (base_m * base_m) % m
         base_m = ((base_m * base_m) % m);
-        bit -= 1i64;
+        bit += 1i64;
     }
     pass res;
 };
+
+// Original 4096-bit interface for backward compatibility (RSA etc.)
+pub func:int4096_modexp = int4096(int4096:base, int4096:exp, int4096:m) {
+    pass raw int4096_modexp_n(base, exp, m, 4096i64);
+};
+
 pub func:int64_to_int4096 = int4096(int64:v) {
     int4096->:ptr = cast_unchecked<int4096->>(alloc(1024i64));
     ptr[0i64] = cast_unchecked<int4096>(0i64);
@@ -67,7 +162,8 @@ pub func:bigint_to_int4096 = int4096(int64:a) {
     int64:i = len - 1i64;
     while (i >= 0i64) {
         int4096:limb = raw int64_to_int4096(A[3i64 + i]);
-        val = (val << cast_unchecked<int4096>(32i64)) | limb;
+        val = raw int4096_shl(val, 32i64);
+        val = val | limb;
         i -= 1i64;
     }
     if (A[2i64] == -1i64) {
@@ -91,10 +187,11 @@ pub func:int4096_to_bigint = int32(int4096:val, int64:out) {
     }
     int64:i = 0i64;
     int4096:mask = cast_unchecked<int4096>(4294967295i64); // 0xFFFFFFFF
+    int4096:two = cast_unchecked<int4096>(2i64);
     while (v > cast_unchecked<int4096>(0i64)) {
         int4096:limb = v & mask;
         O[3i64 + i] = raw int4096_to_int64(limb);
-        v = v >> cast_unchecked<int4096>(32i64);
+        v = raw int4096_shr(v, 32i64);
         i += 1i64;
     }
     O[1i64] = i;
@@ -109,7 +206,8 @@ pub func:bigint_to_int4096_unsigned = int4096(int64:a) {
     int64:i = len - 1i64;
     while (i >= 0i64) {
         int4096:limb = raw int64_to_int4096(A[3i64 + i]);
-        val = (val << cast_unchecked<int4096>(32i64)) | limb;
+        val = raw int4096_shl(val, 32i64);
+        val = val | limb;
         i -= 1i64;
     }
     pass val;
@@ -129,7 +227,7 @@ pub func:int4096_to_bigint_unsigned = int32(int4096:val, int64:out) {
     while (v > cast_unchecked<int4096>(0i64)) {
         int4096:limb = v & mask;
         O[3i64 + i] = raw int4096_to_int64(limb);
-        v = v >> cast_unchecked<int4096>(32i64);
+        v = raw int4096_shr(v, 32i64);
         i += 1i64;
     }
     O[1i64] = i;

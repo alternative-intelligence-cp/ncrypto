@@ -1,0 +1,376 @@
+// ntt.npk - Number Theoretic Transform for ML-KEM (q=3329) and ML-DSA (q=8380417)
+// NTT converts polynomial multiplication from O(n^2) to O(n log n).
+// Uses Cooley-Tukey forward NTT and Gentleman-Sande inverse NTT.
+
+use "../util/bytes.npk".*;
+use "poly.npk".*;
+
+// ---------------------------------------------------------------------------
+// ML-KEM zeta table (q=3329, 128 values)
+// Stored as a module-level heap pointer (lazily initialized).
+// ---------------------------------------------------------------------------
+int64:_mlkem_zeta_ptr   = 0i64;
+int64:_mlkem_gamma_ptr  = 0i64;
+int32:_mlkem_zeta_ready = 0i32;
+
+pub func:get_mlkem_zeta_ptr = int64() {
+    drop (raw _ensure_mlkem_zetas());
+    pass _mlkem_zeta_ptr;
+};
+
+pub func:get_mlkem_gamma_ptr = int64() {
+    drop (raw _ensure_mlkem_zetas());
+    pass _mlkem_gamma_ptr;
+};
+
+func:_ensure_mlkem_zetas = int32() {
+    if (_mlkem_zeta_ready == 1i32) {
+        pass 0i32;
+    }
+    int64:ptr = cast_unchecked<int64>(alloc(128i64 * 8i64 + 8i64));
+    int64->:z = cast_unchecked<int64->>(ptr);
+    int64:gptr = cast_unchecked<int64>(alloc(128i64 * 8i64 + 8i64));
+    int64->:g = cast_unchecked<int64->>(gptr);
+    int64:q = 3329i64;
+    
+    // Generate fips_zetas = [1, 17, 17^2, ..., 17^255]
+    int64:fips = cast_unchecked<int64>(alloc(256i64 * 8i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(fips)); }
+    int64->:fips64 = cast_unchecked<int64->>(fips);
+    
+    fips64[0] = 1i64;
+    int64:i = 1i64;
+    while (i < 256i64) {
+        fips64[i] = (fips64[i - 1i64] * 17i64) % q;
+        i += 1i64;
+    }
+    
+    // Fill z[i] = fips_zetas[bitrev7(i)]
+    // Fill g[i] = fips_zetas[2 * bitrev7(i) + 1]
+    i = 0i64;
+    while (i < 128i64) {
+        int64:r = 0i64;
+        int64:x = i;
+        int64:b = 0i64;
+        while (b < 7i64) {
+            r = (r << 1i64) | (x & 1i64);
+            x = x >> 1i64;
+            b += 1i64;
+        }
+        z[i] = fips64[r];
+        g[i] = fips64[2i64 * r + 1i64];
+        i += 1i64;
+    }
+    
+    _mlkem_zeta_ptr = ptr;
+    _mlkem_gamma_ptr = gptr;
+    _mlkem_zeta_ready = 1i32;
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// ML-DSA zeta table (q=8380417, 256 values, computed from 1753^bitrev(i) mod q)
+// ---------------------------------------------------------------------------
+int64:_mldsa_zeta_ptr   = 0i64;
+int32:_mldsa_zeta_ready = 0i32;
+
+func:_ensure_mldsa_zetas = int32() {
+    if (_mldsa_zeta_ready == 1i32) {
+        pass 0i32;
+    }
+    int64:ptr = cast_unchecked<int64>(alloc(256i64 * 8i64 + 8i64));
+    int64->:z = cast_unchecked<int64->>(ptr);
+    int64:q = 8380417i64;
+
+    // Compute 1753^i mod q for i = 0..255, then apply 8-bit bit-reversal
+    int64:omega = 1753i64;
+    int64:pow_arr = cast_unchecked<int64>(alloc(256i64 * 8i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(pow_arr)); }
+    int64->:pa = cast_unchecked<int64->>(pow_arr);
+    pa[0] = 1i64;
+    int64:ii = 1i64;
+    while (ii < 256i64) {
+        pa[ii] = (pa[ii - 1i64] * omega) % q;
+        ii += 1i64;
+    }
+    // Apply 8-bit bit-reversal permutation to get NTT order
+    ii = 0i64;
+    while (ii < 256i64) {
+        int64:r = 0i64;
+        int64:x = ii;
+        int64:b = 0i64;
+        while (b < 8i64) {
+            r = (r << 1i64) | (x & 1i64);
+            x = x >> 1i64;
+            b += 1i64;
+        }
+        z[ii] = pa[r];
+        ii += 1i64;
+    }
+
+    _mldsa_zeta_ptr   = ptr;
+    _mldsa_zeta_ready = 1i32;
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mlkem_ntt: forward NTT for ML-KEM (Cooley-Tukey, in-place, 7 layers)
+// Input: polynomial coefficients in standard order, in [0, q)
+// Output: polynomial coefficients in NTT/bit-reversed order
+// ---------------------------------------------------------------------------
+pub func:mlkem_ntt = int32(int64:poly_ptr) {
+    drop _ensure_mlkem_zetas();
+    int64->:p  = cast_unchecked<int64->>(poly_ptr);
+    int64->:zp = cast_unchecked<int64->>(_mlkem_zeta_ptr);
+    int64:q = 3329i64;
+    int64:zeta_idx = 1i64;
+    int64:len = 128i64;
+
+    while (len >= 2i64) {
+        int64:start = 0i64;
+        while (start < 256i64) {
+            int64:zeta = zp[zeta_idx];
+            zeta_idx += 1i64;
+            int64:j = start;
+            while (j < start + len) {
+                int64:t = (zeta * p[j + len]) % q;
+                p[j + len] = (p[j] - t + q) % q;
+                p[j]       = (p[j] + t) % q;
+                j += 1i64;
+            }
+            start += 2i64 * len;
+        }
+        len = len / 2i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mlkem_ntt_inv: inverse NTT for ML-KEM (Gentleman-Sande, in-place)
+// 128^-1 mod 3329 = 3303  (since 3329 = 26*128 + 1, so 128^-1 = -26 mod 3329)
+// ---------------------------------------------------------------------------
+pub func:mlkem_ntt_inv = int32(int64:poly_ptr) {
+    drop _ensure_mlkem_zetas();
+    int64->:p  = cast_unchecked<int64->>(poly_ptr);
+    int64->:zp = cast_unchecked<int64->>(_mlkem_zeta_ptr);
+    int64:q = 3329i64;
+    int64:f = 3303i64;  // 128^-1 mod 3329
+
+    int64:len = 2i64;
+    int64:zeta_idx = 127i64;  // traverse zetas in reverse
+
+    while (len <= 128i64) {
+        int64:start = 0i64;
+        while (start < 256i64) {
+            int64:zeta = zp[zeta_idx];
+            zeta_idx -= 1i64;
+            int64:j = start;
+            while (j < start + len) {
+                int64:u = p[j];
+                int64:v = p[j + len];
+                p[j]       = (u + v) % q;
+                p[j + len] = (zeta * (v - u + q)) % q;
+                j += 1i64;
+            }
+            start += 2i64 * len;
+        }
+        len = len * 2i64;
+    }
+
+    // Multiply all coefficients by 128^-1 mod q
+    int64:i = 0i64;
+    while (i < 256i64) {
+        p[i] = (p[i] * f) % q;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mldsa_ntt: forward NTT for ML-DSA (q=8380417, 8 layers, 256 zetas)
+// ---------------------------------------------------------------------------
+pub func:mldsa_ntt = int32(int64:poly_ptr) {
+    drop _ensure_mldsa_zetas();
+    int64->:p  = cast_unchecked<int64->>(poly_ptr);
+    int64->:zp = cast_unchecked<int64->>(_mldsa_zeta_ptr);
+    int64:q = 8380417i64;
+    int64:zeta_idx = 1i64;  // FIPS 204: first used zeta is zetas[1] (++k from k=0)
+    int64:len = 128i64;
+
+    while (len >= 1i64) {
+        int64:start = 0i64;
+        while (start < 256i64) {
+            int64:zeta = zp[zeta_idx];
+            zeta_idx += 1i64;
+            int64:j = start;
+            while (j < start + len) {
+                int64:t = (zeta * p[j + len]) % q;
+                p[j + len] = (p[j] - t + q) % q;
+                p[j]       = (p[j] + t) % q;
+                j += 1i64;
+            }
+            start += 2i64 * len;
+        }
+        len = len / 2i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// mldsa_ntt_inv: inverse NTT for ML-DSA
+// 256^-1 mod 8380417 = 8347681
+// ---------------------------------------------------------------------------
+pub func:mldsa_ntt_inv = int32(int64:poly_ptr) {
+    drop _ensure_mldsa_zetas();
+    int64->:p  = cast_unchecked<int64->>(poly_ptr);
+    int64->:zp = cast_unchecked<int64->>(_mldsa_zeta_ptr);
+    int64:q = 8380417i64;
+    int64:f = 8347681i64;  // 256^-1 mod 8380417
+
+    int64:len = 1i64;
+    int64:zeta_idx = 255i64;  // FIPS 204: inverse starts at zetas[255] (--k from k=256)
+
+    while (len <= 128i64) {
+        int64:start = 0i64;
+        while (start < 256i64) {
+            int64:zeta = (q - zp[zeta_idx]) % q;
+            zeta_idx -= 1i64;
+            int64:j = start;
+            while (j < start + len) {
+                int64:u = p[j];
+                int64:v = p[j + len];
+                p[j]       = (u + v) % q;
+                p[j + len] = (zeta * (u - v + q)) % q;
+                j += 1i64;
+            }
+            start += 2i64 * len;
+        }
+        len = len * 2i64;
+    }
+
+    int64:i = 0i64;
+    while (i < 256i64) {
+        p[i] = (p[i] * f) % q;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// polyvec_mlkem_ntt: apply forward NTT to a vector of k polynomials
+// ---------------------------------------------------------------------------
+pub func:polyvec_mlkem_ntt = int32(int64:poly_vec_ptr, int64:k) {
+    int64:i = 0i64;
+    while (i < k) {
+        int64:pptr = poly_vec_ptr + (i * 2048i64);  // 256 × 8 bytes per poly
+        drop mlkem_ntt(pptr);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:polyvec_mlkem_ntt_inv = int32(int64:poly_vec_ptr, int64:k) {
+    int64:i = 0i64;
+    while (i < k) {
+        int64:pptr = poly_vec_ptr + (i * 2048i64);
+        drop mlkem_ntt_inv(pptr);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// polyvec_mldsa_ntt: apply forward NTT to a vector of k polynomials (ML-DSA)
+// ---------------------------------------------------------------------------
+pub func:polyvec_mldsa_ntt = int32(int64:poly_vec_ptr, int64:k) {
+    int64:i = 0i64;
+    while (i < k) {
+        int64:pptr = poly_vec_ptr + (i * 2048i64);
+        drop mldsa_ntt(pptr);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:polyvec_mldsa_ntt_inv = int32(int64:poly_vec_ptr, int64:k) {
+    int64:i = 0i64;
+    while (i < k) {
+        int64:pptr = poly_vec_ptr + (i * 2048i64);
+        drop mldsa_ntt_inv(pptr);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// polyvec_mlkem_inner_product: dst = sum_i(a[i] * b[i]) in NTT domain (ML-KEM)
+// ---------------------------------------------------------------------------
+pub func:poly_ntt_mul_acc = int32(int64:dst, int64:a, int64:b, int64:q) {
+    int64:gamma_ptr = raw get_mlkem_gamma_ptr();
+    int64->:D = cast_unchecked<int64->>(dst);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
+    int64->:Z = cast_unchecked<int64->>(gamma_ptr);
+    int64:i = 0i64;
+    while (i < 128i64) {
+        int64:a0 = A[2i64 * i];
+        int64:a1 = A[2i64 * i + 1i64];
+        int64:b0 = B[2i64 * i];
+        int64:b1 = B[2i64 * i + 1i64];
+        int64:zeta = Z[i];
+        
+        // c0 = a0*b0 + a1*b1*zeta
+        int64:c0 = (a0 * b0) % q;
+        int64:term = (a1 * b1) % q;
+        term = (term * zeta) % q;
+        c0 = (c0 + term) % q;
+        
+        // c1 = a0*b1 + a1*b0
+        int64:c1 = (a0 * b1) % q;
+        c1 = (c1 + (a1 * b0)) % q;
+        
+        D[2i64 * i] = (D[2i64 * i] + c0) % q;
+        D[2i64 * i + 1i64] = (D[2i64 * i + 1i64] + c1) % q;
+        
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// poly_ntt_mul_acc_simple: simple coefficient-wise multiply-accumulate (ML-DSA)
+//   dst[i] += (a[i] * b[i]) mod q for all 256 coefficients
+//   ML-DSA uses full 256-point NTT (no paired basemul with gamma)
+// ---------------------------------------------------------------------------
+pub func:poly_ntt_mul_acc_simple = int32(int64:dst, int64:a, int64:b, int64:q) {
+    int64->:D = cast_unchecked<int64->>(dst);
+    int64->:A = cast_unchecked<int64->>(a);
+    int64->:B = cast_unchecked<int64->>(b);
+    int64:i = 0i64;
+    while (i < 256i64) {
+        D[i] = (D[i] + (A[i] * B[i]) % q) % q;
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+pub func:polyvec_mlkem_inner_product = int32(int64:dst_ptr, int64:a_vec_ptr, int64:b_vec_ptr, int64:k) {
+    int64:q = 3329i64;
+    // Zero dst
+    int64->:dst = cast_unchecked<int64->>(dst_ptr);
+    int64:ci = 0i64;
+    while (ci < 256i64) {
+        dst[ci] = 0i64;
+        ci += 1i64;
+    }
+    // Accumulate
+    int64:i = 0i64;
+    while (i < k) {
+        int64:aptr = a_vec_ptr + (i * 2048i64);
+        int64:bptr = b_vec_ptr + (i * 2048i64);
+        drop poly_ntt_mul_acc(dst_ptr, aptr, bptr, q);
+        i += 1i64;
+    }
+    drop poly_reduce(dst_ptr, q);
+    pass 0i32;
+};

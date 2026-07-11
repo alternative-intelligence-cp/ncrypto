@@ -1,5 +1,16 @@
 use "stdlib/core.npk".*;
 use "../util/bytes.npk".*;
+use "int4096_bridge.npk".*;
+
+// Helper: process one byte in int4096_from_bytes.
+// Extracted to prevent dynamic alloca accumulation in the loop.
+pub func:int4096_from_bytes_step = int4096(int4096:val, int64:b) {
+    int4096:b4 = cast_unchecked<int4096>(0i64);
+    int64->:ptr = cast_unchecked<int64->>(@ b4);
+    ptr[0] = b;
+    int4096:shifted = raw int4096_shl(val, 8i64);
+    pass (shifted | b4);
+};
 
 // buffer is Big-Endian byte array.
 pub func:int4096_from_bytes = int4096(int64:buf_ptr, int64:buf_len) {
@@ -8,27 +19,29 @@ pub func:int4096_from_bytes = int4096(int64:buf_ptr, int64:buf_len) {
     int64:i = 0i64;
     while (i < buf_len) {
         int64:b = (buf_get_u8(buf64, i) ?! 1i32);
-        int4096:b4 = cast_unchecked<int4096>(0i64);
-        int64->:ptr = cast_unchecked<int64->>(@b4);
-        ptr[0] = b;
-        val = (val << cast_unchecked<int4096>(8i64)) | b4;
+        val = raw int4096_from_bytes_step(val, b);
         i += 1i64;
     }
     pass val;
 };
 
+// Helper: process one byte in int4096_to_bytes.
+pub func:int4096_to_bytes_step = int4096(int4096:v, int64->:buf64, int64:be_idx) {
+    int4096:mask = cast_unchecked<int4096>(255i64);
+    int4096:b4 = v & mask;
+    int64->:ptr = cast_unchecked<int64->>(@ b4);
+    int64:b = ptr[0];
+    drop (buf_put_u8(buf64, be_idx, b) ?! 1i32);
+    pass raw int4096_shr(v, 8i64);
+};
+
 pub func:int4096_to_bytes = int32(int4096:val, int64:buf_ptr, int64:buf_len) {
     int64->:buf64 = cast_unchecked<int64->>(buf_ptr);
     int4096:v = val;
-    int4096:mask = cast_unchecked<int4096>(255i64);
     int64:i = 0i64;
     while (i < buf_len) {
-        int4096:b4 = v & mask;
-        int64->:ptr = cast_unchecked<int64->>(@b4);
-        int64:b = ptr[0];
         int64:be_idx = buf_len - 1i64 - i;
-        drop (buf_put_u8(buf64, be_idx, b) ?! 1i32);
-        v = v >> cast_unchecked<int4096>(8i64);
+        v = raw int4096_to_bytes_step(v, buf64, be_idx);
         i += 1i64;
     }
     pass 0i32;

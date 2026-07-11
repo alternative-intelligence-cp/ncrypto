@@ -1,0 +1,8 @@
+--- src/backend/ir/ir_generator.cpp
++++ src/backend/ir/ir_generator.cpp
+@@ -16122,6 +16122,7 @@
+                             const std::string& tn = it->second;
+                             shiftSigned = (tn.find("int") == 0 || tn == "nit");
++                            std::cout << "[DEBUG] shift type: " << tn << ", shiftSigned: " << shiftSigned << std::endl;
+                         }
+                     }

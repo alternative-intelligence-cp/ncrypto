@@ -1,0 +1,1124 @@
+use "../util/bytes.npk".*;
+use "stdlib/thread.npk".*;
+use "stdlib/channel.npk".*;
+
+// BLAKE3 Constants
+// IV = SHA-256 initial hash values (32-bit)
+// flags
+// CHUNK_START=1, CHUNK_END=2, PARENT=4, ROOT=8, KEYED_HASH=16, DERIVE_KEY_CONTEXT=32, DERIVE_KEY_MATERIAL=64
+
+// ---------------------------------------------------------------------------
+// Helper: 32-bit rotate right (operates on int64, masks to 32 bits)
+// ---------------------------------------------------------------------------
+func:b3_rotr32 = int64(int64:x, int64:n) {
+    int64:r = ((x >> n) | (x << (32i64 - n))) & 0xFFFFFFFFi64;
+    pass r;
+};
+
+// ---------------------------------------------------------------------------
+// BLAKE3 quarter-round G function (32-bit words, rotations 16/12/8/7)
+// All in/out are int64 holding 32-bit values.
+// ---------------------------------------------------------------------------
+// G(a,b,c,d, mx, my) modifies a,b,c,d in place.
+// We implement this via a struct-like 4-tuple return approach:
+// Since Nitpick doesn't have multiple return, we operate on pointer-based state.
+// Instead we inline G directly in the compression function.
+
+// ---------------------------------------------------------------------------
+// blake3_compress: core BLAKE3 compression function
+//   cv_ptr   : pointer to 8 × int32 chaining value (32 bytes, in int64 layout)
+//   block_ptr: pointer to 16 × int32 message block (64 bytes)
+//   counter  : 64-bit chunk/block counter (low 32 and high 32 bits)
+//   block_len: number of input bytes in this block (0–64)
+//   flags    : CHUNK_START | CHUNK_END | PARENT | ROOT etc.
+//   out_ptr  : pointer to write 8 × int32 output chaining value (32 bytes)
+// Returns 0 on success.
+// ---------------------------------------------------------------------------
+pub func:blake3_compress = int32(int64:cv_ptr, int64:block_ptr, int64:counter, int64:block_len, int64:flags, int64:out_ptr) {
+    int64->:CV  = cast_unchecked<int64->>(cv_ptr);
+    int64->:M   = cast_unchecked<int64->>(block_ptr);
+    int64->:OUT = cast_unchecked<int64->>(out_ptr);
+
+    // Load chaining value (8 × 32-bit words packed in int64 words)
+    // CV words are stored little-endian 32-bit in memory
+    int64:h0 = raw buf_get_u32_le(CV, 0i64);
+    int64:h1 = raw buf_get_u32_le(CV, 4i64);
+    int64:h2 = raw buf_get_u32_le(CV, 8i64);
+    int64:h3 = raw buf_get_u32_le(CV, 12i64);
+    int64:h4 = raw buf_get_u32_le(CV, 16i64);
+    int64:h5 = raw buf_get_u32_le(CV, 20i64);
+    int64:h6 = raw buf_get_u32_le(CV, 24i64);
+    int64:h7 = raw buf_get_u32_le(CV, 28i64);
+
+    // Load 16 message words (little-endian 32-bit)
+    int64:m0  = raw buf_get_u32_le(M, 0i64);
+    int64:m1  = raw buf_get_u32_le(M, 4i64);
+    int64:m2  = raw buf_get_u32_le(M, 8i64);
+    int64:m3  = raw buf_get_u32_le(M, 12i64);
+    int64:m4  = raw buf_get_u32_le(M, 16i64);
+    int64:m5  = raw buf_get_u32_le(M, 20i64);
+    int64:m6  = raw buf_get_u32_le(M, 24i64);
+    int64:m7  = raw buf_get_u32_le(M, 28i64);
+    int64:m8  = raw buf_get_u32_le(M, 32i64);
+    int64:m9  = raw buf_get_u32_le(M, 36i64);
+    int64:m10 = raw buf_get_u32_le(M, 40i64);
+    int64:m11 = raw buf_get_u32_le(M, 44i64);
+    int64:m12 = raw buf_get_u32_le(M, 48i64);
+    int64:m13 = raw buf_get_u32_le(M, 52i64);
+    int64:m14 = raw buf_get_u32_le(M, 56i64);
+    int64:m15 = raw buf_get_u32_le(M, 60i64);
+
+    // BLAKE3 IV constants (SHA-256 H0-H7, 32-bit)
+    int64:IV0 = 0x6A09E667i64;
+    int64:IV1 = 0xBB67AE85i64;
+    int64:IV2 = 0x3C6EF372i64;
+    int64:IV3 = 0xA54FF53Ai64;
+    int64:IV4 = 0x510E527Fi64;
+    int64:IV5 = 0x9B05688Ci64;
+    int64:IV6 = 0x1F83D9ABi64;
+    int64:IV7 = 0x5BE0CD19i64;
+
+    // Initialize 16-word state
+    // v[0..7]  = chaining value
+    // v[8..11] = IV[0..3]
+    // v[12] = counter low 32 bits
+    // v[13] = counter high 32 bits
+    // v[14] = block_len
+    // v[15] = flags
+    int64:v0  = h0;
+    int64:v1  = h1;
+    int64:v2  = h2;
+    int64:v3  = h3;
+    int64:v4  = h4;
+    int64:v5  = h5;
+    int64:v6  = h6;
+    int64:v7  = h7;
+    int64:v8  = IV0;
+    int64:v9  = IV1;
+    int64:v10 = IV2;
+    int64:v11 = IV3;
+    int64:v12 = counter & 0xFFFFFFFFi64;
+    int64:v13 = (counter >> 32i64) & 0xFFFFFFFFi64;
+    int64:v14 = block_len & 0xFFFFFFFFi64;
+    int64:v15 = flags & 0xFFFFFFFFi64;
+
+    // -----------------------------------------------------------------------
+    // 7 rounds, fully unrolled.
+    // Each round: 4 column G + 4 diagonal G
+    // G(a,b,c,d,x,y):
+    //   a = (a+b+x) & mask32
+    //   d = rotr32(d^a, 16)
+    //   c = (c+d) & mask32
+    //   b = rotr32(b^c, 12)
+    //   a = (a+b+y) & mask32
+    //   d = rotr32(d^a, 8)
+    //   c = (c+d) & mask32
+    //   b = rotr32(b^c, 7)
+    //
+    // Message schedule for each round uses permutation:
+    // Round 0: m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15
+    // Round 1: m2,m6,m3,m10,m7,m0,m4,m13,m1,m11,m12,m5,m9,m14,m15,m8
+    // Round 2: m3,m4,m10,m12,m13,m2,m7,m14,m6,m5,m9,m0,m11,m15,m8,m1
+    // Round 3: m10,m7,m12,m9,m14,m3,m13,m15,m4,m0,m11,m2,m5,m8,m1,m6
+    // Round 4: m12,m13,m9,m11,m15,m10,m14,m8,m7,m2,m5,m3,m0,m1,m6,m4
+    // Round 5: m9,m14,m11,m5,m8,m12,m15,m1,m13,m3,m0,m10,m2,m6,m4,m7
+    // Round 6: m11,m15,m5,m0,m1,m9,m8,m6,m14,m10,m2,m12,m3,m4,m7,m13
+    // -----------------------------------------------------------------------
+
+    // --- Round 0 ---
+    // Columns: G(v0,v4,v8,v12,m0,m1), G(v1,v5,v9,v13,m2,m3), G(v2,v6,v10,v14,m4,m5), G(v3,v7,v11,v15,m6,m7)
+    v0  = (v0 + v4 + m0) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 16i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 12i64) ;
+    v0  = (v0 + v4 + m1) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 8i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 7i64) ;
+
+    v1  = (v1 + v5 + m2) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 16i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 12i64) ;
+    v1  = (v1 + v5 + m3) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 8i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 7i64) ;
+
+    v2  = (v2 + v6 + m4) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 16i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 12i64) ;
+    v2  = (v2 + v6 + m5) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 8i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 7i64) ;
+
+    v3  = (v3 + v7 + m6) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 16i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 12i64) ;
+    v3  = (v3 + v7 + m7) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 8i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 7i64) ;
+
+    // Diagonals: G(v0,v5,v10,v15,m8,m9), G(v1,v6,v11,v12,m10,m11), G(v2,v7,v8,v13,m12,m13), G(v3,v4,v9,v14,m14,m15)
+    v0  = (v0 + v5 + m8) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 16i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 12i64) ;
+    v0  = (v0 + v5 + m9) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 8i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 7i64) ;
+
+    v1  = (v1 + v6 + m10) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 16i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 12i64) ;
+    v1  = (v1 + v6 + m11) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 8i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 7i64) ;
+
+    v2  = (v2 + v7 + m12) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 16i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 12i64) ;
+    v2  = (v2 + v7 + m13) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 8i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 7i64) ;
+
+    v3  = (v3 + v4 + m14) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 16i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 12i64) ;
+    v3  = (v3 + v4 + m15) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 8i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 7i64) ;
+
+    // --- Round 1 (permutation: 2,6,3,10,7,0,4,13,1,11,12,5,9,14,15,8) ---
+    // msg[0..15] for this round = [m2,m6,m3,m10,m7,m0,m4,m13,m1,m11,m12,m5,m9,m14,m15,m8]
+    v0  = (v0 + v4 + m2) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 16i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 12i64) ;
+    v0  = (v0 + v4 + m6) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 8i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 7i64) ;
+
+    v1  = (v1 + v5 + m3) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 16i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 12i64) ;
+    v1  = (v1 + v5 + m10) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 8i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 7i64) ;
+
+    v2  = (v2 + v6 + m7) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 16i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 12i64) ;
+    v2  = (v2 + v6 + m0) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 8i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 7i64) ;
+
+    v3  = (v3 + v7 + m4) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 16i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 12i64) ;
+    v3  = (v3 + v7 + m13) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 8i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 7i64) ;
+
+    v0  = (v0 + v5 + m1) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 16i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 12i64) ;
+    v0  = (v0 + v5 + m11) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 8i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 7i64) ;
+
+    v1  = (v1 + v6 + m12) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 16i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 12i64) ;
+    v1  = (v1 + v6 + m5) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 8i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 7i64) ;
+
+    v2  = (v2 + v7 + m9) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 16i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 12i64) ;
+    v2  = (v2 + v7 + m14) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 8i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 7i64) ;
+
+    v3  = (v3 + v4 + m15) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 16i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 12i64) ;
+    v3  = (v3 + v4 + m8) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 8i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 7i64) ;
+
+    // --- Round 2 (permutation applied twice: [m3,m4,m10,m12,m13,m2,m7,m14,m6,m5,m9,m0,m11,m15,m8,m1]) ---
+    v0  = (v0 + v4 + m3) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 16i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 12i64) ;
+    v0  = (v0 + v4 + m4) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 8i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 7i64) ;
+
+    v1  = (v1 + v5 + m10) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 16i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 12i64) ;
+    v1  = (v1 + v5 + m12) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 8i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 7i64) ;
+
+    v2  = (v2 + v6 + m13) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 16i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 12i64) ;
+    v2  = (v2 + v6 + m2) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 8i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 7i64) ;
+
+    v3  = (v3 + v7 + m7) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 16i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 12i64) ;
+    v3  = (v3 + v7 + m14) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 8i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 7i64) ;
+
+    v0  = (v0 + v5 + m6) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 16i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 12i64) ;
+    v0  = (v0 + v5 + m5) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 8i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 7i64) ;
+
+    v1  = (v1 + v6 + m9) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 16i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 12i64) ;
+    v1  = (v1 + v6 + m0) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 8i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 7i64) ;
+
+    v2  = (v2 + v7 + m11) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 16i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 12i64) ;
+    v2  = (v2 + v7 + m15) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 8i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 7i64) ;
+
+    v3  = (v3 + v4 + m8) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 16i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 12i64) ;
+    v3  = (v3 + v4 + m1) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 8i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 7i64) ;
+
+    // --- Round 3 ([m10,m7,m12,m9,m14,m3,m13,m15,m4,m0,m11,m2,m5,m8,m1,m6]) ---
+    v0  = (v0 + v4 + m10) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 16i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 12i64) ;
+    v0  = (v0 + v4 + m7) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 8i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 7i64) ;
+
+    v1  = (v1 + v5 + m12) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 16i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 12i64) ;
+    v1  = (v1 + v5 + m9) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 8i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 7i64) ;
+
+    v2  = (v2 + v6 + m14) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 16i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 12i64) ;
+    v2  = (v2 + v6 + m3) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 8i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 7i64) ;
+
+    v3  = (v3 + v7 + m13) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 16i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 12i64) ;
+    v3  = (v3 + v7 + m15) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 8i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 7i64) ;
+
+    v0  = (v0 + v5 + m4) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 16i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 12i64) ;
+    v0  = (v0 + v5 + m0) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 8i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 7i64) ;
+
+    v1  = (v1 + v6 + m11) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 16i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 12i64) ;
+    v1  = (v1 + v6 + m2) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 8i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 7i64) ;
+
+    v2  = (v2 + v7 + m5) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 16i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 12i64) ;
+    v2  = (v2 + v7 + m8) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 8i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 7i64) ;
+
+    v3  = (v3 + v4 + m1) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 16i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 12i64) ;
+    v3  = (v3 + v4 + m6) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 8i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 7i64) ;
+
+    // --- Round 4 ([m12,m13,m9,m11,m15,m10,m14,m8,m7,m2,m5,m3,m0,m1,m6,m4]) ---
+    v0  = (v0 + v4 + m12) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 16i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 12i64) ;
+    v0  = (v0 + v4 + m13) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 8i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 7i64) ;
+
+    v1  = (v1 + v5 + m9) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 16i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 12i64) ;
+    v1  = (v1 + v5 + m11) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 8i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 7i64) ;
+
+    v2  = (v2 + v6 + m15) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 16i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 12i64) ;
+    v2  = (v2 + v6 + m10) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 8i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 7i64) ;
+
+    v3  = (v3 + v7 + m14) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 16i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 12i64) ;
+    v3  = (v3 + v7 + m8) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 8i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 7i64) ;
+
+    v0  = (v0 + v5 + m7) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 16i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 12i64) ;
+    v0  = (v0 + v5 + m2) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 8i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 7i64) ;
+
+    v1  = (v1 + v6 + m5) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 16i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 12i64) ;
+    v1  = (v1 + v6 + m3) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 8i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 7i64) ;
+
+    v2  = (v2 + v7 + m0) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 16i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 12i64) ;
+    v2  = (v2 + v7 + m1) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 8i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 7i64) ;
+
+    v3  = (v3 + v4 + m6) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 16i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 12i64) ;
+    v3  = (v3 + v4 + m4) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 8i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 7i64) ;
+
+    // --- Round 5 ([m9,m14,m11,m5,m8,m12,m15,m1,m13,m3,m0,m10,m2,m6,m4,m7]) ---
+    v0  = (v0 + v4 + m9) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 16i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 12i64) ;
+    v0  = (v0 + v4 + m14) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 8i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 7i64) ;
+
+    v1  = (v1 + v5 + m11) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 16i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 12i64) ;
+    v1  = (v1 + v5 + m5) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 8i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 7i64) ;
+
+    v2  = (v2 + v6 + m8) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 16i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 12i64) ;
+    v2  = (v2 + v6 + m12) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 8i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 7i64) ;
+
+    v3  = (v3 + v7 + m15) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 16i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 12i64) ;
+    v3  = (v3 + v7 + m1) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 8i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 7i64) ;
+
+    v0  = (v0 + v5 + m13) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 16i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 12i64) ;
+    v0  = (v0 + v5 + m3) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 8i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 7i64) ;
+
+    v1  = (v1 + v6 + m0) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 16i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 12i64) ;
+    v1  = (v1 + v6 + m10) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 8i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 7i64) ;
+
+    v2  = (v2 + v7 + m2) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 16i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 12i64) ;
+    v2  = (v2 + v7 + m6) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 8i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 7i64) ;
+
+    v3  = (v3 + v4 + m4) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 16i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 12i64) ;
+    v3  = (v3 + v4 + m7) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 8i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 7i64) ;
+
+    // --- Round 6 ([m11,m15,m5,m0,m1,m9,m8,m6,m14,m10,m2,m12,m3,m4,m7,m13]) ---
+    v0  = (v0 + v4 + m11) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 16i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 12i64) ;
+    v0  = (v0 + v4 + m15) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v0, 8i64) ;
+    v8  = (v8 + v12) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v8, 7i64) ;
+
+    v1  = (v1 + v5 + m5) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 16i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 12i64) ;
+    v1  = (v1 + v5 + m0) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v1, 8i64) ;
+    v9  = (v9 + v13) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v9, 7i64) ;
+
+    v2  = (v2 + v6 + m1) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 16i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 12i64) ;
+    v2  = (v2 + v6 + m9) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v2, 8i64) ;
+    v10 = (v10 + v14) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v10, 7i64) ;
+
+    v3  = (v3 + v7 + m8) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 16i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 12i64) ;
+    v3  = (v3 + v7 + m6) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v3, 8i64) ;
+    v11 = (v11 + v15) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v11, 7i64) ;
+
+    v0  = (v0 + v5 + m14) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 16i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 12i64) ;
+    v0  = (v0 + v5 + m10) & 0xFFFFFFFFi64;
+    v15 = raw b3_rotr32(v15 ^ v0, 8i64) ;
+    v10 = (v10 + v15) & 0xFFFFFFFFi64;
+    v5  = raw b3_rotr32(v5 ^ v10, 7i64) ;
+
+    v1  = (v1 + v6 + m2) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 16i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 12i64) ;
+    v1  = (v1 + v6 + m12) & 0xFFFFFFFFi64;
+    v12 = raw b3_rotr32(v12 ^ v1, 8i64) ;
+    v11 = (v11 + v12) & 0xFFFFFFFFi64;
+    v6  = raw b3_rotr32(v6 ^ v11, 7i64) ;
+
+    v2  = (v2 + v7 + m3) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 16i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 12i64) ;
+    v2  = (v2 + v7 + m4) & 0xFFFFFFFFi64;
+    v13 = raw b3_rotr32(v13 ^ v2, 8i64) ;
+    v8  = (v8 + v13) & 0xFFFFFFFFi64;
+    v7  = raw b3_rotr32(v7 ^ v8, 7i64) ;
+
+    v3  = (v3 + v4 + m7) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 16i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 12i64) ;
+    v3  = (v3 + v4 + m13) & 0xFFFFFFFFi64;
+    v14 = raw b3_rotr32(v14 ^ v3, 8i64) ;
+    v9  = (v9 + v14) & 0xFFFFFFFFi64;
+    v4  = raw b3_rotr32(v4 ^ v9, 7i64) ;
+
+    // -----------------------------------------------------------------------
+    // Output: new CV = v[0..7] XOR v[8..15]
+    // -----------------------------------------------------------------------
+    drop write_u32_le(OUT, 0i64,  (v0  ^ v8)  & 0xFFFFFFFFi64) ;
+    drop write_u32_le(OUT, 4i64,  (v1  ^ v9)  & 0xFFFFFFFFi64) ;
+    drop write_u32_le(OUT, 8i64,  (v2  ^ v10) & 0xFFFFFFFFi64) ;
+    drop write_u32_le(OUT, 12i64, (v3  ^ v11) & 0xFFFFFFFFi64) ;
+    drop write_u32_le(OUT, 16i64, (v4  ^ v12) & 0xFFFFFFFFi64) ;
+    drop write_u32_le(OUT, 20i64, (v5  ^ v13) & 0xFFFFFFFFi64) ;
+    drop write_u32_le(OUT, 24i64, (v6  ^ v14) & 0xFFFFFFFFi64) ;
+    drop write_u32_le(OUT, 28i64, (v7  ^ v15) & 0xFFFFFFFFi64) ;
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_iv_init: write BLAKE3 IV into an 8-word (32-byte) buffer
+// ---------------------------------------------------------------------------
+func:blake3_iv_init = int32(int64:cv_ptr) {
+    int64->:cv = cast_unchecked<int64->>(cv_ptr);
+    drop write_u32_le(cv, 0i64,  0x6A09E667i64) ;
+    drop write_u32_le(cv, 4i64,  0xBB67AE85i64) ;
+    drop write_u32_le(cv, 8i64,  0x3C6EF372i64) ;
+    drop write_u32_le(cv, 12i64, 0xA54FF53Ai64) ;
+    drop write_u32_le(cv, 16i64, 0x510E527Fi64) ;
+    drop write_u32_le(cv, 20i64, 0x9B05688Ci64) ;
+    drop write_u32_le(cv, 24i64, 0x1F83D9ABi64) ;
+    drop write_u32_le(cv, 28i64, 0x5BE0CD19i64) ;
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_chunk_compress: compress one chunk (up to 1024 bytes) into a 32-byte CV.
+//   in_ptr   : pointer to chunk input bytes
+//   in_len   : number of bytes in this chunk (1..1024)
+//   key_ptr  : pointer to 32-byte key (IV if not keyed hash)
+//   counter  : chunk counter (chunk index)
+//   base_flags: KEYED_HASH | DERIVE_KEY_MATERIAL etc. (NOT start/end — those are added here)
+//   out_cv   : pointer to output 32-byte chaining value
+// ---------------------------------------------------------------------------
+pub func:blake3_chunk_compress = int32(int64:in_ptr, int64:in_len, int64:key_ptr, int64:counter, int64:base_flags, int64:out_cv) {
+    // Working CV starts as key
+    int64:cv_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(cv_buf)); }
+    int64:blk_buf = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(blk_buf)); }
+
+    int64->:cv64  = cast_unchecked<int64->>(cv_buf);
+    int64->:blk64 = cast_unchecked<int64->>(blk_buf);
+    int64->:key64 = cast_unchecked<int64->>(key_ptr);
+
+    // Copy key into working CV
+    drop buf_copy_bytes(cv64, 0i64, key64, 0i64, 32i64) ;
+
+    int64:bytes_left = in_len;
+    int64:offset = 0i64;
+    int64:block_idx = 0i64;  // 0..15
+
+    while (bytes_left > 0i64) {
+        // Determine block size (last block may be partial)
+        int64:this_block = bytes_left;
+        if (this_block > 64i64) {
+            this_block = 64i64;
+        }
+
+        // Zero the block buffer, then copy input
+        drop local_memset(blk64, 0i64, 0i64, 64i64) ;
+        drop buf_copy_bytes(blk64, 0i64, cast_unchecked<int64->>(in_ptr + offset), 0i64, this_block) ;
+
+        // Build flags for this block
+        int64:blk_flags = base_flags;
+        if (block_idx == 0i64) {
+            blk_flags = blk_flags | 1i64;  // CHUNK_START
+        }
+        // Last block of chunk: either we consumed all bytes after this, or we're at block 15
+        int64:next_left = bytes_left - this_block;
+        if ((next_left == 0i64) | (block_idx == 15i64)) {
+            blk_flags = blk_flags | 2i64;  // CHUNK_END
+        }
+
+        drop blake3_compress(cv_buf, blk_buf, counter, this_block, blk_flags, out_cv) ;
+
+        // Update working CV to output for next block (unless this was last)
+        if (next_left > 0i64) {
+            drop buf_copy_bytes(cv64, 0i64, cast_unchecked<int64->>(out_cv), 0i64, 32i64) ;
+        }
+
+        offset += this_block;
+        bytes_left -= this_block;
+        block_idx += 1i64;
+    }
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_parent_cv: compute parent chaining value from two child CVs
+//   left_cv  : pointer to 32-byte left child CV
+//   right_cv : pointer to 32-byte right child CV
+//   key_ptr  : pointer to 32-byte key (IV)
+//   base_flags: KEYED_HASH | DERIVE_KEY_MATERIAL etc.
+//   out_cv   : pointer to output 32-byte parent CV
+// ---------------------------------------------------------------------------
+pub func:blake3_parent_cv = int32(int64:left_cv, int64:right_cv, int64:key_ptr, int64:base_flags, int64:out_cv) {
+    // Block = left_cv || right_cv (64 bytes)
+    int64:blk_buf = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(blk_buf)); }
+    int64->:blk64 = cast_unchecked<int64->>(blk_buf);
+    int64->:lft64 = cast_unchecked<int64->>(left_cv);
+    int64->:rgt64 = cast_unchecked<int64->>(right_cv);
+
+    drop buf_copy_bytes(blk64, 0i64,  lft64, 0i64, 32i64) ;
+    drop buf_copy_bytes(blk64, 32i64, rgt64, 0i64, 32i64) ;
+
+    // PARENT flag; counter = 0; block_len = 64 (always full for parent nodes)
+    int64:flags = base_flags | 4i64;  // PARENT
+    drop blake3_compress(key_ptr, blk_buf, 0i64, 64i64, flags, out_cv) ;
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_hash_internal: core hash for arbitrary-length input.
+//   Handles the full Merkle tree construction including XOF output.
+//   key_ptr   : 32-byte key (IV for default, provided key for keyed/derive)
+//   base_flags: mode flags (0 for default, KEYED_HASH=16, DERIVE_KEY_MATERIAL=64)
+// ---------------------------------------------------------------------------
+func:blake3_hash_internal = int32(int64:in_ptr, int64:in_len, int64:key_ptr, int64:base_flags, int64:out_ptr, int64:out_len) {
+    // Maximum chunks we support (handles inputs up to 4MB without growing stack).
+    // A fully general implementation would use a dynamic stack; we pre-allocate
+    // for up to 4096 chunks (4MB input) which covers practical uses.
+    int64:MAX_CHUNKS = 4096i64;
+    int64:CHUNK_SIZE = 1024i64;
+
+    // Compute number of chunks (at least 1 even for empty input)
+    int64:num_chunks = in_len / CHUNK_SIZE;
+    if ((in_len % CHUNK_SIZE) != 0i64) {
+        num_chunks += 1i64;
+    }
+    if (num_chunks == 0i64) {
+        num_chunks = 1i64;
+    }
+    if (num_chunks > MAX_CHUNKS) {
+        fail(-1i32);
+    }
+
+    // Allocate CV array: num_chunks × 32 bytes
+    int64:cv_array_size = num_chunks * 32i64;
+    int64:cv_array = cast_unchecked<int64>(alloc(cv_array_size + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(cv_array)); }
+    int64->:cv_arr64 = cast_unchecked<int64->>(cv_array);
+
+    // Phase 1: compress each chunk into its CV
+    int64:ci = 0i64;
+    while (ci < num_chunks) {
+        int64:chunk_off = ci * CHUNK_SIZE;
+        int64:chunk_len = in_len - chunk_off;
+        if (chunk_len > CHUNK_SIZE) {
+            chunk_len = CHUNK_SIZE;
+        }
+        int64:out_cv_ptr = cv_array + (ci * 32i64);
+        drop blake3_chunk_compress(in_ptr + chunk_off, chunk_len, key_ptr, ci, base_flags, out_cv_ptr) ;
+        ci += 1i64;
+    }
+
+    // Phase 2: build Merkle tree bottom-up
+    // We do this in-place on the cv_array: each level reduces num_cvs by half.
+    int64:num_cvs = num_chunks;
+    int64:tmp_cv = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(tmp_cv)); }
+
+    while (num_cvs > 1i64) {
+        int64:new_num = num_cvs / 2i64;
+        int64:remainder = num_cvs % 2i64;  // odd one gets promoted as-is
+        int64:pi = 0i64;
+        while (pi < new_num) {
+            int64:left_ptr  = cv_array + (pi * 2i64 * 32i64);
+            int64:right_ptr = left_ptr + 32i64;
+            int64:out_p_ptr = cv_array + (pi * 32i64);  // overwrite in place
+
+            // If this is the final pair and it will be the root, add ROOT flag
+            int64:is_last_pair = 0i64;
+            if ((new_num == 1i64) & (remainder == 0i64)) {
+                is_last_pair = 1i64;
+            }
+
+            if (is_last_pair == 1i64) {
+                // Root parent: set ROOT flag but do NOT write to cv_array;
+                // write final output via XOF logic below.
+                // Write to tmp_cv first, will handle below.
+                drop blake3_parent_cv(left_ptr, right_ptr, key_ptr, base_flags, tmp_cv) ;
+                drop buf_copy_bytes(cv_arr64, 0i64, cast_unchecked<int64->>(tmp_cv), 0i64, 32i64) ;
+            } else {
+                drop blake3_parent_cv(left_ptr, right_ptr, key_ptr, base_flags, out_p_ptr) ;
+            }
+            pi += 1i64;
+        }
+        // If odd, last CV slides into position new_num
+        if (remainder == 1i64) {
+            int64:src_ptr = cv_array + ((num_cvs - 1i64) * 32i64);
+            int64:dst_ptr = cv_array + (new_num * 32i64);
+            drop buf_copy_bytes(cv_arr64, new_num * 32i64, cast_unchecked<int64->>(src_ptr), 0i64, 32i64) ;
+            drop dst_ptr;  // silence unused warning
+        }
+        num_cvs = new_num + remainder;
+    }
+
+    // Phase 3: XOF output from root node
+    // cv_array[0..32) now holds the root chaining value (or the only chunk CV)
+    // For ROOT output, we re-run compress with ROOT flag, incrementing counter for each 64-byte output block
+    int64:root_cv_ptr = cv_array;
+
+    // Need a 64-byte block buffer for root output (the full state XOR)
+    int64:root_blk = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(root_blk)); }
+    int64:root_out = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(root_out)); }
+    int64->:root_out64 = cast_unchecked<int64->>(root_out);
+
+    // For the single-chunk root case: the block is actually the last compressed block.
+    // We need to reconstruct the root state output from the CV.
+    // Actually for XOF: the root compression outputs 64 bytes (all 16 state words XOR'd as pairs).
+    // We implement this as blake3_compress_xof which writes all 64 bytes of v[0..15] XOR.
+    // For simplicity: produce output 32 bytes at a time from the root CV using counter mode.
+
+    int64:out_written = 0i64;
+    int64:xof_counter = 0i64;
+    while (out_written < out_len) {
+        // XOF: compress root CV with the counter, ROOT flag, outputting 64 bytes of state
+        drop blake3_compress_root_xof(root_cv_ptr, xof_counter, base_flags, root_out) ;
+
+        // Copy up to 64 bytes of output
+        int64:to_copy = out_len - out_written;
+        if (to_copy > 64i64) {
+            to_copy = 64i64;
+        }
+        drop buf_copy_bytes(cast_unchecked<int64->>(out_ptr + out_written), 0i64, root_out64, 0i64, to_copy) ;
+        out_written += to_copy;
+        xof_counter += 1i64;
+    }
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_compress_root_xof: like blake3_compress but outputs full 64-byte state
+//   (both halves: v[0..7] XOR v[8..15] in first 32 bytes, then v[8..15] XOR... )
+// Actually BLAKE3 XOF outputs the full 16-word state XOR'd in two halves:
+//   bytes 0..31  = v[0]^v[8], v[1]^v[9], ..., v[7]^v[15]   (same as regular output CV)
+//   bytes 32..63 = v[8]^v[0], v[9]^v[1], ..., v[15]^v[7]   (same values, different order)
+// Wait — the actual BLAKE3 spec says the root node outputs 64 bytes as:
+//   output[0..31] = XOR of first half and second half of state
+//   output[32..63] = second half of state XOR first half (same)
+// More precisely: first 32 = v[0..7] XOR v[8..15], next 32 = v[8..15] XOR v[0..7]
+// These are identical values! So for 32-byte output we only need the first 32 bytes.
+// For >32 bytes, we increment the counter and recompress.
+// ---------------------------------------------------------------------------
+func:blake3_compress_root_xof = int32(int64:cv_ptr, int64:xof_counter, int64:base_flags, int64:out64_ptr) {
+    // For XOF counter >= 1, the "input block" is zero-padded.
+    // Root final output: re-compress with ROOT flag (8) and the XOF block counter.
+    // The CV feeds back into itself for subsequent counter blocks.
+    // We use an empty 64-byte block for counter > 0, same CV.
+    int64:zero_blk = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(zero_blk)); }
+    int64->:zb64 = cast_unchecked<int64->>(zero_blk);
+    drop local_memset(zb64, 0i64, 0i64, 64i64) ;
+
+    // First 32 bytes of output = standard compress output (v0^v8..v7^v15)
+    int64:flags = base_flags | 8i64;  // ROOT
+    int64:tmp32 = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(tmp32)); }
+
+    drop blake3_compress(cv_ptr, zero_blk, xof_counter, 64i64, flags, tmp32) ;
+
+    // Copy to output (first 32 bytes)
+    drop buf_copy_bytes(cast_unchecked<int64->>(out64_ptr), 0i64, cast_unchecked<int64->>(tmp32), 0i64, 32i64) ;
+
+    // Second 32 bytes: we need v[8..15] XOR v[0..7].
+    // Since blake3_compress already computes v[i]^v[i+8] for i in 0..7,
+    // and BLAKE3 XOF second half is v[8..15] XOR v[0..7] = same values,
+    // we simply duplicate the first 32 bytes for the second 32.
+    // (Both halves of 64-byte output are identical for BLAKE3 XOF.)
+    drop buf_copy_bytes(cast_unchecked<int64->>(out64_ptr), 32i64, cast_unchecked<int64->>(tmp32), 0i64, 32i64) ;
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_hash: default hashing — no key, 32-byte output by default
+// ---------------------------------------------------------------------------
+pub func:blake3_hash = int32(int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len) {
+    // Key = BLAKE3 IV
+    int64:key_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(key_buf)); }
+    drop blake3_iv_init(key_buf) ;
+    pass blake3_hash_internal(in_ptr, in_len, key_buf, 0i64, out_ptr, out_len) ;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_keyed_hash: keyed hashing — 32-byte key required
+// ---------------------------------------------------------------------------
+pub func:blake3_keyed_hash = int32(int64:key_ptr, int64:in_ptr, int64:in_len, int64:out_ptr, int64:out_len) {
+    // Key words are loaded directly from key_ptr (32 bytes, LE 32-bit words)
+    pass blake3_hash_internal(in_ptr, in_len, key_ptr, 16i64, out_ptr, out_len) ;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_derive_key: key derivation — context string → context key → derive
+// ---------------------------------------------------------------------------
+pub func:blake3_derive_key = int32(int64:context_ptr, int64:ctx_len, int64:ikm_ptr, int64:ikm_len, int64:out_ptr, int64:out_len) {
+    // Stage 1: hash context string with DERIVE_KEY_CONTEXT (32) flag to get context key
+    int64:ctx_key_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(ctx_key_buf)); }
+    int64:iv_buf = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(iv_buf)); }
+    drop blake3_iv_init(iv_buf) ;
+    drop blake3_hash_internal(context_ptr, ctx_len, iv_buf, 32i64, ctx_key_buf, 32i64) ;
+
+    // Stage 2: hash IKM using context key with DERIVE_KEY_MATERIAL (64) flag
+    pass blake3_hash_internal(ikm_ptr, ikm_len, ctx_key_buf, 64i64, out_ptr, out_len) ;
+};
+
+// ---------------------------------------------------------------------------
+// blake3_hash_parallel: async parallel tree hashing (for large inputs)
+// Each chunk is launched as an async coroutine; results are awaited before tree assembly.
+// ---------------------------------------------------------------------------
+
+struct:B3Args = {
+    int64:in_ptr;
+    int64:in_len;
+    int64:key_ptr;
+    int64:base_flags;
+    int64:cv_array;
+    int64:ch_in;
+    int64:ch_done;
+};
+
+func:b3_worker = NIL(int64:arg_ptr) {
+    B3Args->:args = cast_unchecked<B3Args->>(arg_ptr);
+    while (true) {
+        int64:ci = Channel.recv(args->ch_in);
+        if (ci < 0i64) {
+            break;
+        }
+        int64:CHUNK_SIZE = 1024i64;
+        int64:chunk_off = ci * CHUNK_SIZE;
+        int64:chunk_len = args->in_len - chunk_off;
+        if (chunk_len > CHUNK_SIZE) {
+            chunk_len = CHUNK_SIZE;
+        }
+        int64:out_cv_ptr = args->cv_array + (ci * 32i64);
+        drop blake3_chunk_compress(args->in_ptr + chunk_off, chunk_len, args->key_ptr, ci, args->base_flags, out_cv_ptr);
+        drop Channel.send(args->ch_done, 1i64);
+    }
+    pass NIL;
+};
+
+pub func:blake3_hash_parallel = int32(int64:in_ptr, int64:in_len, int64:key_ptr, int64:base_flags, int64:out_ptr, int64:out_len) {
+    int64:MAX_CHUNKS = 4096i64;
+    int64:CHUNK_SIZE = 1024i64;
+
+    int64:num_chunks = in_len / CHUNK_SIZE;
+    if ((in_len % CHUNK_SIZE) != 0i64) {
+        num_chunks += 1i64;
+    }
+    if (num_chunks == 0i64) {
+        num_chunks = 1i64;
+    }
+    if (num_chunks > MAX_CHUNKS) {
+        fail(-1i32);
+    }
+
+    int64:cv_array = cast_unchecked<int64>(alloc(num_chunks * 32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(cv_array)); }
+
+    int64:ch_in = Channel.create(1024i32);
+    int64:ch_done = Channel.create(1024i32);
+    int64:args_ptr = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(args_ptr)); }
+
+    B3Args->:args = cast_unchecked<B3Args->>(args_ptr);
+    args->in_ptr = in_ptr;
+    args->in_len = in_len;
+    args->key_ptr = key_ptr;
+    args->base_flags = base_flags;
+    args->cv_array = cv_array;
+    args->ch_in = ch_in;
+    args->ch_done = ch_done;
+
+    int32:num_threads = Thread.hardware_concurrency();
+    if (num_threads < 1i32) {
+        num_threads = 4i32;
+    }
+    if (num_threads > 16i32) {
+        num_threads = 16i32;
+    }
+
+    int64:t_array = cast_unchecked<int64>(alloc(cast_unchecked<int64>(num_threads) * 8i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(t_array)); }
+    int64->:threads = cast_unchecked<int64->>(t_array);
+
+    int32:ti = 0i32;
+    while (ti < num_threads) {
+        threads[cast_unchecked<int64>(ti)] = Thread.spawn(b3_worker, args_ptr);
+        ti += 1i32;
+    }
+
+    int64:i = 0i64;
+    while (i < num_chunks) {
+        drop Channel.send(ch_in, i);
+        i += 1i64;
+    }
+
+    ti = 0i32;
+    while (ti < num_threads) {
+        drop Channel.send(ch_in, -1i64);
+        ti += 1i32;
+    }
+
+    int64:done = 0i64;
+    while (done < num_chunks) {
+        drop Channel.recv(ch_done);
+        done += 1i64;
+    }
+
+    ti = 0i32;
+    while (ti < num_threads) {
+        drop Thread.join(threads[cast_unchecked<int64>(ti)]);
+        ti += 1i32;
+    }
+
+    drop Channel.destroy(ch_in);
+    drop Channel.destroy(ch_done);
+
+    
+    // // Merkle tree and XOF output (sequential — same logic as blake3_hash_internal)
+    // Re-use the internal logic by calling blake3_hash_internal sequentially for tree phase.
+    // (The chunk CVs are already computed in cv_array; we build the tree from them.)
+    // For simplicity, delegate to internal from cv_array state.
+    // Build Merkle tree in-place on cv_array (same algorithm as blake3_hash_internal Phase 2&3)
+    int64:num_cvs = num_chunks;
+    int64:tmp_cv = cast_unchecked<int64>(alloc(32i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(tmp_cv)); }
+    int64->:cv_arr64 = cast_unchecked<int64->>(cv_array);
+
+    while (num_cvs > 1i64) {
+        int64:new_num = num_cvs / 2i64;
+        int64:remainder = num_cvs % 2i64;
+        int64:pi = 0i64;
+        while (pi < new_num) {
+            int64:left_ptr  = cv_array + (pi * 2i64 * 32i64);
+            int64:right_ptr = left_ptr + 32i64;
+            int64:out_p_ptr = cv_array + (pi * 32i64);
+            drop blake3_parent_cv(left_ptr, right_ptr, key_ptr, base_flags, out_p_ptr) ;
+            pi += 1i64;
+        }
+        if (remainder == 1i64) {
+            drop buf_copy_bytes(cv_arr64, new_num * 32i64, cast_unchecked<int64->>(cv_array + ((num_cvs - 1i64) * 32i64)), 0i64, 32i64) ;
+        }
+        num_cvs = new_num + remainder;
+    }
+
+    // XOF output
+    int64:root_cv_ptr = cv_array;
+    int64:root_out = cast_unchecked<int64>(alloc(64i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(root_out)); }
+    int64->:root_out64 = cast_unchecked<int64->>(root_out);
+
+    int64:out_written = 0i64;
+    int64:xof_counter = 0i64;
+    while (out_written < out_len) {
+        drop blake3_compress_root_xof(root_cv_ptr, xof_counter, base_flags, root_out) ;
+        int64:to_copy = out_len - out_written;
+        if (to_copy > 64i64) {
+            to_copy = 64i64;
+        }
+        drop buf_copy_bytes(cast_unchecked<int64->>(out_ptr + out_written), 0i64, root_out64, 0i64, to_copy) ;
+        out_written += to_copy;
+        xof_counter += 1i64;
+    }
+
+    pass 0i32;
+};

@@ -206,8 +206,8 @@ pub func:sha1 = string(string:data) {
     int64:ctx = raw sha1_init();
     int64:data_ptr = raw sha1_str_data_ptr(data);
     int64:data_len = string_length(data);
-    drop raw sha1_update(ctx, data_ptr, data_len);
+    drop sha1_update(ctx, data_ptr, data_len);
     string:res = raw sha1_finalize(ctx);
-    drop raw sha1_free(ctx);
+    drop sha1_free(ctx);
     pass res;
 };

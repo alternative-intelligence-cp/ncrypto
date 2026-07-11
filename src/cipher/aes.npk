@@ -32,17 +32,48 @@ func:_ensure_aes_tables = int32() {
 };
 
 func:get_sbox = int64(int64:i) {
-    drop raw _ensure_aes_tables();
+    drop _ensure_aes_tables();
     int64:ptr = raw _aes_str_ptr(_global_sbox_str);
     int64->:buf = cast_unchecked<int64->>(ptr);
     pass (buf_get_u8(buf, i) ?! 0i64);
 };
 
+
+func:get_sbox_ct = int64(int64:idx) {
+    drop _ensure_aes_tables();
+    int64:ptr = raw _aes_str_ptr(_global_sbox_str);
+    int64->:buf = cast_unchecked<int64->>(ptr);
+    int64:res = 0i64;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:val = (buf_get_u8(buf, i) ?! 0i64);
+        int64:is_match = raw ct_eq(idx, i);
+        res = res | (val * is_match);
+        i += 1i64;
+    }
+    pass res;
+};
+
 pub func:get_inv_sbox = int64(int64:i) {
-    drop raw _ensure_aes_tables();
+    drop _ensure_aes_tables();
     int64:ptr = raw _aes_str_ptr(_global_inv_sbox_str);
     int64->:buf = cast_unchecked<int64->>(ptr);
     pass (buf_get_u8(buf, i) ?! 0i64);
+};
+
+pub func:get_inv_sbox_ct = int64(int64:idx) {
+    drop _ensure_aes_tables();
+    int64:ptr = raw _aes_str_ptr(_global_inv_sbox_str);
+    int64->:buf = cast_unchecked<int64->>(ptr);
+    int64:res = 0i64;
+    int64:i = 0i64;
+    while (i < 256i64) {
+        int64:val = (buf_get_u8(buf, i) ?! 0i64);
+        int64:is_match = raw ct_eq(idx, i);
+        res = res | (val * is_match);
+        i += 1i64;
+    }
+    pass res;
 };
 
 
@@ -352,6 +383,180 @@ pub func:aes_encrypt_block = int32(int64:exp_key_ptr, int64:key_len, int64:in_pt
     pass 0i32;
 };
 
+pub func:aes_encrypt_ct = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr, int64:out_ptr) {
+    int64:Nr = 10i64;
+    if (key_len == 24i64) { Nr = 12i64; }
+    if (key_len == 32i64) { Nr = 14i64; }
+    
+    int64:state = cast_unchecked<int64>(alloc(24i64)); // 16 bytes
+    defer { drop dalloc(cast_unchecked<int8->>(state)); }
+    int64->:state_64 = cast_unchecked<int64->>(state);
+    int64->:in_64 = cast_unchecked<int64->>(in_ptr);
+    int64->:out_64 = cast_unchecked<int64->>(out_ptr);
+    int64->:exp_64 = cast_unchecked<int64->>(exp_key_ptr);
+    
+    int64:i = 0i64;
+    int64:v = 0i64;
+    while (i < 16i64) {
+        v = (in_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (v << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    i = 0i64;
+    int64:sv = 0i64;
+    int64:kv = 0i64;
+    int64:nv = 0i64;
+    while (i < 16i64) {
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        kv = (exp_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        nv = sv ^ kv;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    int64:round = 1i64;
+    int64:c = 0i64;
+    int64:c0_idx = 0i64; int64:c1_idx = 0i64; int64:c2_idx = 0i64; int64:c3_idx = 0i64;
+    int64:v0 = 0i64; int64:v1 = 0i64; int64:v2 = 0i64; int64:v3 = 0i64;
+    int64:nv0 = 0i64; int64:nv1 = 0i64; int64:nv2 = 0i64; int64:nv3 = 0i64;
+    int64:k_base = 0i64; int64:k_idx = 0i64;
+    int64:s1=0i64; int64:s5=0i64; int64:s9=0i64; int64:s13=0i64;
+    int64:s2=0i64; int64:s6=0i64; int64:s10=0i64; int64:s14=0i64;
+    int64:s3=0i64; int64:s7=0i64; int64:s11=0i64; int64:s15=0i64;
+    
+    while (round < Nr) {
+        i = 0i64;
+        while (i < 16i64) {
+            sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+            sv = raw get_sbox_ct(sv);
+            state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (sv << ((i & 7i64) * 8i64));
+            i += 1i64;
+        }
+        
+        s1 = (state_64[1i64 / 8i64] >> ((1i64 & 7i64) * 8i64)) & 255i64;
+        s5 = (state_64[5i64 / 8i64] >> ((5i64 & 7i64) * 8i64)) & 255i64;
+        s9 = (state_64[9i64 / 8i64] >> ((9i64 & 7i64) * 8i64)) & 255i64;
+        s13 = (state_64[13i64 / 8i64] >> ((13i64 & 7i64) * 8i64)) & 255i64;
+        state_64[1i64 / 8i64] = (state_64[1i64 / 8i64] & ~(255i64 << ((1i64 & 7i64) * 8i64))) | (s5 << ((1i64 & 7i64) * 8i64));
+        state_64[5i64 / 8i64] = (state_64[5i64 / 8i64] & ~(255i64 << ((5i64 & 7i64) * 8i64))) | (s9 << ((5i64 & 7i64) * 8i64));
+        state_64[9i64 / 8i64] = (state_64[9i64 / 8i64] & ~(255i64 << ((9i64 & 7i64) * 8i64))) | (s13 << ((9i64 & 7i64) * 8i64));
+        state_64[13i64 / 8i64] = (state_64[13i64 / 8i64] & ~(255i64 << ((13i64 & 7i64) * 8i64))) | (s1 << ((13i64 & 7i64) * 8i64));
+        
+        s2 = (state_64[2i64 / 8i64] >> ((2i64 & 7i64) * 8i64)) & 255i64;
+        s6 = (state_64[6i64 / 8i64] >> ((6i64 & 7i64) * 8i64)) & 255i64;
+        s10 = (state_64[10i64 / 8i64] >> ((10i64 & 7i64) * 8i64)) & 255i64;
+        s14 = (state_64[14i64 / 8i64] >> ((14i64 & 7i64) * 8i64)) & 255i64;
+        state_64[2i64 / 8i64] = (state_64[2i64 / 8i64] & ~(255i64 << ((2i64 & 7i64) * 8i64))) | (s10 << ((2i64 & 7i64) * 8i64));
+        state_64[6i64 / 8i64] = (state_64[6i64 / 8i64] & ~(255i64 << ((6i64 & 7i64) * 8i64))) | (s14 << ((6i64 & 7i64) * 8i64));
+        state_64[10i64 / 8i64] = (state_64[10i64 / 8i64] & ~(255i64 << ((10i64 & 7i64) * 8i64))) | (s2 << ((10i64 & 7i64) * 8i64));
+        state_64[14i64 / 8i64] = (state_64[14i64 / 8i64] & ~(255i64 << ((14i64 & 7i64) * 8i64))) | (s6 << ((14i64 & 7i64) * 8i64));
+        
+        s3 = (state_64[3i64 / 8i64] >> ((3i64 & 7i64) * 8i64)) & 255i64;
+        s7 = (state_64[7i64 / 8i64] >> ((7i64 & 7i64) * 8i64)) & 255i64;
+        s11 = (state_64[11i64 / 8i64] >> ((11i64 & 7i64) * 8i64)) & 255i64;
+        s15 = (state_64[15i64 / 8i64] >> ((15i64 & 7i64) * 8i64)) & 255i64;
+        state_64[3i64 / 8i64] = (state_64[3i64 / 8i64] & ~(255i64 << ((3i64 & 7i64) * 8i64))) | (s15 << ((3i64 & 7i64) * 8i64));
+        state_64[7i64 / 8i64] = (state_64[7i64 / 8i64] & ~(255i64 << ((7i64 & 7i64) * 8i64))) | (s3 << ((7i64 & 7i64) * 8i64));
+        state_64[11i64 / 8i64] = (state_64[11i64 / 8i64] & ~(255i64 << ((11i64 & 7i64) * 8i64))) | (s7 << ((11i64 & 7i64) * 8i64));
+        state_64[15i64 / 8i64] = (state_64[15i64 / 8i64] & ~(255i64 << ((15i64 & 7i64) * 8i64))) | (s11 << ((15i64 & 7i64) * 8i64));
+        
+        c = 0i64;
+        while (c < 4i64) {
+            c0_idx = c * 4i64 + 0i64;
+            c1_idx = c * 4i64 + 1i64;
+            c2_idx = c * 4i64 + 2i64;
+            c3_idx = c * 4i64 + 3i64;
+            
+            v0 = (state_64[c0_idx / 8i64] >> ((c0_idx & 7i64) * 8i64)) & 255i64;
+            v1 = (state_64[c1_idx / 8i64] >> ((c1_idx & 7i64) * 8i64)) & 255i64;
+            v2 = (state_64[c2_idx / 8i64] >> ((c2_idx & 7i64) * 8i64)) & 255i64;
+            v3 = (state_64[c3_idx / 8i64] >> ((c3_idx & 7i64) * 8i64)) & 255i64;
+            
+            nv0 = raw gmul(2i64, v0) ^ raw gmul(3i64, v1) ^ v2 ^ v3;
+            nv1 = v0 ^ raw gmul(2i64, v1) ^ raw gmul(3i64, v2) ^ v3;
+            nv2 = v0 ^ v1 ^ raw gmul(2i64, v2) ^ raw gmul(3i64, v3);
+            nv3 = raw gmul(3i64, v0) ^ v1 ^ v2 ^ raw gmul(2i64, v3);
+            
+            state_64[c0_idx / 8i64] = (state_64[c0_idx / 8i64] & ~(255i64 << ((c0_idx & 7i64) * 8i64))) | (nv0 << ((c0_idx & 7i64) * 8i64));
+            state_64[c1_idx / 8i64] = (state_64[c1_idx / 8i64] & ~(255i64 << ((c1_idx & 7i64) * 8i64))) | (nv1 << ((c1_idx & 7i64) * 8i64));
+            state_64[c2_idx / 8i64] = (state_64[c2_idx / 8i64] & ~(255i64 << ((c2_idx & 7i64) * 8i64))) | (nv2 << ((c2_idx & 7i64) * 8i64));
+            state_64[c3_idx / 8i64] = (state_64[c3_idx / 8i64] & ~(255i64 << ((c3_idx & 7i64) * 8i64))) | (nv3 << ((c3_idx & 7i64) * 8i64));
+            
+            c += 1i64;
+        }
+        
+        i = 0i64;
+        k_base = round * 16i64;
+        while (i < 16i64) {
+            k_idx = k_base + i;
+            sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+            kv = (exp_64[k_idx / 8i64] >> ((k_idx & 7i64) * 8i64)) & 255i64;
+            nv = sv ^ kv;
+            state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+            i += 1i64;
+        }
+        
+        round += 1i64;
+    }
+    
+    i = 0i64;
+    while (i < 16i64) {
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        sv = raw get_sbox_ct(sv);
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (sv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    s1 = (state_64[1i64 / 8i64] >> ((1i64 & 7i64) * 8i64)) & 255i64;
+    s5 = (state_64[5i64 / 8i64] >> ((5i64 & 7i64) * 8i64)) & 255i64;
+    s9 = (state_64[9i64 / 8i64] >> ((9i64 & 7i64) * 8i64)) & 255i64;
+    s13 = (state_64[13i64 / 8i64] >> ((13i64 & 7i64) * 8i64)) & 255i64;
+    state_64[1i64 / 8i64] = (state_64[1i64 / 8i64] & ~(255i64 << ((1i64 & 7i64) * 8i64))) | (s5 << ((1i64 & 7i64) * 8i64));
+    state_64[5i64 / 8i64] = (state_64[5i64 / 8i64] & ~(255i64 << ((5i64 & 7i64) * 8i64))) | (s9 << ((5i64 & 7i64) * 8i64));
+    state_64[9i64 / 8i64] = (state_64[9i64 / 8i64] & ~(255i64 << ((9i64 & 7i64) * 8i64))) | (s13 << ((9i64 & 7i64) * 8i64));
+    state_64[13i64 / 8i64] = (state_64[13i64 / 8i64] & ~(255i64 << ((13i64 & 7i64) * 8i64))) | (s1 << ((13i64 & 7i64) * 8i64));
+    
+    s2 = (state_64[2i64 / 8i64] >> ((2i64 & 7i64) * 8i64)) & 255i64;
+    s6 = (state_64[6i64 / 8i64] >> ((6i64 & 7i64) * 8i64)) & 255i64;
+    s10 = (state_64[10i64 / 8i64] >> ((10i64 & 7i64) * 8i64)) & 255i64;
+    s14 = (state_64[14i64 / 8i64] >> ((14i64 & 7i64) * 8i64)) & 255i64;
+    state_64[2i64 / 8i64] = (state_64[2i64 / 8i64] & ~(255i64 << ((2i64 & 7i64) * 8i64))) | (s10 << ((2i64 & 7i64) * 8i64));
+    state_64[6i64 / 8i64] = (state_64[6i64 / 8i64] & ~(255i64 << ((6i64 & 7i64) * 8i64))) | (s14 << ((6i64 & 7i64) * 8i64));
+    state_64[10i64 / 8i64] = (state_64[10i64 / 8i64] & ~(255i64 << ((10i64 & 7i64) * 8i64))) | (s2 << ((10i64 & 7i64) * 8i64));
+    state_64[14i64 / 8i64] = (state_64[14i64 / 8i64] & ~(255i64 << ((14i64 & 7i64) * 8i64))) | (s6 << ((14i64 & 7i64) * 8i64));
+    
+    s3 = (state_64[3i64 / 8i64] >> ((3i64 & 7i64) * 8i64)) & 255i64;
+    s7 = (state_64[7i64 / 8i64] >> ((7i64 & 7i64) * 8i64)) & 255i64;
+    s11 = (state_64[11i64 / 8i64] >> ((11i64 & 7i64) * 8i64)) & 255i64;
+    s15 = (state_64[15i64 / 8i64] >> ((15i64 & 7i64) * 8i64)) & 255i64;
+    state_64[3i64 / 8i64] = (state_64[3i64 / 8i64] & ~(255i64 << ((3i64 & 7i64) * 8i64))) | (s15 << ((3i64 & 7i64) * 8i64));
+    state_64[7i64 / 8i64] = (state_64[7i64 / 8i64] & ~(255i64 << ((7i64 & 7i64) * 8i64))) | (s3 << ((7i64 & 7i64) * 8i64));
+    state_64[11i64 / 8i64] = (state_64[11i64 / 8i64] & ~(255i64 << ((11i64 & 7i64) * 8i64))) | (s7 << ((11i64 & 7i64) * 8i64));
+    state_64[15i64 / 8i64] = (state_64[15i64 / 8i64] & ~(255i64 << ((15i64 & 7i64) * 8i64))) | (s11 << ((15i64 & 7i64) * 8i64));
+    
+    i = 0i64;
+    k_base = round * 16i64;
+    while (i < 16i64) {
+        k_idx = k_base + i;
+        sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        kv = (exp_64[k_idx / 8i64] >> ((k_idx & 7i64) * 8i64)) & 255i64;
+        nv = sv ^ kv;
+        state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (nv << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    i = 0i64;
+    while (i < 16i64) {
+        v = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
+        out_64[i / 8i64] = (out_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (v << ((i & 7i64) * 8i64));
+        i += 1i64;
+    }
+    
+    pass 0i32;
+};
+
+
 pub func:aes_decrypt_block = int32(int64:exp_key_ptr, int64:key_len, int64:in_ptr, int64:out_ptr) {
     int64:Nr = 10i64;
     if (key_len == 24i64) { Nr = 12i64; }
@@ -427,7 +632,7 @@ pub func:aes_decrypt_block = int32(int64:exp_key_ptr, int64:key_len, int64:in_pt
         i = 0i64;
         while (i < 16i64) {
             sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
-            sv = raw get_inv_sbox(sv);
+            sv = raw get_inv_sbox_ct(sv);
             state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (sv << ((i & 7i64) * 8i64));
             i += 1i64;
         }
@@ -501,7 +706,7 @@ pub func:aes_decrypt_block = int32(int64:exp_key_ptr, int64:key_len, int64:in_pt
     i = 0i64;
     while (i < 16i64) {
         sv = (state_64[i / 8i64] >> ((i & 7i64) * 8i64)) & 255i64;
-        sv = raw get_inv_sbox(sv);
+        sv = raw get_inv_sbox_ct(sv);
         state_64[i / 8i64] = (state_64[i / 8i64] & ~(255i64 << ((i & 7i64) * 8i64))) | (sv << ((i & 7i64) * 8i64));
         i += 1i64;
     }

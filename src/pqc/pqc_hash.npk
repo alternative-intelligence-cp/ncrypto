@@ -1,0 +1,312 @@
+// pqc_hash.npk - SHAKE-based sampling for PQC algorithms
+// ML-KEM uses SHAKE-128 for matrix expansion, SHAKE-256 for secrets/randomness.
+// ML-DSA uses SHAKE-256 for all hashing.
+
+use "../util/bytes.npk".*;
+use "../hash/sha3.npk".*;
+
+
+// ---------------------------------------------------------------------------
+// shake256_hash2: SHAKE-256 of (a || b) → out_len bytes
+//   Concatenates two buffers, then squeezes.
+// ---------------------------------------------------------------------------
+pub func:shake256_hash2 = int32(int64:a_ptr, int64:a_len, int64:b_ptr, int64:b_len, int64:out_ptr, int64:out_len) {
+    int64:total = a_len + b_len;
+    int64:buf = cast_unchecked<int64>(alloc(total + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(buf)); }
+    int64->:b64 = cast_unchecked<int64->>(buf);
+    drop local_memcpy(b64, 0i64, a_ptr, a_len);
+    drop local_memcpy(b64, a_len, b_ptr, b_len);
+    drop shake256_xof(buf, total, out_ptr, out_len);
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// shake128_hash2: SHAKE-128 of (a || b) → out_len bytes
+// ---------------------------------------------------------------------------
+pub func:shake128_hash2 = int32(int64:a_ptr, int64:a_len, int64:b_ptr, int64:b_len, int64:out_ptr, int64:out_len) {
+    int64:total = a_len + b_len;
+    int64:buf = cast_unchecked<int64>(alloc(total + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(buf)); }
+    int64->:b64 = cast_unchecked<int64->>(buf);
+    drop local_memcpy(b64, 0i64, a_ptr, a_len);
+    drop local_memcpy(b64, a_len, b_ptr, b_len);
+    drop shake128_xof(buf, total, out_ptr, out_len);
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// shake256_hash3: SHAKE-256 of (a || b || c) → out_len bytes
+// ---------------------------------------------------------------------------
+pub func:shake256_hash3 = int32(int64:a_ptr, int64:a_len, int64:b_ptr, int64:b_len, int64:c_ptr, int64:c_len, int64:out_ptr, int64:out_len) {
+    int64:total = a_len + b_len + c_len;
+    int64:buf = cast_unchecked<int64>(alloc(total + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(buf)); }
+    int64->:b64 = cast_unchecked<int64->>(buf);
+    drop local_memcpy(b64, 0i64, a_ptr, a_len);
+    drop local_memcpy(b64, a_len, b_ptr, b_len);
+    drop local_memcpy(b64, a_len + b_len, c_ptr, c_len);
+    drop shake256_xof(buf, total, out_ptr, out_len);
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// pqc_g: G hash (SHA3-512 split) — produces 64 bytes from 32-byte input
+//   Used in ML-KEM keygen and encapsulation.
+//   G(x) = SHA3-512(x); output split into (rho, sigma) or (K_bar, r)
+// ---------------------------------------------------------------------------
+pub func:pqc_g = int32(int64:in_ptr, int64:in_len, int64:out_ptr) {
+    // out_ptr receives 64 bytes (SHA3-512 output)
+    drop sha3_512_hash(in_ptr, in_len, out_ptr);
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// pqc_h: H hash (SHA3-256) — produces 32-byte hash
+//   H(x) = SHA3-256(x); used for public key hashing
+// ---------------------------------------------------------------------------
+pub func:pqc_h = int32(int64:in_ptr, int64:in_len, int64:out_ptr) {
+    drop sha3_256_hash(in_ptr, in_len, out_ptr);
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// sample_ntt: generate a polynomial in NTT domain from a 32-byte seed
+//   using SHAKE-128 rejection sampling.
+//   seed  : 32-byte seed (rho)
+//   i, j  : matrix indices (appended to seed as two bytes)
+//   q     : modulus (3329 for ML-KEM)
+//   out   : 256 × int64 polynomial output (2048 bytes)
+// ---------------------------------------------------------------------------
+pub func:sample_ntt = int32(int64:seed_ptr, int64:i, int64:j, int64:q, int64:out_ptr) {
+    // Build input: seed || i || j (34 bytes)
+    int64:inp = cast_unchecked<int64>(alloc(40i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(inp)); }
+    int64->:inp64 = cast_unchecked<int64->>(inp);
+    drop buf_copy_bytes(inp64, 0i64, cast_unchecked<int64->>(seed_ptr), 0i64, 32i64);
+    drop buf_put_u8(inp64, 32i64, i);
+    drop buf_put_u8(inp64, 33i64, j);
+
+    // Generate enough SHAKE-128 output to fill 256 valid coefficients
+    // Each attempt reads 3 bytes to extract two 12-bit values.
+    // Worst case acceptance rate for q=3329 is (3329/4096)^2 ≈ 66% per pair.
+    // We generate 768 bytes = 512 candidate pairs to be safe.
+    int64:SHAKE_OUT = 768i64;
+    int64:xof_buf = cast_unchecked<int64>(alloc(SHAKE_OUT + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(xof_buf)); }
+    int64->:xof64 = cast_unchecked<int64->>(xof_buf);
+    drop shake128_xof(inp, 34i64, xof_buf, SHAKE_OUT);
+
+    int64->:out64 = cast_unchecked<int64->>(out_ptr);
+    int64:filled = 0i64;
+    int64:pos = 0i64;
+
+    while ((filled < 256i64) & (pos + 3i64 <= SHAKE_OUT)) {
+        int64:b0 = (buf_get_u8(xof64, pos)       ?! 1i64);
+        int64:b1 = (buf_get_u8(xof64, pos + 1i64) ?! 1i64);
+        int64:b2 = (buf_get_u8(xof64, pos + 2i64) ?! 1i64);
+        pos += 3i64;
+
+        // Extract two 12-bit samples
+        int64:d1 = b0 | ((b1 & 0x0Fi64) << 8i64);         // bits [11:0]
+        int64:d2 = (b1 >> 4i64) | (b2 << 4i64);           // bits [11:0]
+
+        if ((d1 < q) & (filled < 256i64)) {
+            out64[filled] = d1;
+            filled += 1i64;
+        }
+        if ((d2 < q) & (filled < 256i64)) {
+            out64[filled] = d2;
+            filled += 1i64;
+        }
+    }
+
+    // If we didn't fill 256 (very rare), generate more SHAKE output
+    if (filled < 256i64) {
+        // Extend with nonce byte: seed || i || j || 1 (35 bytes)
+        int64:ext_out = 256i64;
+        int64:ext_buf = cast_unchecked<int64>(alloc(ext_out + 8i64));
+        defer { drop dalloc(cast_unchecked<int8->>(ext_buf)); }
+        int64->:ext64 = cast_unchecked<int64->>(ext_buf);
+        drop buf_put_u8(inp64, 34i64, 1i64);
+        drop shake128_xof(inp, 35i64, ext_buf, ext_out);
+        int64:ep = 0i64;
+        while ((filled < 256i64) & (ep + 3i64 <= ext_out)) {
+            int64:b0 = (buf_get_u8(ext64, ep)       ?! 1i64);
+            int64:b1 = (buf_get_u8(ext64, ep + 1i64) ?! 1i64);
+            int64:b2 = (buf_get_u8(ext64, ep + 2i64) ?! 1i64);
+            ep += 3i64;
+            int64:d1 = b0 | ((b1 & 0x0Fi64) << 8i64);
+            int64:d2 = (b1 >> 4i64) | (b2 << 4i64);
+            if ((d1 < q) & (filled < 256i64)) {
+                out64[filled] = d1;
+                filled += 1i64;
+            }
+            if ((d2 < q) & (filled < 256i64)) {
+                out64[filled] = d2;
+                filled += 1i64;
+            }
+        }
+    }
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// sample_cbd: Centered Binomial Distribution sampling
+//   seed : 32-byte seed (sigma or rho')
+//   nonce: PRF nonce (appended as 1 byte)
+//   eta  : distribution parameter (2 or 3)
+//   q    : modulus (3329 for ML-KEM, 8380417 for ML-DSA)
+//   out  : 256 × int64 polynomial output
+// CBD_eta: each coefficient = sum of eta bits - sum of eta bits ∈ [-eta, eta]
+// ---------------------------------------------------------------------------
+pub func:sample_cbd = int32(int64:seed_ptr, int64:nonce, int64:eta, int64:q, int64:out_ptr) {
+    // PRF input: seed || nonce (33 bytes)
+    int64:prf_in = cast_unchecked<int64>(alloc(40i64 + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(prf_in)); }
+    int64->:pi64 = cast_unchecked<int64->>(prf_in);
+    drop buf_copy_bytes(pi64, 0i64, cast_unchecked<int64->>(seed_ptr), 0i64, 32i64);
+    drop buf_put_u8(pi64, 32i64, nonce);
+
+
+    // PRF output: 64*eta bytes (eta=2→128, eta=3→192)
+    int64:prf_len = 64i64 * eta;
+    int64:prf_out = cast_unchecked<int64>(alloc(prf_len + 8i64));
+    defer { drop dalloc(cast_unchecked<int8->>(prf_out)); }
+    int64->:po64 = cast_unchecked<int64->>(prf_out);
+    drop shake256_xof(prf_in, 33i64, prf_out, prf_len);
+
+    int64->:out64 = cast_unchecked<int64->>(out_ptr);
+    int64:i = 0i64;
+    int64:bit_pos = 0i64;  // current bit position in prf_out
+
+    while (i < 256i64) {
+        // Sum eta bits → a, sum eta bits → b; coeff = a - b
+        int64:a = 0i64;
+        int64:b = 0i64;
+        int64:k = 0i64;
+        while (k < eta) {
+            int64:byte_idx = bit_pos / 8i64;
+            int64:bit_idx  = bit_pos % 8i64;
+            int64:the_byte = (buf_get_u8(po64, byte_idx) ?! 1i64);
+            a += (the_byte >> bit_idx) & 1i64;
+            bit_pos += 1i64;
+            k += 1i64;
+        }
+        k = 0i64;
+        while (k < eta) {
+            int64:byte_idx = bit_pos / 8i64;
+            int64:bit_idx  = bit_pos % 8i64;
+            int64:the_byte = (buf_get_u8(po64, byte_idx) ?! 1i64);
+            b += (the_byte >> bit_idx) & 1i64;
+            bit_pos += 1i64;
+            k += 1i64;
+        }
+        int64:val = a - b;
+        if (val < 0i64) {
+            val += q;
+        }
+        out64[i] = val;
+        i += 1i64;
+    }
+
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// polyvec_sample_cbd: sample a vector of k polynomials via CBD
+//   base_nonce: starting nonce (incremented per polynomial)
+// ---------------------------------------------------------------------------
+pub func:polyvec_sample_cbd = int32(int64:vec_ptr, int64:k, int64:seed_ptr, int64:base_nonce, int64:eta, int64:q) {
+    int64:i = 0i64;
+    while (i < k) {
+        int64:pptr = vec_ptr + (i * 2048i64);
+        drop sample_cbd(seed_ptr, base_nonce + i, eta, q, pptr);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// pqc_expand_a: expand seed (rho) into rows×cols matrix of polynomials (NTT domain)
+//   rho_ptr  : 32-byte seed
+//   A_ptr    : rows*cols polynomial buffers (each 2048 bytes), row-major
+//   rows     : number of rows (k for both ML-KEM and ML-DSA)
+//   cols     : number of columns (k for ML-KEM, l for ML-DSA)
+//   q        : modulus
+//   transpose: 0 = normal A, 1 = A^T
+// ---------------------------------------------------------------------------
+pub func:pqc_expand_a = int32(int64:rho_ptr, int64:A_ptr, int64:rows, int64:cols, int64:q, int64:transpose) {
+    int64:i = 0i64;
+    while (i < rows) {
+        int64:j = 0i64;
+        while (j < cols) {
+            int64:poly_idx = i * cols + j;
+            if (transpose == 0i64) {
+                drop sample_ntt(rho_ptr, j, i, q, A_ptr + (poly_idx * 2048i64));
+            } else {
+                drop sample_ntt(rho_ptr, i, j, q, A_ptr + (poly_idx * 2048i64));
+            }
+            j += 1i64;
+        }
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// polymat_vec_mul: matrix-vector multiplication in NTT domain
+//   t_ptr = A_ptr × s_ptr  (all polynomials in NTT domain)
+//   A: rows×cols matrix of polys, s: cols-vector, t: rows-vector output
+//   Uses manual pointwise NTT multiply-accumulate with proper modular reduction.
+// ---------------------------------------------------------------------------
+pub func:polymat_vec_mul = int32(int64:A_ptr, int64:s_ptr, int64:t_ptr, int64:rows, int64:cols, int64:q, int64:mode) {
+    int64->:t64 = cast_unchecked<int64->>(t_ptr);
+    // Zero output buffer
+    int64:i = 0i64;
+    while (i < rows * 256i64) { t64[i] = 0i64; i += 1i64; }
+
+    i = 0i64;
+    while (i < rows) {
+        int64:j = 0i64;
+        while (j < cols) {
+            int64:aptr = A_ptr + (i * cols + j) * 2048i64;
+            int64:sptr = s_ptr + j * 2048i64;
+            int64:outptr = t_ptr + i * 2048i64;
+            if (mode == 0i64) {
+                // ML-KEM basemul (paired coefficients with gamma twiddle factors)
+                drop poly_ntt_mul_acc(outptr, aptr, sptr, q);
+            } else {
+                // ML-DSA simple coefficient-wise multiply-accumulate
+                drop poly_ntt_mul_acc_simple(outptr, aptr, sptr, q);
+            }
+            j += 1i64;
+        }
+        drop poly_reduce(t_ptr + i * 2048i64, q);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+pub func:polyvec_add = int32(int64:dst_ptr, int64:a_ptr, int64:b_ptr, int64:k, int64:q) {
+    int64:i = 0i64;
+    while (i < k) {
+        drop poly_add(dst_ptr + (i * 2048i64), a_ptr + (i * 2048i64), b_ptr + (i * 2048i64), q);
+        i += 1i64;
+    }
+    pass 0i32;
+};
+
+// ---------------------------------------------------------------------------
+// polyvec_sub: element-wise polynomial vector subtraction
+// ---------------------------------------------------------------------------
+pub func:polyvec_sub = int32(int64:dst_ptr, int64:a_ptr, int64:b_ptr, int64:k, int64:q) {
+    int64:i = 0i64;
+    while (i < k) {
+        drop poly_sub(dst_ptr + (i * 2048i64), a_ptr + (i * 2048i64), b_ptr + (i * 2048i64), q);
+        i += 1i64;
+    }
+    pass 0i32;
+};
